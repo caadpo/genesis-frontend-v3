@@ -1,0 +1,20 @@
+/* Dashboard */
+.dashboard {
+    background-color: #ffffff;
+    padding: 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    width: 100%;
+  }
+  
+  .dashboard-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 16px;
+    color: #000;
+  }
+  
+  .dashboard-text {
+    color: #444;
+  }
+  
