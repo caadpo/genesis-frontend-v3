@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaUser, FaLock } from "react-icons/fa";
+import toast from "react-hot-toast";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.error || "Usuário ou senha inválidos");
+        toast.error(data.error || "Usuário ou senha inválidos");
         return;
       }
 
@@ -34,7 +35,7 @@ export default function LoginPage() {
       window.location.href = "/select-system";
     } catch (err) {
       console.error(err);
-      alert("Erro interno");
+      toast.error("Erro interno no servidor");
     } finally {
       setLoading(false);
     }

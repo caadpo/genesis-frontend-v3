@@ -1,7 +1,7 @@
+import ToastProvider from "../components/providers/ToastProvider";
 import "./globals.css";
 import type { Metadata } from "next";
 
-// 👇 Aqui você define o título e o ícone
 export const metadata: Metadata = {
   title: "GENESIS 3.0",
   description: "Sistema de Controle",
@@ -10,10 +10,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        {children}
+        <ToastProvider />
+      </body>
     </html>
   );
 }

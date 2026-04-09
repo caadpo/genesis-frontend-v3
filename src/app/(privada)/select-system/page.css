@@ -2,7 +2,6 @@
   width: 100%;
   height: 100vh;
 
-  background-image: url("/bg-select-system.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -28,14 +27,16 @@
 }
 
 /* Card moderno */
-.card {
+.select-card {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   flex: 1;
-  min-width: 50px; /* garante largura mínima para mobile */
+  min-width: 50px;
   height: 80px;
   padding: 5px;
+  cursor: pointer;
+  transition: all 0.25s ease;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.2);
 
@@ -53,13 +54,18 @@
   cursor: pointer;
   transition: all 0.3s ease;
 }
+/* Hover elegante */
+.select-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+}
 
 /* VARIAÇÕES DE CORES DOS CARDS */
-.card-blue {
+.select-card-blue {
   background: linear-gradient(135deg, #4da3ff, #1e3a8a);
 }
 
-.card-green {
+.select-card-green {
   background: linear-gradient(135deg, #34d399, #065f46);
 }
 
@@ -69,7 +75,7 @@
   }
 }
 
-/* div Minhas Escalas*/
+/* INICIO Minhas Escalas*/
 /* ===== HEADER MINHAS ESCALAS ===== */
 .header-escalas {
   display: flex;
@@ -187,14 +193,25 @@
   color: #555;
 }
 
+@media (max-width: 768px) {
+  /* ===== RODAPÉ MOBILE ===== */
+  .rodape-card {
+    display: block;
+    gap: 1px;
+    font-size: 12px;
+    color: #555;
+  }
+}
+
+/* FIM Minhas Escalas*/
+
 /* div Pagamentos*/
 .pagamentos {
   display: flex;
-  gap: 5px;
+  gap: 1px;
   padding-left: 3px;
   padding-top: 3px;
   width: 100%;
-  height: 400px;
   background-color: #f9f9fa;
   border-radius: 10px;
 }
@@ -208,7 +225,7 @@
 
 /* ícones */
 .icon {
-  font-size: 22px;
+  font-size: 40px;
 }
 
 /* hover premium */
@@ -220,4 +237,80 @@
 /* clique */
 .card:active {
   transform: scale(0.97);
+}
+
+/* ===== ITEM ESTILO NOTIFICAÇÃO ===== */
+.pay-item {
+  width: 100%;
+  height: 20px;
+  min-height: 75px;
+  border-radius: 18px;
+  padding: 5px 5px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  color: #1c0505;
+}
+
+/* Lado esquerdo */
+.pay-left {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Ícone redondo igual da imagem */
+.pay-icon-diaria {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #34d399, #065f46);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.pay-icon-pjes {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #76aafd, #063e5f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+/* Textos */
+.pay-texts {
+  display: flex;
+  flex-direction: column;
+}
+
+.pay-title {
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.pay-sub {
+  font-size: 14px;
+  color: #b5b5b5;
+}
+
+/* Lado direito (badge) */
+.pay-right {
+  display: flex;
+  align-items: center;
+}
+
+.pay-badge {
+  background: #e9e9e9;
+  color: #041f18;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 20px;
 }

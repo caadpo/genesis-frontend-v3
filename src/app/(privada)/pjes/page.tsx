@@ -1,7 +1,5 @@
 "use client";
 
-import "./page.css";
-
 type CardItem = {
   nome: string;
   logo: string;

@@ -134,7 +134,8 @@
 
 /* ATIVO (exemplo) */
 .icon-btn.active {
-  background-color: #d1d5db;
+  background-color: #21bba1;
+  border-radius: 20%;
 }
 
 /* ========================= */

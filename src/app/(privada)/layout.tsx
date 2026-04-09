@@ -1,10 +1,14 @@
-"use client"; // ✅ Adicione esta linha no topo
+"use client";
 
+// Incluir os CSS das subpastas. Cuidado com conflito de classes
 import "../globals.css";
 import "./layout.css";
+import "./select-system/page.css";
+import "./pjes/page.css";
+// Incluir os CSS das subpastas. Cuidado com conflito de classes
+
 import Header from "../../components/layout/Header";
 import Sidebar from "../../components/layout/Sidebar";
-import { Toaster } from "react-hot-toast";
 import { useEffect } from "react";
 import toast from "react-hot-toast";
 
@@ -17,7 +21,7 @@ export default function PrivateLayout({
     const show = sessionStorage.getItem("showWelcomeToast");
     if (show) {
       toast.success("Bem-vindo! 👋");
-      sessionStorage.removeItem("showWelcomeToast"); // remove pra não mostrar de novo
+      sessionStorage.removeItem("showWelcomeToast");
     }
   }, []);
 
@@ -28,7 +32,6 @@ export default function PrivateLayout({
         <Sidebar />
         <main className="main-content">{children}</main>
       </div>
-      <Toaster /> {/* ✅ Toasts vão aparecer aqui */}
     </div>
   );
 }

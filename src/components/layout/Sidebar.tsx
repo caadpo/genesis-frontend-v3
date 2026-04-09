@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   FiMenu,
@@ -9,11 +10,17 @@ import {
   FiLogOut,
   FiSearch,
   FiUser,
+  FiLayers,
+  FiGrid,
 } from "react-icons/fi";
 import toast from "react-hot-toast";
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname() ?? "";
+  const isActive = (path: string) => {
+    return pathname.startsWith(path);
+  };
 
   const handleLogout = async () => {
     try {
@@ -45,19 +52,28 @@ export default function Sidebar() {
           {open && <span>Menu</span>}
         </button>
 
-        <Link href="/home" className="icon-btn">
+        <Link
+          href="/select-system"
+          className={`icon-btn ${isActive("/select-system") ? "active" : ""}`}
+        >
           <FiHome />
           {open && <span>Home</span>}
         </Link>
 
-        <Link href="/usuarios" className="icon-btn">
-          <FiUsers />
-          {open && <span>Usuários</span>}
+        <Link
+          href="/pjes"
+          className={`icon-btn ${isActive("/pjes") ? "active" : ""}`}
+        >
+          <FiLayers />
+          {open && <span>Pjes</span>}
         </Link>
 
-        <Link href="/usuarios" className="icon-btn">
-          <FiUsers />
-          {open && <span>Usuários</span>}
+        <Link
+          href="/usuarios"
+          className={`icon-btn ${isActive("/usuarios") ? "active" : ""}`}
+        >
+          <FiGrid />
+          {open && <span>Diárias</span>}
         </Link>
 
         <Link href="/buscar" className="icon-btn">
@@ -73,7 +89,10 @@ export default function Sidebar() {
 
       {/* BOTTOM (usuário separado) */}
       <div className="sidebar-bottom user-btn">
-        <Link href="/perfil" className="icon-btn">
+        <Link
+          href="/perfil"
+          className={`icon-btn ${isActive("/perfil") ? "active" : ""}`}
+        >
           <FiUser />
           {open && <span>Perfil</span>}
         </Link>

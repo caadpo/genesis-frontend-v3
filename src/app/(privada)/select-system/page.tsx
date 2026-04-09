@@ -1,13 +1,10 @@
 "use client";
-
-import "./page.css";
 import { useRouter } from "next/navigation";
-import { FaFileAlt, FaMoneyBillWave } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import { FaUniversity } from "react-icons/fa";
 import { GiSteeringWheel } from "react-icons/gi";
-import { MdLocationOn } from "react-icons/md";
 import { FaCar } from "react-icons/fa";
+import { FiLayers, FiDollarSign, FiGrid, FiCreditCard } from "react-icons/fi";
 
 export default function SelectSystem() {
   const router = useRouter();
@@ -30,7 +27,6 @@ export default function SelectSystem() {
 
   return (
     <div className="container">
-      {/* <h2>Bem-vindo{user ? `, ${user.nomeGuerra}` : ""}!</h2> */}
       {/* inicio escolha do sistema */}
       <div className="div-itens">
         <div className="titulo">
@@ -39,23 +35,31 @@ export default function SelectSystem() {
         </div>
         <div className="topArea">
           <button
-            className="card card-blue"
+            className="select-card select-card-blue"
             onClick={() => router.push("/pjes")}
           >
             <div className="left">
-              <FaFileAlt className="icon" />
-              <span>PJES</span>
+              <FiLayers className="icon" />
+              <span style={{ fontSize: "20px" }}>PJES</span>
             </div>
+            <FiLayers
+              style={{ fontSize: "60px", color: "#3a60c8" }}
+              className="icon"
+            />
           </button>
 
           <button
-            className="card card-green"
+            className="select-card select-card-green"
             onClick={() => router.push("/diarias")}
           >
             <div className="left">
-              <FaMoneyBillWave className="icon" />
-              <span>DIARIAS</span>
+              <FiGrid className="icon" />
+              <span style={{ fontSize: "20px" }}>DIÁRIAS</span>
             </div>
+            <FiGrid
+              style={{ fontSize: "60px", color: "#0db988" }}
+              className="icon"
+            />
           </button>
         </div>
       </div>
@@ -66,7 +70,7 @@ export default function SelectSystem() {
         <div className="header-escalas">
           <div className="titulo">
             <span>MINHAS ESCALAS</span>
-            <div className="badge">1</div>
+            <div className="badge">2</div>
           </div>
 
           <span
@@ -102,15 +106,20 @@ export default function SelectSystem() {
             <div className="linha" />
 
             <div className="rodape-card">
-              <span>
-                <FaUniversity /> 1º BPM
-              </span>
-              <span>
-                <GiSteeringWheel /> MOT
-              </span>
-              <span>
-                <FaCar /> VTR: 1190023
-              </span>
+              <div>
+                <span>
+                  <FaUniversity /> BPCHOQUE
+                </span>
+              </div>
+
+              <div>
+                <span style={{ paddingRight: "20px" }}>
+                  <GiSteeringWheel /> MOT
+                </span>
+                <span>
+                  <FaCar /> VTR: 1190023
+                </span>
+              </div>
             </div>
           </div>
           {/* primieira escala */}
@@ -139,15 +148,20 @@ export default function SelectSystem() {
             <div className="linha" />
 
             <div className="rodape-card">
-              <span>
-                <FaUniversity /> 1º BPM
-              </span>
-              <span>
-                <GiSteeringWheel /> MOT
-              </span>
-              <span>
-                <FaCar /> VTR: 1190023
-              </span>
+              <div>
+                <span>
+                  <FaUniversity /> BPCHOQUE
+                </span>
+              </div>
+
+              <div>
+                <span style={{ paddingRight: "20px" }}>
+                  <GiSteeringWheel /> MOT
+                </span>
+                <span>
+                  <FaCar /> VTR: 1190023
+                </span>
+              </div>
             </div>
           </div>
           {/* segunda escala */}
@@ -155,19 +169,71 @@ export default function SelectSystem() {
       </div>
       {/* minhas escalas */}
 
-      {/* pagamentos */}
-      <div className="div-itens">
-        <span style={{ color: "#a8a4a4" }}>Pagamentos</span>
-        <div className="pagamentos">
-          <div onClick={() => router.push("/pagamentos")}>
-            <div className="left">
-              <FaFileAlt className="icon" />
-              <span>PJES</span>
+      {/* inicio pagamentos */}
+      <div
+        style={{
+          width: "100%",
+          border: "solid 1px #d3d0d0",
+          borderRadius: "5px",
+          padding: "5px",
+          height: "400px",
+          overflow: "scroll",
+        }}
+      >
+        <div className="div-itens">
+          <div className="titulo">
+            <span>PAGAMENTOS</span>
+          </div>
+
+          {/* primeira parte */}
+          <div className="pagamentos">
+            <div
+              className="pay-item"
+              onClick={() => router.push("/pagamentos")}
+            >
+              <div className="pay-left">
+                <div className="pay-icon-diaria">
+                  <FiGrid />
+                </div>
+
+                <div className="pay-texts">
+                  <span className="pay-title">1º BIESP</span>
+                  <span className="pay-sub">DIARIA | Op Magrugada Segura</span>
+                </div>
+              </div>
+
+              <div className="pay-right">
+                <span className="pay-badge">11:20 04/05</span>
+              </div>
             </div>
           </div>
+
+          {/* segunda parte */}
+          <div className="pagamentos">
+            <div
+              className="pay-item"
+              onClick={() => router.push("/pagamentos")}
+            >
+              <div className="pay-left">
+                <div className="pay-icon-pjes">
+                  <FiLayers />
+                </div>
+
+                <div className="pay-texts">
+                  <span className="pay-title">GOVERNO</span>
+                  <span className="pay-sub">PJES | Folha de Pagamento</span>
+                </div>
+              </div>
+
+              <div className="pay-right">
+                <span className="pay-badge">11:20 04/05</span>
+              </div>
+            </div>
+          </div>
+          {/* segunda parte */}
         </div>
       </div>
-      {/* paramentos */}
+      {/* fim paramentos */}
     </div>
   );
 }
