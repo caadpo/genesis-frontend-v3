@@ -35,8 +35,38 @@
 
 /* Logo */
 .logo_layout {
-  width: 25px;
-  height: 25px;
+  width: 40px;
+  height: 40px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto; /* 🔥 ISSO resolve */
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* fallback com ícone */
+.user-avatar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #e5e7eb;
+  color: #555;
+  font-size: 18px;
+}
+
+.user-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
 }
 
 /* SIDEBAR BASE */
@@ -151,6 +181,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    font-size: 30px;
   }
 
   .icon-btn span {

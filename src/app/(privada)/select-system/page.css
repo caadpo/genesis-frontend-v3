@@ -14,7 +14,8 @@
 
 .div-itens {
   width: 100%;
-  margin-top: 20px;
+  margin-top: 10px;
+  margin-bottom: 40px;
 }
 
 /* TOP AREA*/
@@ -69,15 +70,121 @@
 }
 
 /* div Minhas Escalas*/
-.minhaescala {
+/* ===== HEADER MINHAS ESCALAS ===== */
+.header-escalas {
   display: flex;
-  gap: 5px;
-  padding-left: 3px;
-  padding-top: 3px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 5px;
+  margin-bottom: 8px;
+}
+
+.titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #444;
+}
+
+.badge {
+  background: #e5e7eb;
+  color: #444;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.ver-todas {
+  color: #4f46e5;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* ===== CARD ESCALA ===== */
+.card-escala {
+  background: #eeeeee;
+  border-radius: 16px;
+  padding: 14px;
+  cursor: pointer;
+  margin-right: 5px;
   width: 100%;
-  height: 120px;
-  background-color: #f9f9fa;
-  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.card-escala:hover {
+  transform: scale(1.01);
+}
+
+.top-card {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #555;
+}
+
+.nome-escala {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.tempo {
+  color: #777;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+/* ===== AVATARES SOBREPOSTOS ===== */
+.avatares {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.avatares img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid white;
+  margin-left: -10px;
+}
+
+.avatares img:first-child {
+  margin-left: 0;
+}
+
+.mais {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -10px;
+  font-weight: 600;
+}
+
+/* ===== LINHA ===== */
+.linha {
+  height: 1px;
+  background: #ddd;
+  margin: 8px 0;
+}
+
+/* ===== RODAPÉ ===== */
+.rodape-card {
+  display: flex;
+  gap: 18px;
+  font-size: 14px;
+  color: #555;
 }
 
 /* div Pagamentos*/

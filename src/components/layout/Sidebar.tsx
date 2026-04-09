@@ -6,13 +6,35 @@ import {
   FiMenu,
   FiHome,
   FiUsers,
-  FiMap,
+  FiLogOut,
   FiSearch,
   FiUser,
 } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        toast.success("Deslogado com sucesso!"); // ✅ Toast de sucesso
+        setTimeout(() => {
+          window.location.href = "/login"; // redireciona após mostrar toast
+        }, 1000); // 1s de delay
+      } else {
+        toast.error("Erro ao deslogar"); // ✅ Toast de erro
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro interno");
+    }
+  };
 
   return (
     <aside className={`sidebar ${open ? "open" : ""}`}>
@@ -33,14 +55,19 @@ export default function Sidebar() {
           {open && <span>Usuários</span>}
         </Link>
 
-        <Link href="/sitemap" className="icon-btn">
-          <FiMap />
-          {open && <span>Sitemap</span>}
+        <Link href="/usuarios" className="icon-btn">
+          <FiUsers />
+          {open && <span>Usuários</span>}
         </Link>
 
         <Link href="/buscar" className="icon-btn">
           <FiSearch />
           {open && <span>Pesquisar</span>}
+        </Link>
+
+        <Link onClick={handleLogout} href="/handleLogout" className="icon-btn">
+          <FiLogOut />
+          {open && <span>Sair</span>}
         </Link>
       </div>
 
