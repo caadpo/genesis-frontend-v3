@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     // 🔁 Chama o backend
     const res = await fetch(`${baseUrl}/auth`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Connection: "close" },
       body: JSON.stringify({ loginSei, password }),
     });
 
