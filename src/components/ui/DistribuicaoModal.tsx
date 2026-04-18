@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   tetoId: number;
+  distribuicao?: any;
   onCreated: () => void;
-  distribuicao?: any; // 👈 novo
 };
 
 type Diretoria = {
@@ -18,12 +19,13 @@ type Diretoria = {
 export default function DistribuicaoModal({
   open,
   onClose,
-  tetoId,
   onCreated,
+  tetoId,
   distribuicao,
 }: Props) {
   const [diretorias, setDiretorias] = useState<Diretoria[]>([]);
   const [diretoriaId, setDiretoriaId] = useState<number>();
+  const [nomeDistribuicao, setNomeDist] = useState<string>("");
   const [oficiais, setOficiais] = useState(0);
   const [pracas, setPracas] = useState(0);
 
@@ -31,11 +33,12 @@ export default function DistribuicaoModal({
   useEffect(() => {
     if (distribuicao) {
       setDiretoriaId(distribuicao.diretoria.id);
+      setNomeDist(distribuicao.nome_dist ?? "");
       setOficiais(distribuicao.qtd_dist_of);
       setPracas(distribuicao.qtd_dist_prc);
     } else {
-      // quando for NOVA distribuição, limpa os campos
       setDiretoriaId(undefined);
+      setNomeDist(""); // ← string, não número
       setOficiais(0);
       setPracas(0);
     }
@@ -63,17 +66,25 @@ export default function DistribuicaoModal({
       body: JSON.stringify({
         teto_id: tetoId,
         diretoria_id: diretoriaId,
+        nome_dist: nomeDistribuicao,
         qtd_dist_of: oficiais,
         qtd_dist_prc: pracas,
       }),
     });
 
     if (!res.ok) {
-      alert("Erro ao salvar");
+      toast.error("Erro ao salvar ❌");
       return;
     }
 
-    onClose();
+    toast.success(
+      distribuicao
+        ? "Distribuição atualizada com sucesso ✅"
+        : "Distribuição criada com sucesso ✅"
+    );
+
+    onCreated(); // atualiza a tabela
+    onClose(); // fecha a modal
   }
 
   return (
@@ -93,6 +104,13 @@ export default function DistribuicaoModal({
             </option>
           ))}
         </select>
+
+        <label>Nome da Distribuição</label>
+        <input
+          type="text"
+          value={nomeDistribuicao}
+          onChange={(e) => setNomeDist(e.target.value)}
+        />
 
         <label>Cotas Oficiais</label>
         <input

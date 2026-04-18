@@ -1,0 +1,237 @@
+.h1UsuariosTitle {
+  font-size: 15px;
+}
+
+/* LAYOUT PRINCIPAL */
+
+.divDiretoriaUsuarioPrincipal {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  margin-top: 5px;
+  color: #383737;
+}
+
+/* COLUNA USUÁRIOS */
+
+.divDiretoriaUsuario {
+  width: 30%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+/* BUSCA + BOTÃO */
+
+.divInputBuscarUsuarioEIcones {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.inputBuscarUsuario {
+  flex: 1;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  padding: 0 10px;
+  outline: none;
+}
+
+/* CARD USUÁRIO (NOVO PADRÃO MODERNO) */
+
+.usuarioCard {
+  width: 100%;
+  min-height: 120px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  display: flex;
+  gap: 15px;
+  padding: 15px;
+  align-items: center;
+  position: relative;
+}
+
+.usuarioCard:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* AVATAR */
+
+.usuarioAvatar {
+  min-width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  border: 2px solid #0a756c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: #0a756c;
+}
+
+/* CONTEÚDO DIREITO */
+
+.usuarioConteudo {
+  flex: 1;
+  cursor: pointer;
+}
+
+/* TOPO: nome + menu */
+
+.usuarioTopo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.usuarioAvatar {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: #f2f2f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  overflow: hidden;
+}
+
+.usuarioAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.usuarioNome {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.usuarioMensagemVazia,
+.usuarioMensagemNaoEncontrado {
+  width: 100%;
+  text-align: center;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.usuarioMensagemVazia {
+  color: #888;
+}
+
+.usuarioMensagemNaoEncontrado {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+.usuarioMenu {
+  margin-left: auto; /* cola na direita */
+  cursor: pointer;
+}
+
+/* LOGIN */
+
+.usuarioLogin {
+  font-size: 13px;
+  color: #666;
+  margin: 4px 0 8px;
+}
+
+/* INFOS */
+
+.usuarioInfos {
+  display: flex;
+  gap: 18px;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.usuarioInfos span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* DROPDOWN */
+
+.dropdownMenu {
+  position: absolute;
+  right: 15px;
+  top: 45px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  width: 140px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.dropdownItem {
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.dropdownItem:hover {
+  background: #f2f2f2;
+}
+
+/* COLUNA DETALHES (DESKTOP) */
+
+.divDetalhesUsuario {
+  width: 70%;
+  border-radius: 8px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.divTituloDetalhesUsuario {
+  height: 32px;
+  background: #0b582b;
+  color: #ffffff;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+/* MOBILE — MUDA A ESTRUTURA */
+
+@media (max-width: 768px) {
+  .divDiretoriaUsuarioPrincipal {
+    flex-direction: column;
+  }
+
+  .divDiretoriaUsuario {
+    width: 100%;
+  }
+
+  .divDetalhesUsuario {
+    display: none; /* esconde coluna direita */
+  }
+
+  .detalhesMobile {
+    margin-top: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 8px;
+    animation: fadeIn 0.25s ease;
+  }
+}
+
+/* ANIMAÇÃO */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

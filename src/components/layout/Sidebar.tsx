@@ -8,7 +8,6 @@ import {
   FiHome,
   FiUsers,
   FiLogOut,
-  FiSearch,
   FiUser,
   FiLayers,
   FiGrid,
@@ -76,9 +75,12 @@ export default function Sidebar() {
           {open && <span>Diárias</span>}
         </Link>
 
-        <Link href="/buscar" className="icon-btn">
-          <FiSearch />
-          {open && <span>Pesquisar</span>}
+        <Link
+          href="/usuarios"
+          className={`icon-btn ${isActive("/usuarios") ? "active" : ""}`}
+        >
+          <FiUsers />
+          {open && <span>Usuarios</span>}
         </Link>
 
         <Link onClick={handleLogout} href="/handleLogout" className="icon-btn">

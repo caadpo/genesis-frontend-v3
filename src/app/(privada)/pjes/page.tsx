@@ -2,8 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { FiLayers } from "react-icons/fi";
+import { FiEdit } from "react-icons/fi";
+import { FiTrash2 } from "react-icons/fi";
+import { FiLogIn } from "react-icons/fi";
 import DistribuicaoModal from "../../../components/ui/DistribuicaoModal";
 import { toast } from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 type Teto = {
   id: number;
@@ -20,6 +24,7 @@ type Teto = {
 
 type Distribuicao = {
   id: number;
+  nome_dist: string;
   qtd_dist_of: number;
   qtd_dist_prc: number;
   diretoria: {
@@ -42,6 +47,15 @@ export default function PjesPage() {
   const [distribuicoes, setDistribuicoes] = useState<Distribuicao[]>([]);
   const [openModal, setOpenModal] = useState(false);
   const [editando, setEditando] = useState<Distribuicao | null>(null);
+  const router = useRouter();
+
+  async function carregarDistribuicoes(tetoId: number) {
+    const data = await fetch(`/api/distribuicao?tetoId=${tetoId}`, {
+      cache: "no-store",
+    }).then((r) => r.json());
+
+    setDistribuicoes(data);
+  }
 
   // 🔎 Busca os tetos conforme mês/ano
   useEffect(() => {
@@ -62,33 +76,51 @@ export default function PjesPage() {
   }, [tetos]);
 
   useEffect(() => {
-    if (!tetoSelecionado) return;
-
-    const controller = new AbortController();
-
-    fetch(`/api/distribuicao?tetoId=${tetoSelecionado.id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Erro na distribuição");
-        return res.json();
-      })
-      .then((data) => {
-        setDistribuicoes(data);
-      })
-      .catch(console.error);
-
-    return () => controller.abort();
+    if (tetoSelecionado?.id) {
+      carregarDistribuicoes(tetoSelecionado.id);
+    }
   }, [tetoSelecionado]);
 
-  async function handleDelete(id: number) {
-    if (!confirm("Deseja remover esta distribuição?")) return;
+  function confirmarDelete(id: number) {
+    toast((t) => (
+      <div className="toastConfirmBox">
+        <p>Deseja realmente excluir esta distribuição?</p>
 
-    await fetch(`/api/distribuicao/${id}`, {
-      method: "DELETE",
-    });
+        <div className="toastButtons">
+          <button
+            className="toastBtn toastBtnCancel"
+            onClick={() => toast.dismiss(t.id)}
+          >
+            Cancelar
+          </button>
 
-    fetch(`/api/distribuicao?tetoId=${tetoSelecionado?.id}`)
-      .then((r) => r.json())
-      .then(setDistribuicoes);
+          <button
+            className="toastBtn toastBtnConfirm"
+            onClick={async () => {
+              toast.dismiss(t.id);
+
+              const promise = fetch(`/api/distribuicao/${id}`, {
+                method: "DELETE",
+              });
+
+              toast.promise(promise, {
+                loading: "Removendo...",
+                success: "Distribuição removida com sucesso ✅",
+                error: "Erro ao remover ❌",
+              });
+
+              const res = await promise;
+
+              if (res.ok && tetoSelecionado?.id) {
+                await carregarDistribuicoes(tetoSelecionado.id);
+              }
+            }}
+          >
+            Confirmar exclusão
+          </button>
+        </div>
+      </div>
+    ));
   }
 
   function handleEdit(dist: Distribuicao) {
@@ -127,7 +159,7 @@ export default function PjesPage() {
 
         <div className="menuGroup">
           <div style={{ fontSize: "20px" }}>
-            <FiLayers onClick={() => toast.success("Teste")} />
+            <FiLayers />
           </div>
           <div>
             <button
@@ -145,7 +177,7 @@ export default function PjesPage() {
                 background: "#0a756c",
               }}
             >
-              ENTRAR
+              DISTRIBUIR
             </button>
           </div>
         </div>
@@ -302,32 +334,43 @@ export default function PjesPage() {
                 <thead>
                   <tr>
                     <th>Diretoria</th>
-                    <th>Verba</th>
-                    <th>Cotas Oficiais</th>
-                    <th>Cotas Praças</th>
-                    <th>Ações</th>
+                    <th>Destribuição</th>
+                    <th>Oficiais</th>
+                    <th>Praças</th>
+                    <th>#</th>
                   </tr>
                 </thead>
                 <tbody>
                   {distribuicoes.map((dist) => (
                     <tr key={dist.id}>
                       <td>{dist.diretoria.nomeDiretoria}</td>
-                      <td>{dist.teto.cod_verba}</td>
-                      <td>{dist.qtd_dist_of}</td>
-                      <td>{dist.qtd_dist_prc}</td>
+                      <td>{dist.nome_dist}</td>
+                      <td>{dist.qtd_dist_of} | 2510</td>
+                      <td>{dist.qtd_dist_prc} | 19340</td>
                       <td>
                         <button
                           onClick={() => handleEdit(dist)}
                           className="btnEdit"
                         >
-                          ✏️
+                          <FiEdit />
                         </button>
 
                         <button
-                          onClick={() => handleDelete(dist.id)}
+                          onClick={() => confirmarDelete(dist.id)}
                           className="btnDelete"
                         >
-                          🗑️
+                          <FiTrash2 />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            router.push(
+                              `/pjes-diretoria-select?mes=${mes}&ano=${ano}&tetoId=${tetoSelecionado?.id}&diretoriaId=${dist.diretoria.id}`
+                            );
+                          }}
+                          className="btnEntrarDist"
+                        >
+                          <FiLogIn />
                         </button>
                       </td>
                     </tr>
@@ -343,14 +386,11 @@ export default function PjesPage() {
         onClose={() => {
           setOpenModal(false);
           setEditando(null);
-
-          // 👇 AGORA SIM, na página viva
-          fetch(`/api/distribuicao?tetoId=${tetoSelecionado?.id}`)
-            .then((r) => r.json())
-            .then((data) => {
-              setDistribuicoes(data);
-              toast.success("Distribuição atualizada com sucesso ✅");
-            });
+        }}
+        onCreated={() => {
+          if (tetoSelecionado?.id) {
+            carregarDistribuicoes(tetoSelecionado.id);
+          }
         }}
         tetoId={tetoSelecionado?.id!}
         distribuicao={editando}

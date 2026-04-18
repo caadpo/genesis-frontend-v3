@@ -2,6 +2,17 @@
   flex: 1;
   padding: 5px;
   background-color: #fcfffa;
+  display: flex;
+  min-height: 0;
+}
+
+.main-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: #c9c9c9;
+  border-radius: 8px;
 }
 
 /* Wrapper do layout */
@@ -15,7 +26,7 @@
 .content-wrapper {
   display: flex;
   flex: 1;
-  height: calc(100vh - 40px); /* ajuste conforme altura do header */
+  height: calc(100vh - 40px);
 }
 /* Header */
 .header {
@@ -188,4 +199,44 @@
   .icon-btn span {
     display: none;
   }
+}
+
+.toastConfirmBox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.toastButtons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.toastBtn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s;
+}
+
+.toastBtnConfirm {
+  background: #d9534f;
+  color: white;
+}
+
+.toastBtnConfirm:hover {
+  background: #c9302c;
+}
+
+.toastBtnCancel {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.toastBtnCancel:hover {
+  background: #c7c7c7;
 }

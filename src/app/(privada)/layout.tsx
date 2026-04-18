@@ -4,6 +4,8 @@ import "../globals.css";
 import "./layout.css";
 import "./select-system/page.css";
 import "./pjes/page.css";
+import "./pjes-diretoria-select/page.css";
+import "./usuarios/page.css";
 
 import Header from "../../components/layout/Header";
 import Sidebar from "../../components/layout/Sidebar";

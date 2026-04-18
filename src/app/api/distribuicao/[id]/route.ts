@@ -24,3 +24,23 @@ export async function PATCH(
 
   return NextResponse.json(data, { status: response.status });
 }
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params;
+  const token = (await cookies()).get("accessToken")?.value;
+
+  const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
+  const response = await fetch(`${API_URL}/distribuicao/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  // ❗ NÃO TENTA LER JSON
+  return new Response(null, { status: response.status });
+}
