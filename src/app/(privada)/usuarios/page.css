@@ -4,19 +4,20 @@
 
 /* LAYOUT PRINCIPAL */
 
-.divDiretoriaUsuarioPrincipal {
+.divUsuarioPrincipal {
   width: 100%;
   display: flex;
-  gap: 8px;
+  gap: 1px;
   margin-top: 5px;
   color: #383737;
 }
 
 /* COLUNA USUÁRIOS */
 
-.divDiretoriaUsuario {
+.divUsuario {
   width: 30%;
   padding: 8px;
+  height: 180px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
   background: #ffffff;
@@ -40,7 +41,7 @@
   outline: none;
 }
 
-/* CARD USUÁRIO (NOVO PADRÃO MODERNO) */
+/* CARD USUÁRIO */
 
 .usuarioCard {
   width: 100%;
@@ -198,28 +199,197 @@
   border-radius: 6px;
 }
 
+/* CONTAINER PRINCIPAL */
+.usuario_detalhes_container {
+  width: 70%;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER */
+.usuario_detalhes_header {
+  padding: 10px 12px;
+  color: #5e5b5b;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* ITEM */
+.usuario_detalhes_item {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-bottom: solid 1px #e2e2e2;
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.usuario_detalhes_item:hover {
+  background: #f9fafb;
+}
+
+/* ÍCONE */
+.usuario_detalhes_icon {
+  display: flex;
+  align-items: center;
+  margin-left: 15px;
+  justify-content: center;
+  color: #149463;
+  font-size: 16px;
+}
+
+/* TEXTO */
+.usuario_detalhes_texto {
+  width: 100%;
+  flex-direction: column;
+  font-size: 10px;
+  text-align: right;
+  color: #b4b4b4;
+  margin-right: 20px;
+  padding: 5px;
+}
+
+/* TITULO DO ITEM */
+.usuario_detalhes_titulo_item {
+  font-size: 13px;
+  display: flex;
+  font-weight: 600;
+  color: #111827;
+  justify-content: "space-between";
+  align-items: center;
+}
+
+/* SUBTEXTO */
+.usuario_detalhes_sub {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* INICIO MODAL CADASTRAR USUARIO E CONTA */
+
+.modalUsuarioOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modalUsuarioCard {
+  width: 400px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeIn 0.25s ease;
+}
+
+.modalUsuarioCard h2 {
+  margin-bottom: 10px;
+  color: #0a756c;
+}
+
+.modalUsuarioCard label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.modalUsuarioCard select,
+.modalUsuarioCard input {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  padding: 0 10px;
+  outline: none;
+}
+
+.modalUsuarioActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btnUsuarioCancel {
+  background: #e5e7eb;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.btnUsuarioSave {
+  background: #0a756c;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* FIM MODAL CADASTRAR USUARIO E CONTA */
+
+/* MOBILE */
+@media (max-width: 768px) {
+  .usuario_detalhes_header {
+    padding: 10px 12px;
+    background: #ffffff;
+    color: #5e5b5b;
+    font-size: 12px;
+  }
+
+  .usuario_detalhes_container {
+    width: 100%;
+    margin-top: 0px;
+  }
+
+  .usuario_detalhes_titulo_item {
+    font-size: 12px;
+    display: flex;
+  }
+}
+
+.divUsuarioDetalhesRight {
+  display: flex;
+  justify-content: flex-end;
+  flex: 1;
+  font-size: 12px;
+  color: #6b7280;
+}
+
 /* MOBILE — MUDA A ESTRUTURA */
 
 @media (max-width: 768px) {
-  .divDiretoriaUsuarioPrincipal {
+  .divUsuarioPrincipal {
     flex-direction: column;
   }
 
-  .divDiretoriaUsuario {
+  .divUsuario {
     width: 100%;
-  }
-
-  .divDetalhesUsuario {
-    display: none; /* esconde coluna direita */
-  }
-
-  .detalhesMobile {
-    margin-top: 8px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 8px;
-    animation: fadeIn 0.25s ease;
   }
 }
 

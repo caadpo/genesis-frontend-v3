@@ -82,6 +82,9 @@
 
 /* SIDEBAR BASE */
 .sidebar {
+  position: relative; /* 👈 ESSENCIAL */
+  z-index: 1000; /* 👈 acima do drawer */
+
   width: 65px;
   background-color: #f6f5f3;
   height: 100%;
@@ -239,4 +242,151 @@
 
 .toastBtnCancel:hover {
   background: #c7c7c7;
+}
+
+/* ================= PERFIL DRAWER ================= */
+
+.modalPerfilOverlay {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: 65px;
+}
+
+.sidebar.open ~ .modalPerfilOverlay {
+  left: 180px;
+}
+
+.modalPerfilOverlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modalPerfilDrawer {
+  position: fixed;
+  top: 55px; /* altura real do header */
+  height: calc(100vh - 40px);
+  left: 65px;
+  width: 40vw;
+  max-width: 600px;
+  background: #ffffff;
+
+  transform: translateX(-100%);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+
+  z-index: 997; /* atrás da sidebar */
+  display: flex;
+  flex-direction: column;
+}
+
+.modalPerfilDrawer.open {
+  transform: translateX(0);
+}
+
+/* Header */
+.modalPerfilHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+  background: #f6f5f3;
+}
+
+/* Conteúdo */
+.modalPerfilContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1px;
+}
+
+/* ================= PERFIL DRAWER RESPONSIVO ================= */
+
+@media (max-width: 768px) {
+  .modalPerfilOverlay {
+    left: 0 !important;
+  }
+
+  .modalPerfilDrawer {
+    left: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+}
+
+/* ================= PERFIL TABS ================= */
+
+.perfilTabs {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-bottom: 1px solid #ddd;
+  padding: 10px 0;
+  background: #fafafa;
+}
+
+.perfilTabBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  border: none;
+  padding: 20px;
+  cursor: pointer;
+  border-radius: 15px;
+  width: 32%;
+  font-size: 14px;
+  color: #b6b0b0;
+  transition: 0.2s;
+}
+
+.perfilTabBtn span {
+  font-size: 12px;
+}
+
+.perfilTabBtn.active {
+  color: #21bba1;
+  font-weight: bold;
+  border: 1px solid #21bba1;
+}
+
+.perfilTabBtn:hover {
+  transform: translateY(-2px);
+}
+
+/* Conteúdo das abas */
+
+.perfilTabContent {
+  padding: 6px;
+}
+
+.perfilGeral p {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.perfilSenha {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.perfilSenha input {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.perfilSenha button {
+  padding: 8px;
+  border-radius: 6px;
+  border: none;
+  background: #21bba1;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.perfilEscala {
+  font-size: 14px;
 }

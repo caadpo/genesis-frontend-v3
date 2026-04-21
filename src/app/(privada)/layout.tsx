@@ -10,7 +10,8 @@ import "./usuarios/page.css";
 import Header from "../../components/layout/Header";
 import Sidebar from "../../components/layout/Sidebar";
 import { useEffect } from "react";
-import toast, { Toaster } from "react-hot-toast"; // 👈 aqui
+import toast, { Toaster } from "react-hot-toast";
+import PerfilDrawer from "@/src/components/layout/PerfilDrawer";
 
 export default function PrivateLayout({
   children,
@@ -36,6 +37,7 @@ export default function PrivateLayout({
       <Header />
       <div className="content-wrapper">
         <Sidebar />
+        <PerfilDrawer />
         <main className="main-content">{children}</main>
       </div>
     </div>

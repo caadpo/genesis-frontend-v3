@@ -4,7 +4,6 @@ export function getUserFromCookie() {
   const cookie = document.cookie
     .split("; ")
     .find((row) => row.startsWith("userData="));
-
   if (!cookie) return null;
 
   try {

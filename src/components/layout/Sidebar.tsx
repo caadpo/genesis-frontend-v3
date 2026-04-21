@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,10 +17,7 @@ import toast from "react-hot-toast";
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname() ?? "";
-  const isActive = (path: string) => {
-    return pathname.startsWith(path);
-  };
-
+  const [perfilOpen, setPerfilOpen] = useState(false);
   const handleLogout = async () => {
     try {
       const res = await fetch("/api/auth/logout", {
@@ -41,6 +38,22 @@ export default function Sidebar() {
       toast.error("Erro interno");
     }
   };
+  const isActive = (path: string) => {
+    return pathname.startsWith(path);
+  };
+
+  useEffect(() => {
+    const onOpen = () => setPerfilOpen(true);
+    const onClose = () => setPerfilOpen(false);
+
+    window.addEventListener("perfilDrawerOpened", onOpen);
+    window.addEventListener("perfilDrawerClosed", onClose);
+
+    return () => {
+      window.removeEventListener("perfilDrawerOpened", onOpen);
+      window.removeEventListener("perfilDrawerClosed", onClose);
+    };
+  }, []);
 
   return (
     <aside className={`sidebar ${open ? "open" : ""}`}>
@@ -91,13 +104,13 @@ export default function Sidebar() {
 
       {/* BOTTOM (usuário separado) */}
       <div className="sidebar-bottom user-btn">
-        <Link
-          href="/perfil"
-          className={`icon-btn ${isActive("/perfil") ? "active" : ""}`}
+        <button
+          className={`icon-btn ${perfilOpen ? "active" : ""}`}
+          onClick={() => window.dispatchEvent(new Event("openPerfilDrawer"))}
         >
           <FiUser />
           {open && <span>Perfil</span>}
-        </Link>
+        </button>
       </div>
     </aside>
   );

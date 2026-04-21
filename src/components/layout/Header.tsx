@@ -22,7 +22,7 @@ export default function Header() {
     setUser(userData);
   }, []);
 
-  function getUserTypeLabel(type: number) {
+  function getUserTypeLabel(type?: number) {
     switch (type) {
       case 1:
         return "Comum";
@@ -54,7 +54,10 @@ export default function Header() {
       </h1>
 
       {user && (
-        <div className="user-info">
+        <div
+          onClick={() => window.dispatchEvent(new Event("openPerfilDrawer"))}
+          className="user-info"
+        >
           {user.imagemUrl ? (
             <img src={user.imagemUrl} alt="Usuário" className="user-avatar" />
           ) : (
