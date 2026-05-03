@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useRef, useState } from "react";
 import { FiPlusCircle, FiMoreVertical, FiAlertTriangle } from "react-icons/fi";
 import {
@@ -8,90 +9,114 @@ import {
   FaUniversity,
   FaAddressCard,
   FaMale,
+  FaBarcode,
 } from "react-icons/fa";
-import { FaBarcode } from "react-icons/fa6";
+import { toast } from "react-hot-toast";
 import UsuariosModal from "@/src/components/ui/UsuariosModal";
 import ContaModal from "@/src/components/ui/ContaModal";
-import toast from "react-hot-toast";
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+type Usuario = {
+  id: number;
+  imagemUrl?: string;
+  loginSei: string;
+  nomeGuerra: string;
+  pg: string;
+  mat: string;
+  tipo: string;
+  typeUser: number;
+  phone: string;
+  cpf: string;
+  nunfunc: string;
+  nunvinc: string;
+  situacaoSgp: string;
+  conta?: Conta;
+  ome?: { nomeOme: string };
+};
+
+type Conta = {
+  id: number;
+  banco: string;
+  agencia: string;
+  conta: string;
+  createdAt: string;
+  updatedAt: string;
+  createdByUser?: { loginSei: string };
+  updatedByUser?: { loginSei: string };
+};
+
+// ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function UsuariosPage() {
-  const [menuAberto, setMenuAberto] = useState<number | null>(null);
-  const [usuarioAberto, setUsuarioAberto] = useState<number | null>(null);
+  // ─── Estados ────────────────────────────────────────────────────────────────
   const [busca, setBusca] = useState("");
-  const [usuarioResumo, setUsuarioResumo] = useState<any | null>(null);
-  const [usuarioDetalhe, setUsuarioDetalhe] = useState<any | null>(null);
+  const [usuarioResumo, setUsuarioResumo] = useState<Usuario | null>(null);
+  const [usuarioDetalhe, setUsuarioDetalhe] = useState<Usuario | null>(null);
+  const [usuarioAberto, setUsuarioAberto] = useState<number | null>(null);
+  const [menuAberto, setMenuAberto] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [usuarioEdit, setUsuarioEdit] = useState<any | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [usuarioEdit, setUsuarioEdit] = useState<Usuario | null>(null);
   const [contaModalOpen, setContaModalOpen] = useState(false);
-  const [contaEdit, setContaEdit] = useState<any | null>(null);
+  const [contaEdit, setContaEdit] = useState<Conta | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
+  // ─── Resetar senha do usuário ──────────────────────────────────────────────
+  async function resetarSenha(usuario: Usuario) {
+    const confirmar = confirm(
+      `Deseja resetar a senha de ${usuario.nomeGuerra} para "genesis"?`,
+    );
+    if (!confirmar) return;
+
+    const promise = fetch(`/api/user/${usuario.id}/reset-password`, {
+      method: "PUT",
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao resetar senha");
+      return data;
+    });
+
+    toast.promise(promise, {
+      loading: "Resetando senha...",
+      success: "Senha resetada com sucesso! ✅",
+      error: (err) => err.message,
+    });
+  }
+
+  // ─── Excluir usuário ────────────────────────────────────────────────────────
+  async function excluirUsuario(usuario: Usuario) {
+    const confirmar = confirm(
+      `Deseja realmente excluir o usuário ${usuario.nomeGuerra}?`,
+    );
+    if (!confirmar) return;
+
+    const promise = fetch(`/api/user/${usuario.id}`, {
+      method: "DELETE",
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao excluir usuário");
+      return data;
+    });
+
+    toast.promise(promise, {
+      loading: "Excluindo usuário...",
+      success: "Usuário excluído com sucesso! 🗑️",
+      error: (err) => err.message,
+    });
+
+    await promise;
+    setUsuarioResumo(null);
+    setUsuarioDetalhe(null);
+    setUsuarioAberto(null);
+    setBusca("");
+  }
+
+  // ─── Alternar expansão de usuário ───────────────────────────────────────────
   function toggleUsuario(id: number) {
     setUsuarioAberto(usuarioAberto === id ? null : id);
   }
 
-  async function acao(tipo: string) {
-    setMenuAberto(null);
-
-    if (!usuarioResumo?.id) return;
-
-    // 🔐 RESET SENHA
-    if (tipo === "ResetSenha") {
-      const confirmar = confirm(
-        `Deseja resetar a senha de ${usuarioResumo.nomeGuerra} para "genesis"?`
-      );
-      if (!confirmar) return;
-
-      const promise = fetch(`/api/user/${usuarioResumo.id}/reset-password`, {
-        method: "PUT",
-      }).then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Erro ao resetar senha");
-        return data;
-      });
-
-      toast.promise(promise, {
-        loading: "Resetando senha...",
-        success: "Senha resetada com sucesso! ✅",
-        error: (err) => err.message,
-      });
-
-      return;
-    }
-
-    // 🗑️ EXCLUIR USUÁRIO
-    if (tipo === "Excluir") {
-      const confirmar = confirm(
-        `Deseja realmente excluir o usuário ${usuarioResumo.nomeGuerra}?`
-      );
-      if (!confirmar) return;
-
-      const promise = fetch(`/api/user/${usuarioResumo.id}`, {
-        method: "DELETE",
-      }).then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Erro ao excluir usuário");
-        return data;
-      });
-
-      toast.promise(promise, {
-        loading: "Excluindo usuário...",
-        success: "Usuário excluído com sucesso! 🗑️",
-        error: (err) => err.message,
-      });
-
-      await promise;
-
-      // 🔥 LIMPA A TELA IMEDIATAMENTE (sem refresh)
-      setUsuarioResumo(null);
-      setUsuarioDetalhe(null);
-      setUsuarioAberto(null);
-      setBusca("");
-
-      return;
-    }
-  }
-
+  // ─── Recarregar dados do usuário selecionado ───────────────────────────────
   async function recarregarUsuario(id: number) {
     const [resResumo, resDetalhe] = await Promise.all([
       fetch(`/api/user/search?q=${busca}`),
@@ -110,6 +135,16 @@ export default function UsuariosPage() {
     }
   }
 
+  // ─── Recarregar dados da conta do usuário ───────────────────────────────────
+  async function recarregarConta(userId: number) {
+    const res = await fetch(`/api/user/${userId}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    setUsuarioDetalhe(data);
+  }
+
+  // ─── Fechar menu ao clicar fora ──────────────────────────────────────────────
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -120,17 +155,7 @@ export default function UsuariosPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    function handleResize() {
-      setIsMobile(window.innerWidth <= 768);
-    }
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
+  // ─── Carregar detalhes do usuário selecionado ──────────────────────────────
   useEffect(() => {
     if (!usuarioAberto) return;
 
@@ -143,6 +168,7 @@ export default function UsuariosPage() {
     carregarUsuarioCompleto();
   }, [usuarioAberto]);
 
+  // ─── Buscar usuários com debounce (mínimo 6 caracteres) ─────────────────────
   useEffect(() => {
     if (busca.length < 6) {
       setUsuarioResumo(null);
@@ -158,8 +184,6 @@ export default function UsuariosPage() {
 
         const data = await res.json();
         setUsuarioResumo(data);
-
-        // 🔥 LIMPA O DETALHE ANTIGO
         setUsuarioDetalhe(null);
         setUsuarioAberto(null);
       } catch {}
@@ -168,35 +192,19 @@ export default function UsuariosPage() {
     return () => clearTimeout(delay);
   }, [busca]);
 
-  function getUserTypeLabel(type: number) {
-    switch (type) {
-      case 1:
-        return "Comum";
-      case 2:
-        return "Auxiliar";
-      case 3:
-        return "Diretor";
-      case 4:
-        return "Estrategico";
-      case 5:
-        return "Financeiro";
-      case 6:
-        return "PD";
-      case 9:
-        return "Técnico";
-      case 10:
-        return "Master";
-      default:
-        return "Usuário";
-    }
-  }
-
-  async function recarregarConta(userId: number) {
-    const res = await fetch(`/api/user/${userId}`);
-    if (!res.ok) return;
-
-    const data = await res.json();
-    setUsuarioDetalhe(data);
+  // ─── Mapeamento de tipo de usuário ────────────────────────────────────────────
+  function getUserTypeLabel(type: number): string {
+    const tipoMap: Record<number, string> = {
+      1: "Comum",
+      2: "Auxiliar",
+      3: "Diretor",
+      4: "Estrategico",
+      5: "Financeiro",
+      6: "PD",
+      9: "Técnico",
+      10: "Master",
+    };
+    return tipoMap[type] ?? "Usuário";
   }
 
   return (
@@ -272,7 +280,7 @@ export default function UsuariosPage() {
                         setMenuAberto(
                           menuAberto === usuarioResumo.id
                             ? null
-                            : usuarioResumo.id
+                            : usuarioResumo.id,
                         );
                       }}
                     />
@@ -290,13 +298,13 @@ export default function UsuariosPage() {
                         </div>
                         <div
                           className="dropdownItem"
-                          onClick={() => acao("Excluir")}
+                          onClick={() => excluirUsuario(usuarioResumo)}
                         >
                           Excluir
                         </div>
                         <div
                           className="dropdownItem"
-                          onClick={() => acao("ResetSenha")}
+                          onClick={() => resetarSenha(usuarioResumo)}
                         >
                           Reset Senha
                         </div>
@@ -352,13 +360,14 @@ export default function UsuariosPage() {
                         {usuarioDetalhe.conta.conta}
                       </div>
                     </div>
-                    Cadastro: {usuarioDetalhe.conta.createdByUser.loginSei} em{" "}
+                    Cadastro:{" "}
+                    {usuarioDetalhe.conta.createdByUser?.loginSei ?? "Sistema"}{" "}
+                    em{" "}
                     {new Date(usuarioDetalhe.conta.createdAt).toLocaleString()}
                     <br />
-                    Atualização: {
-                      usuarioDetalhe.conta.updatedByUser.loginSei
-                    }{" "}
-                    em{" "}
+                    Atualização:{" "}
+                    {usuarioDetalhe.conta.updatedByUser?.loginSei ??
+                      "—"} em{" "}
                     {new Date(usuarioDetalhe.conta.updatedAt).toLocaleString()}
                   </>
                 ) : (
@@ -459,7 +468,9 @@ export default function UsuariosPage() {
         conta={contaEdit}
         userId={usuarioDetalhe?.id}
         onSuccess={async () => {
-          await recarregarConta(usuarioDetalhe.id);
+          if (usuarioDetalhe?.id) {
+            await recarregarConta(usuarioDetalhe.id);
+          }
         }}
       />
     </div>

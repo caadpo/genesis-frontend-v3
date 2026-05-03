@@ -1,29 +1,12 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { FaUniversity } from "react-icons/fa";
 import { GiSteeringWheel } from "react-icons/gi";
 import { FaCar } from "react-icons/fa";
-import { FiLayers, FiDollarSign, FiGrid, FiCreditCard } from "react-icons/fi";
+import { FiLayers, FiGrid } from "react-icons/fi";
 
 export default function SelectSystem() {
   const router = useRouter();
-  const [user, setUser] = useState<{ nomeGuerra: string } | null>(null);
-
-  useEffect(() => {
-    const cookie = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("userData="));
-
-    if (cookie) {
-      try {
-        const userData = JSON.parse(decodeURIComponent(cookie.split("=")[1]));
-        setUser(userData);
-      } catch (err) {
-        console.error("Erro ao decodificar userData:", err);
-      }
-    }
-  }, []);
 
   return (
     <div className="container">

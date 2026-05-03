@@ -68,18 +68,15 @@ export default function PjesPage() {
 
   // 🔁 Sempre que a lista mudar, recalcula o selecionado
   useEffect(() => {
-    if (tetos.length > 0) {
-      setTetoSelecionado(tetos[0]); // sempre recalcula quando o mês muda
-    } else {
-      setTetoSelecionado(null);
+    if (tetos.length > 0 && !tetoSelecionado) {
+      setTetoSelecionado(tetos[0]);
     }
-  }, [tetos]);
+  }, [tetos, tetoSelecionado]);
 
   useEffect(() => {
-    if (tetoSelecionado?.id) {
-      carregarDistribuicoes(tetoSelecionado.id);
-    }
-  }, [tetoSelecionado]);
+    if (!tetoSelecionado?.id) return;
+    carregarDistribuicoes(tetoSelecionado.id);
+  }, [tetoSelecionado?.id]);
 
   function confirmarDelete(id: number) {
     toast((t) => (
@@ -333,11 +330,11 @@ export default function PjesPage() {
               <table className="tabelaDistribuicao">
                 <thead>
                   <tr>
-                    <th>Diretoria</th>
-                    <th>Destribuição</th>
+                    <th>Dir</th>
+                    <th>Distribuição</th>
                     <th>Oficiais</th>
                     <th>Praças</th>
-                    <th>#</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -365,7 +362,7 @@ export default function PjesPage() {
                         <button
                           onClick={() => {
                             router.push(
-                              `/pjes-diretoria-select?mes=${mes}&ano=${ano}&tetoId=${tetoSelecionado?.id}&diretoriaId=${dist.diretoria.id}`
+                              `/pjes-diretoria-select?mes=${mes}&ano=${ano}&tetoId=${tetoSelecionado?.id}&distribuicaoId=${dist.id}`,
                             );
                           }}
                           className="btnEntrarDist"

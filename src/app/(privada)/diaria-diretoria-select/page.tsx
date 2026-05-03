@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { useApi } from "@/src/hooks/useApi";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
@@ -12,11 +12,9 @@ import {
   FiSettings,
   FiMoreVertical,
 } from "react-icons/fi";
-import { FaFilePdf, FaEdit, FaTrash } from "react-icons/fa";
 import { BsCurrencyDollar } from "react-icons/bs";
 import { toast } from "react-hot-toast";
 import EventoModal from "@/src/components/ui/EventoModal";
-import OperacaoModal from "@/src/components/ui/OperacaoModal";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -36,7 +34,7 @@ type Evento = {
   status_evento: string;
   updated_at: string;
   homologado_em: string;
-  ome: { id: number; nomeOme: string; diretoria: { nomeDiretoria: string } };
+  ome: { nomeOme: string; diretoria: { nomeDiretoria: string } };
   user: {
     pg: string;
     nomeGuerra: string;
@@ -63,54 +61,30 @@ enum STATUS_EVENTO {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function PjesDiretoriaSelectPage() {
+export default function DiariasDiretoriaSelectPage() {
   const params = useSearchParams();
-  const mes = params?.get("mes") ?? "";
-  const ano = params?.get("ano") ?? "";
   const tetoId = Number(params?.get("tetoId"));
   const distribuicaoId = Number(params?.get("distribuicaoId"));
+
   // ─── Estados ────────────────────────────────────────────────────────────────
   const [eventoSelecionado, setEventoSelecionado] = useState<Evento | null>(
     null,
   );
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
   const [openModal, setOpenModal] = useState(false);
-  const [openModalOperacao, setOpenModalOperacao] = useState(false);
   const [editando, setEditando] = useState<Evento | null>(null);
-  const [editandoOperacao, setEditandoOperacao] = useState<Operacao | null>(
-    null,
-  );
   const [menuAberto, setMenuAberto] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // ─── Dados do usuário autenticado ────
   const { user, loading: loadingUser } = useCurrentUser();
-  const router = useRouter();
 
   console.log("O usuario logado é", { loading: loadingUser, user });
 
-  // ─── Constantes PJES ────────────────────────────────────────────────────────
-  const MESES = [
-    "JAN",
-    "FEV",
-    "MAR",
-    "ABR",
-    "MAI",
-    "JUN",
-    "JUL",
-    "AGO",
-    "SET",
-    "OUT",
-    "NOV",
-    "DEZ",
-  ];
-  const mesAbreviado = mes ? MESES[Number(mes) - 1] : "";
-
   // ─── API ─────────────────────────────────────────────────────────────────────
-  const { data: tetos } = useApi<Teto[]>(
-    mes && ano ? `/api/tetos?sistema=PJES&mes=${mes}&ano=${ano}` : "",
-    [mes, ano],
-  );
+  const { data: tetos } = useApi<Teto[]>(`/api/tetos?sistema=DIARIAS`, [
+    tetoId,
+  ]);
   const { data: distribuicao } = useApi<Distribuicao>(
     `/api/distribuicao/${distribuicaoId}`,
     [distribuicaoId],
@@ -218,17 +192,6 @@ export default function PjesDiretoriaSelectPage() {
     const isPd = Number(typeUser) === 6;
     const st = status?.trim();
 
-    console.log("DEBUG getPermissoesEvento:", {
-      status: `"${status}"`,
-      st: `"${st}"`,
-      typeUser,
-      isAdmin,
-      isAux,
-      isPd,
-      STATUS_EVENTO_CRIADO: STATUS_EVENTO.CRIADO,
-      comparacao: st === STATUS_EVENTO.CRIADO,
-    });
-
     return {
       podeHomologar: (isAdmin || isAux) && st === STATUS_EVENTO.CRIADO,
       podeDeHomologar: isAdmin && st === STATUS_EVENTO.HOMOLOGADO,
@@ -253,39 +216,10 @@ export default function PjesDiretoriaSelectPage() {
     }
   }
 
-  // ─── Excluir Operacao ──────────────────────────────────────────────────────────
-  async function excluirOperacao(id: number) {
-    const ok = confirm("Deseja realmente excluir esta operacao?");
-    if (!ok) return;
-
-    const promise = apiFetch(`/api/operacao/${id}`, {
-      method: "DELETE",
-    }).then(async (res) => {
-      if (!res.ok) {
-        const erro = await res.text();
-        throw new Error(erro || "Erro ao excluir operacao");
-      }
-      return res;
-    });
-
-    toast.promise(promise, {
-      loading: "Excluindo operacao...",
-      success: "Operacao excluída com sucesso ✅",
-      error: (err) => err.message || "Erro ao excluir ❌",
-    });
-
-    await promise;
-
-    // ✅ Recarrega operações do evento atual, não os eventos
-    if (eventoSelecionado) carregarOperacoes(eventoSelecionado);
-  }
-
   return (
     <div className="page">
       <div style={{ display: "flex", alignItems: "center" }}>
-        <h1 className="h1DiretoriaSelect">
-          PJES | {mesAbreviado} {ano}
-        </h1>
+        <h1 className="h1DiretoriaSelect">DIARIAS</h1>
 
         <button
           onClick={() => {
@@ -603,73 +537,38 @@ export default function PjesDiretoriaSelectPage() {
                   placeholder="Buscar"
                 />
                 <div className="divCriarOperacao">
-                  <button
-                    onClick={() => {
-                      setEditandoOperacao(null);
-                      setOpenModalOperacao(true);
-                    }}
-                    className="botaoCriarOperacao"
-                  >
-                    CRIAR OPERAÇÃO
-                  </button>
+                  <button className="botaoCriarOperacao">CRIAR OPERAÇÃO</button>
                 </div>
               </div>
-              <table className="tabelaOperacoes">
-                <thead>
-                  <tr className="tabelaHeader">
-                    <th>UNIDADE</th>
-                    <th>OPERAÇÃO</th>
-                    <th>OFICIAIS</th>
-                    <th>PRAÇAS</th>
-                    <th>COD OPERAÇÃO</th>
-                    <th>AÇÕES</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {operacoes.map((op) => (
-                    <tr key={op.id} className="tabelaLinha">
-                      <td className="colOperacao">{op.ome.nomeOme}</td>
-                      <td>{op.nome_operacao}</td>
-                      <td> {op.qtd_oficiais_oper} | 00</td>
-                      <td>{op.qtd_pracas_oper} | 00</td>
-                      <td>{op.cod_op}</td>
-                      <td className="acoesTabela">
-                        <button
-                          className="botaoAddPoliciais"
-                          onClick={() => {
-                            router.push(
-                              `/pjes-escalas?mes=${mes}&ano=${ano}&tetoId=${tetoId}&operacaoId=${op.id}`,
-                            );
-                          }}
-                        >
-                          Adicionar Policiais
-                        </button>
+              <div className="tabelaOperacoes">
+                <div className="tabelaHeader">
+                  <div>Unidade</div>
+                  <div>Operação</div>
+                  <div className="acoesTabela">Of</div>
+                  <div className="acoesTabela">Prç</div>
+                  <div className="acoesTabela">Status</div>
+                  <div>Cod Operação</div>
+                  <div className="acoesTabela">Ações</div>
+                </div>
 
-                        <FaEdit
-                          size={16}
-                          color="orange"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuAberto(null);
-                            setEditandoOperacao(op);
-                            setOpenModalOperacao(true);
-                          }}
-                        />
-                        <FaTrash
-                          size={16}
-                          color="red"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuAberto(null);
-                            excluirOperacao(op.id);
-                          }}
-                        />
-                        <FaFilePdf size={16} color="blue" />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                {operacoes.map((op) => (
+                  <div key={op.id} className="tabelaLinha">
+                    <div className="colOperacao">{op.ome.nomeOme}</div>
+                    <div>{op.nome_operacao}</div>
+                    <div className="acoesTabela">
+                      {op.qtd_oficiais_oper} | 00
+                    </div>
+                    <div className="acoesTabela">{op.qtd_pracas_oper} | 00</div>
+                    <div className="statusPendente">CRIADA</div>
+                    <div>{op.cod_op}</div>
+                    <div className="acoesTabela">
+                      <FiUnlock size={14} color="green" />
+                      <FiSettings size={14} color="orange" />
+                      <BsCurrencyDollar size={14} color="purple" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -682,21 +581,7 @@ export default function PjesDiretoriaSelectPage() {
         }}
         onCreated={carregarEventos}
         evento={editando}
-        distribuicao={distribuicao}
-      />
-
-      <OperacaoModal
-        open={openModalOperacao}
-        onClose={() => {
-          setOpenModalOperacao(false);
-          setEditandoOperacao(null);
-        }}
-        onCreated={() => {
-          // ✅ wrapper sem argumento
-          if (eventoSelecionado) carregarOperacoes(eventoSelecionado);
-        }}
-        operacao={editandoOperacao}
-        evento={eventoSelecionado}
+        distribuicao={distribuicao} // 👈 AQUI
       />
     </div>
   );

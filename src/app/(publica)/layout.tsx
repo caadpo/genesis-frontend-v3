@@ -1,7 +1,11 @@
 import "../globals.css";
 import "./layout.css";
 
-export default function PublicLayout({ children }: { children: React.ReactNode }) {
+export default function PublicLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <>
       {/* Barra superior */}
@@ -16,11 +20,11 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
       {/* Conteúdo */}
       <main className="main-container">
-        <div className="card">
+        <div className="cardLogin">
           <img
             src="/logo_dpo.webp"
             alt="Logo do Sistema"
-            className="logo"
+            className="logoLogin"
           />
           {children}
         </div>

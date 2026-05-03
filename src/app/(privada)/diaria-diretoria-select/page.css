@@ -299,7 +299,7 @@
   display: flex;
   width: 100%;
   padding: 5px;
-  margin: 8px 0 8px 0;
+  margin: 3 0 3 0;
   position: relative;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -308,12 +308,12 @@
 }
 
 .divEventoIconeItemPrincipal:hover {
-  background: #a5dad5;
+  background: #f9fafb;
 }
 
 .divEventoSelecionado {
-  border: 1px solid #067e10;
-  background: #ffffff;
+  border: 1px solid #36ee08;
+  background: #effff0;
   box-shadow: 0 0 0 3px #dbeafe;
 }
 
@@ -480,51 +480,56 @@
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid #dcdcdc;
-  font-size: 14px;
-  width: 100%;
-  border-collapse: collapse; /* ✅ essencial para table */
-  text-align: center;
+  font-size: 10px;
 }
 
-/* ✅ Remova display:grid — table já cuida do layout */
-.tabelaHeader th {
+/* 7 colunas reais */
+.tabelaHeader,
+.tabelaLinha {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 0.5fr 0.5fr 1.5fr 1fr 1fr;
+  align-items: center;
+}
+
+.tabelaHeader {
   background: #f3f4f6;
   font-weight: bold;
-  padding: 6px;
+  padding: 6px 6px;
   color: #374151;
   border-bottom: 1px solid #dcdcdc;
 }
 
-.tabelaLinha td {
-  padding: 6px;
+.tabelaLinha {
+  padding: 6px 6px;
   border-bottom: 1px solid #eeeeee;
+  transition: background 0.15s ease;
 }
 
-.tabelaLinha:hover td {
+.tabelaLinha:hover {
   background: #f9fafb;
 }
 
+/* primeira coluna destaque */
 .colOperacao {
   font-weight: bold;
   color: #1f2937;
 }
 
+/* status */
+.statusPendente {
+  color: #d97706;
+  font-weight: bold;
+  display: flex;
+  justify-content: center;
+}
+
+/* ações */
 .acoesTabela {
   display: flex;
   gap: 10px;
   justify-content: center;
-  align-items: center;
 }
 
-.botaoAddPoliciais {
-  font-size: 12px;
-  border-radius: 10px;
-  padding: 3px;
-  width: 120px;
-  border: solid 1px #ffffff;
-  color: #ffffff;
-  background: #2e8a09;
-}
 @media (max-width: 768px) {
   .divDiretoriaOperacao {
     width: 100%;

@@ -1,27 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-export async function GET(
-  _req: Request,
-  context: { params: Promise<{ id: string }> }
-) {
-  const { id } = await context.params;
-  const token = (await cookies()).get("accessToken")?.value;
-
-  const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
-
-  const response = await fetch(`${API_URL}/distribuicao/${id}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-
-  const data = await response.json();
-
-  return NextResponse.json(data, { status: response.status });
-}
-
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
@@ -32,7 +11,7 @@ export async function PATCH(
 
   const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
-  const response = await fetch(`${API_URL}/distribuicao/${id}`, {
+  const response = await fetch(`${API_URL}/evento/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -55,13 +34,12 @@ export async function DELETE(
 
   const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
-  const response = await fetch(`${API_URL}/distribuicao/${id}`, {
+  const response = await fetch(`${API_URL}/evento/${id}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 
-  // ❗ NÃO TENTA LER JSON
   return new Response(null, { status: response.status });
 }

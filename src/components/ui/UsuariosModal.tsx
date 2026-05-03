@@ -6,7 +6,7 @@ import { toast } from "react-hot-toast";
 type Props = {
   open: boolean;
   onClose: () => void;
-  user?: any; // usuário em edição
+  user?: any;
   onSuccess: (id: number) => void;
 };
 
@@ -30,6 +30,7 @@ export default function UsuariosModal({
   const [phone, setPhone] = useState("");
   const [cpf, setCpf] = useState("");
   const [nunfunc, setNunfunc] = useState("");
+  const [nunvinc, setNunvinc] = useState("");
   const [typeUser, setTypeUser] = useState<number>(1);
   const [omeId, setOmeId] = useState<number>();
 
@@ -43,6 +44,7 @@ export default function UsuariosModal({
       setPhone(user.phone ?? "");
       setCpf(user.cpf ?? "");
       setNunfunc(user.nunfunc ?? "");
+      setNunvinc(user.nunvinc ?? "");
       setTypeUser(user.typeUser ?? 1);
       setOmeId(user.ome?.id);
     } else {
@@ -53,6 +55,7 @@ export default function UsuariosModal({
       setPhone("");
       setCpf("");
       setNunfunc("");
+      setNunvinc("");
       setTypeUser(1);
       setOmeId(undefined);
     }
@@ -85,6 +88,7 @@ export default function UsuariosModal({
       omeId: omeId,
       cpf,
       nunfunc,
+      nunvinc,
     };
 
     const res = await fetch(url, {
@@ -237,6 +241,14 @@ export default function UsuariosModal({
                 style={{ width: "100%" }}
                 value={nunfunc}
                 onChange={(e) => setNunfunc(e.target.value)}
+              />
+            </div>
+            <div style={{ width: "50%" }}>
+              <label>NunVinc</label>
+              <input
+                style={{ width: "100%" }}
+                value={nunvinc}
+                onChange={(e) => setNunvinc(e.target.value)}
               />
             </div>
           </div>

@@ -5,11 +5,12 @@ import "./layout.css";
 import "./select-system/page.css";
 import "./pjes/page.css";
 import "./pjes-diretoria-select/page.css";
+import "./pjes-escalas/page.css";
 import "./usuarios/page.css";
 
 import Header from "../../components/layout/Header";
 import Sidebar from "../../components/layout/Sidebar";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import PerfilDrawer from "@/src/components/layout/PerfilDrawer";
 
@@ -18,20 +19,23 @@ export default function PrivateLayout({
 }: {
   children: React.ReactNode;
 }) {
-  useEffect(() => {
-    const show = sessionStorage.getItem("showWelcomeToast");
+  const toastShown = useRef(false);
 
+  useEffect(() => {
+    if (toastShown.current) return;
+
+    const show = sessionStorage.getItem("showWelcomeToast");
     if (show) {
+      toastShown.current = true;
+      sessionStorage.removeItem("showWelcomeToast");
       setTimeout(() => {
         toast.success("Bem-vindo! 👋");
-        sessionStorage.removeItem("showWelcomeToast");
-      }, 0); // 👈 ESSENCIAL
+      }, 100);
     }
   }, []);
 
   return (
     <div className="private-layout">
-      {/* 👇 ISSO AQUI É O QUE FALTAVA */}
       <Toaster position="top-right" />
 
       <Header />

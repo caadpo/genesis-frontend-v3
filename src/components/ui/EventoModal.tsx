@@ -8,6 +8,7 @@ type Props = {
   onClose: () => void;
   evento?: any;
   onCreated: () => void;
+  distribuicao: any; // 👈 NOVO
 };
 
 type Ome = {
@@ -20,18 +21,24 @@ export default function EventoModal({
   onClose,
   onCreated,
   evento,
+  distribuicao, // 👈 NOVO
 }: Props) {
   const [omes, setOmes] = useState<Ome[]>([]);
   const [omeId, setOmeId] = useState<number>();
+  const [nomeEvento, setNomeEvento] = useState("");
   const [oficiais, setOficiais] = useState(0);
   const [pracas, setPracas] = useState(0);
 
   useEffect(() => {
+    if (!open) return;
+
     if (evento) {
+      setNomeEvento(evento.nome_evento);
       setOmeId(evento.ome.id);
-      setOficiais(evento.qtd_dist_of);
-      setPracas(evento.qtd_dist_prc);
+      setOficiais(evento.qtd_of_evento);
+      setPracas(evento.qtd_prc_evento);
     } else {
+      setNomeEvento("");
       setOmeId(undefined);
       setOficiais(0);
       setPracas(0);
@@ -55,7 +62,13 @@ export default function EventoModal({
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        nome_evento: nomeEvento,
+        ome_id: omeId,
+        qtd_of_evento: oficiais,
+        qtd_prc_evento: pracas,
+        distribuicao_id: distribuicao.id, // 👈 AQUI É O SEGREDO
+      }),
     });
 
     if (!res.ok) {
@@ -69,8 +82,8 @@ export default function EventoModal({
         : "Evento criado com sucesso ✅"
     );
 
-    onCreated(); // atualiza a tabela
-    onClose(); // fecha a modal
+    onCreated();
+    onClose();
   }
 
   return (
@@ -91,11 +104,26 @@ export default function EventoModal({
           ))}
         </select>
 
+        <label>Nome do Evento</label>
+        <input
+          type="text"
+          value={nomeEvento}
+          onChange={(e) => setNomeEvento(e.target.value)}
+        />
+
         <label>Cotas Oficiais</label>
-        <input type="number" />
+        <input
+          type="number"
+          value={oficiais}
+          onChange={(e) => setOficiais(Number(e.target.value))}
+        />
 
         <label>Cotas Praças</label>
-        <input />
+        <input
+          type="number"
+          value={pracas}
+          onChange={(e) => setPracas(Number(e.target.value))}
+        />
 
         <div className="modalActions">
           <button onClick={onClose} className="btnCancel">

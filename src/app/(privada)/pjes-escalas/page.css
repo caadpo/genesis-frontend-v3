@@ -1,0 +1,310 @@
+.h1PjesEscalas {
+  font-size: 15px;
+}
+
+.divPolicialEscalado {
+  width: 70%;
+  height: 175px;
+  display: flex;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  color: #494545;
+  justify-content: flex-end;
+}
+
+.divPolicialSelecionado {
+  height: 100%;
+  width: 100%;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.cardPolicialSelecionado {
+  height: 100%;
+  width: 100%;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #dcdcdc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 5px 6px;
+  animation: cardEnter 0.45s ease-out forwards;
+}
+
+.cardPolicialSelecionado img {
+  height: 48px;
+  width: 48px;
+  object-fit: contain;
+}
+
+/* coluna esquerda */
+.policialLeft {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 10%;
+}
+
+.matpolicial input {
+  font-size: 11px;
+  width: 80px;
+  color: #555;
+  text-align: center;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.policialRight {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  width: 90%;
+  padding-left: 10px;
+}
+
+.divDadosEscala {
+  display: grid;
+}
+
+.inputDadosEscala {
+  font-size: 11px;
+  width: 80px;
+  color: #555;
+  text-align: center;
+  border: 1px solid #dcdcdc;
+  border-radius: 3px;
+  padding: 3px;
+}
+
+.divOperacaoSelecionada {
+  height: 100px;
+  width: 60%;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.divOperacao {
+  width: 30%;
+  height: 120px;
+  display: flex;
+  padding-top: 10px;
+  color: #494545;
+}
+
+.divOperacaoSelecionado {
+  height: 90px;
+  width: 100%;
+  align-items: flex-end; /* desce para baixo */
+  justify-content: center;
+}
+
+.cardOperacaoSelecionado {
+  height: 90px;
+  width: 100%;
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #dcdcdc;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  animation: cardEnter 0.45s ease-out forwards;
+}
+
+.cardOperacaoSelecionado img {
+  height: 48px;
+  width: 48px;
+  object-fit: contain;
+}
+
+/* coluna esquerda */
+.operacaoLeft {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 60px;
+}
+
+.nomeVerba {
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  color: #555;
+}
+
+/* coluna direita */
+.operacaoRight {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  padding-left: 10px;
+}
+
+.nomeOperacao {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2f2f2f;
+  border-bottom: solid 1px hsl(0, 12%, 90%);
+}
+
+.cotasOperacaoBox {
+  display: flex;
+  gap: 18px;
+  font-size: 12px;
+  color: #666;
+}
+
+.cotasOperacaoBox div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cotasOperacaoBox strong {
+  font-size: 16px;
+  color: #0a756c;
+}
+
+/* 🎬 animação base */
+@keyframes cardEnterOperacao {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* aplica animação */
+.cardOperacaoSelecionado {
+  animation: cardEnterOperacao 0.45s ease-out forwards;
+}
+
+.divPjesEscalas {
+  margin-top: 10px;
+  display: flex;
+  gap: 5px;
+  padding: 5px;
+  border: solid 1px #dcdcdc;
+  border-radius: 5px;
+  width: 100%;
+  height: 60%;
+  background-color: #ffffff;
+  overflow-y: auto;
+}
+
+.divTituloEscalas {
+  width: 100%;
+  height: 30px;
+  background: #0b582b;
+  color: #ffffff;
+  padding: 3px;
+}
+
+.divLogoEscalas {
+  width: 100%;
+  display: flex;
+  height: 70px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px;
+}
+
+.logoPmpeEscalas {
+  height: 60px;
+  width: 60px;
+}
+
+.logoPeEscalas {
+  height: 55px;
+  width: 60px;
+}
+
+.tituloEscala {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: Arial, Helvetica, sans-serif;
+  text-align: center;
+}
+
+.divtitleEscalaServico {
+  margin-top: 20px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #c4c0c0;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  display: flex;
+}
+
+.divCriarEscala {
+  display: flex;
+  align-items: center;
+}
+
+.botaoCriarEscala {
+  font-size: 16px;
+  border-radius: 10px;
+  width: 100%;
+  padding: 2px;
+  color: #ffffff;
+  background: #0b582b;
+}
+
+.inputBuscarEscala {
+  font-size: 12px;
+  border-radius: 10px;
+  width: 100%;
+  height: 25px;
+  padding: 2px;
+  margin-top: 5px;
+  color: #858585;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  outline: none;
+}
+
+.tabelaEscalas {
+  border-radius: 6px;
+  border: 1px solid #a8a8a8;
+  font-size: 10px;
+  font-family: Arial, Helvetica, sans-serif;
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+}
+
+.tabelaHeaderEscalas th {
+  background: #08462e;
+  font-weight: bold;
+  padding: 4px;
+  color: #ffffff;
+  border-bottom: 1px solid #837b7b;
+}
+
+.tabelaLinhaEscalas td {
+  padding: 2px;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.tabelaLinhaEscalas:hover td {
+  background: #adb8af;
+}
+
+.acoesTabelaEscalas {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+}

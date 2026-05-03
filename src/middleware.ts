@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getToken, validateToken } from "@/src/lib/auth";
 
 const publicRoutes = ["/login"];
-const REDIRECT_WHEN_NOT_AUTHENTICATED_ROUTE = "/login";
-const REDIRECT_WHEN_AUTHENTICATED_ROUTE = "/select-system";
 
-export function middleware(request: NextRequest) {
+const AUTH_HOME = "/select-system";
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  console.log("Middleware executou:", pathname);
-
-  // Ignora arquivos internos e estáticos
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
@@ -18,26 +16,33 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const authToken = request.cookies.get("accessToken")?.value;
+  const authToken = await getToken();
   const isPublicRoute = publicRoutes.includes(pathname);
 
-  // ❌ Não autenticado tentando acessar rota privada
   if (!authToken && !isPublicRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = REDIRECT_WHEN_NOT_AUTHENTICATED_ROUTE;
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // ✅ Autenticado tentando acessar login
+  if (authToken && !(await validateToken(authToken))) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
   if (authToken && isPublicRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = REDIRECT_WHEN_AUTHENTICATED_ROUTE;
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(new URL(AUTH_HOME, request.url));
+  }
+
+  if (pathname === "/") {
+    if (!authToken) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    return NextResponse.redirect(new URL(AUTH_HOME, request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!_next|favicon.ico|robots.txt|api).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|.*\\..*|api).*)",
+  ],
 };

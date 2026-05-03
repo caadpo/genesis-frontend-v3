@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-const API_URL = "http://localhost:3001/distribuicao";
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const tetoId = searchParams.get("tetoId");
-
   const token = (await cookies()).get("accessToken")?.value;
+  const { searchParams } = new URL(request.url);
 
-  const url = new URL(API_URL);
-  if (tetoId) url.searchParams.append("tetoId", tetoId);
+  const eventoId = searchParams.get("eventoId");
 
-  const response = await fetch(url.toString(), {
+  const url = eventoId
+    ? `${API_URL}/operacao?eventoId=${eventoId}`
+    : `${API_URL}/operacao`;
+
+  const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const token = (await cookies()).get("accessToken")?.value;
 
-  const response = await fetch(API_URL, {
+  const response = await fetch(`${API_URL}/operacao`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -1,26 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getUserFromCookie } from "../../lib/getUserFromCookie";
 import { FaUser } from "react-icons/fa";
-
-type User = {
-  imagemUrl?: string;
-  nomeGuerra: string;
-  pg: string;
-  typeUser: number;
-  ome?: {
-    nomeOme: string;
-  };
-};
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 
 export default function Header() {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const userData = getUserFromCookie();
-    setUser(userData);
-  }, []);
+  const { user } = useCurrentUser();
 
   function getUserTypeLabel(type?: number) {
     switch (type) {
@@ -47,7 +31,7 @@ export default function Header() {
 
   return (
     <header className="header">
-      <img src="/logo_dpo.webp" alt="Logo do Sistema" className="logo_layout" />
+      <img src="/logo_dpo.webp" className="logo_layout" />
 
       <h1 className="header-title">
         GENESIS {user?.ome?.nomeOme ? `| ${user.ome.nomeOme}` : "| ..."}
@@ -59,7 +43,7 @@ export default function Header() {
           className="user-info"
         >
           {user.imagemUrl ? (
-            <img src={user.imagemUrl} alt="Usuário" className="user-avatar" />
+            <img src={user.imagemUrl} className="user-avatar" />
           ) : (
             <div className="user-avatar user-avatar-icon">
               <FaUser />

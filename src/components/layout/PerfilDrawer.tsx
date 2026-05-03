@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getUserFromCookie } from "../../lib/getUserFromCookie";
-import { FiArrowLeft, FiUser, FiKey } from "react-icons/fi";
-import { AiFillCalendar } from "react-icons/ai";
+import { FiArrowLeft, FiKey, FiUser } from "react-icons/fi";
+import toast from "react-hot-toast";
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
+
 import {
   FaUser,
   FaPhone,
@@ -14,54 +15,18 @@ import {
   FaBarcode,
   FaChartLine,
 } from "react-icons/fa";
-import toast from "react-hot-toast";
+import { AiFillCalendar } from "react-icons/ai";
 
-type User = {
-  imagemUrl?: string;
-  loginSei: string;
-  nomeGuerra: string;
-  pg: string;
-  mat: string;
-  tipo: string;
-  cpf: string;
-  nunfunc: string;
-  nunvinc: string;
-  phone: string;
-
-  typeUser?: number;
-  ome?: {
-    nomeOme: string;
-  };
-
-  conta?: {
-    banco: string;
-    conta: string;
-    agencia: string;
-    createdAt: string;
-    updatedAt: string;
-
-    createdByUser?: {
-      loginSei: string;
-    };
-
-    updatedByUser?: {
-      loginSei: string;
-    };
-  };
-};
+type Aba = "geral" | "senha" | "escala";
 
 export default function PerfilDrawer() {
+  const { user } = useCurrentUser(); // ✅ HOOK NO TOPO
+
   const [open, setOpen] = useState(false);
-  const [aba, setAba] = useState<"geral" | "senha" | "escala">("geral");
-  const [user, setUser] = useState<User | null>(null);
+  const [aba, setAba] = useState<Aba>("geral");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loadingPassword, setLoadingPassword] = useState(false);
-
-  useEffect(() => {
-    const userData = getUserFromCookie();
-    setUser(userData);
-  }, []);
 
   useEffect(() => {
     const openDrawer = () => {
@@ -104,31 +69,25 @@ export default function PerfilDrawer() {
     try {
       setLoadingPassword(true);
 
-      const res = await fetch("/api/user/change-password", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+      await fetch("/api/auth/change-password", {
+        method: "POST",
         body: JSON.stringify({
           currentPassword,
           newPassword,
         }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message);
-      }
-
-      toast.success("Senha alterada com sucesso! 🔐");
-
+      toast.success("Senha alterada com sucesso");
       setCurrentPassword("");
       setNewPassword("");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao alterar senha");
+    } catch {
+      toast.error("Erro ao alterar senha");
     } finally {
       setLoadingPassword(false);
     }
   }
+
+  if (!open) return null;
 
   return (
     <>

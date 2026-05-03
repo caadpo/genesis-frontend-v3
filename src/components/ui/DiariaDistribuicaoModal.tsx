@@ -16,7 +16,7 @@ type Diretoria = {
   nomeDiretoria: string;
 };
 
-export default function DistribuicaoModal({
+export default function DiariaDistribuicaoModal({
   open,
   onClose,
   onCreated,
@@ -38,7 +38,7 @@ export default function DistribuicaoModal({
       setPracas(distribuicao.qtd_dist_prc);
     } else {
       setDiretoriaId(undefined);
-      setNomeDist(""); // ← string, não número
+      setNomeDist("");
       setOficiais(0);
       setPracas(0);
     }

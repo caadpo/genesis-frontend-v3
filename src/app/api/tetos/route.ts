@@ -12,14 +12,17 @@ export async function GET(request: Request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("accessToken")?.value;
 
-    const url = new URL("http://localhost:3001/tetos");
+    let url = "";
 
-    // 🔥 repassa TODOS os filtros para o backend
-    if (sistema) url.searchParams.append("sistema", sistema);
-    if (mes) url.searchParams.append("mes", mes);
-    if (ano) url.searchParams.append("ano", ano);
+    if (sistema === "PJES") {
+      url = `http://localhost:3001/tetos/pjes?mes=${mes}&ano=${ano}`;
+    }
 
-    const response = await fetch(url.toString(), {
+    if (sistema === "DIARIAS") {
+      url = `http://localhost:3001/tetos/diarias`;
+    }
+
+    const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -27,7 +30,6 @@ export async function GET(request: Request) {
     });
 
     const data = await response.json();
-
     return NextResponse.json(data);
   } catch (error) {
     console.error("ERRO TETOS:", error);

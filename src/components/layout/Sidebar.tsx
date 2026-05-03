@@ -96,10 +96,10 @@ export default function Sidebar() {
           {open && <span>Usuarios</span>}
         </Link>
 
-        <Link onClick={handleLogout} href="/handleLogout" className="icon-btn">
+        <button className="icon-btn" onClick={handleLogout}>
           <FiLogOut />
           {open && <span>Sair</span>}
-        </Link>
+        </button>
       </div>
 
       {/* BOTTOM (usuário separado) */}

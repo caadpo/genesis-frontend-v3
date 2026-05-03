@@ -7,7 +7,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   conta: any;
-  userId: number;
+  userId?: number; // 👈 torna opcional
   onSuccess: () => void;
 };
 
@@ -39,16 +39,23 @@ export default function ContaModal({
 
   async function salvar() {
     const isEdicao = !!conta;
+    if (!isEdicao && !userId) return;
 
     const url = isEdicao ? `/api/conta/${conta.id}` : `/api/conta`;
     const method = isEdicao ? "PATCH" : "POST";
 
-    const body = {
-      usuarioId: userId, // 👈 obrigatório no POST
-      banco,
-      agencia,
-      conta: numeroConta,
-    };
+    const body = isEdicao
+      ? {
+          banco,
+          agencia,
+          conta: numeroConta, // ✅ sem usuarioId
+        }
+      : {
+          usuarioId: userId, // ✅ só no POST
+          banco,
+          agencia,
+          conta: numeroConta,
+        };
 
     const promise = fetch(url, {
       method,
