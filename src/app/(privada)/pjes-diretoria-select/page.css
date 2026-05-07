@@ -85,7 +85,8 @@
   height: 55px;
   width: 55px;
   border-radius: 12px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid #bbb8b8;
+  margin-bottom: 2px;
   background: #ffffff;
   display: flex;
   align-items: center;
@@ -349,6 +350,16 @@
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+.botaoResumoEvento {
+  font-size: 10px;
+  border-radius: 10px;
+  padding: 2px;
+  width: 80px;
+  border: solid 1px #ffffff;
+  color: #ffffff;
+  background: #1660a5;
 }
 
 .divEventoDireitaNomeEvento {

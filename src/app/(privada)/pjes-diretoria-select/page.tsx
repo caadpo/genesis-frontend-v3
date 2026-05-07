@@ -16,6 +16,7 @@ import { FaFilePdf, FaEdit, FaTrash } from "react-icons/fa";
 import { BsCurrencyDollar } from "react-icons/bs";
 import { toast } from "react-hot-toast";
 import EventoModal from "@/src/components/ui/EventoModal";
+import ResumoEventoModal from "@/src/components/ui/ResumoEventoModal";
 import OperacaoModal from "@/src/components/ui/OperacaoModal";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -73,6 +74,7 @@ export default function PjesDiretoriaSelectPage() {
   const [eventoSelecionado, setEventoSelecionado] = useState<Evento | null>(
     null,
   );
+  const [resumoEventoId, setResumoEventoId] = useState<number | null>(null);
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
   const [openModal, setOpenModal] = useState(false);
   const [openModalOperacao, setOpenModalOperacao] = useState(false);
@@ -451,6 +453,15 @@ export default function PjesDiretoriaSelectPage() {
                         <div className="divEventoDireitaIcones">
                           {/* 🔥 ÍCONES DINÂMICOS POR STATUS */}
                           <FiUnlock size={15} color={cores.unlock} />
+                          <button
+                            className="botaoResumoEvento"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setResumoEventoId(evento.id); // ✅ abre a modal com o id do evento
+                            }}
+                          >
+                            Resumo
+                          </button>
                           <FiSettings size={15} color={cores.settings} />
                           <BsCurrencyDollar size={15} color={cores.money} />
 
@@ -683,6 +694,12 @@ export default function PjesDiretoriaSelectPage() {
         onCreated={carregarEventos}
         evento={editando}
         distribuicao={distribuicao}
+      />
+
+      <ResumoEventoModal
+        open={resumoEventoId !== null}
+        onClose={() => setResumoEventoId(null)}
+        eventoId={resumoEventoId}
       />
 
       <OperacaoModal

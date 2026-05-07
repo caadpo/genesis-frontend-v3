@@ -48,10 +48,10 @@ export default function ContaModal({
       ? {
           banco,
           agencia,
-          conta: numeroConta, // ✅ sem usuarioId
+          conta: numeroConta,
         }
       : {
-          usuarioId: userId, // ✅ só no POST
+          usuarioId: userId,
           banco,
           agencia,
           conta: numeroConta,
