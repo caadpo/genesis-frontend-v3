@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 const loginSchema = z.object({
-  loginSei: z.string().min(1),
+  mat: z.string().min(1),
   password: z.string().min(1),
 });
 

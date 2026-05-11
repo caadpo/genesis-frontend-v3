@@ -158,7 +158,7 @@ export default function PerfilDrawer() {
                     <div className="usuario_detalhes_texto">
                       <div className="usuario_detalhes_titulo_item">
                         <div className="divUsuarioDetalhesRight">
-                          {user?.loginSei}
+                          {user?.mat}
                         </div>
                       </div>
                     </div>
@@ -318,15 +318,13 @@ export default function PerfilDrawer() {
                                   }}
                                 >
                                   <div style={{ marginRight: "5px" }}>
-                                    {user?.conta?.createdByUser?.loginSei ??
-                                      "—"}{" "}
-                                    em
+                                    {user?.conta?.createdByUser?.mat ?? "—"} em
                                   </div>
 
                                   <div>
                                     {user?.conta?.createdAt
                                       ? new Date(
-                                          user.conta.createdAt
+                                          user.conta.createdAt,
                                         ).toLocaleString()
                                       : "—"}
                                   </div>
@@ -340,15 +338,13 @@ export default function PerfilDrawer() {
                                   }}
                                 >
                                   <div style={{ marginRight: "5px" }}>
-                                    {user?.conta?.updatedByUser?.loginSei ??
-                                      "—"}{" "}
-                                    em
+                                    {user?.conta?.updatedByUser?.mat ?? "—"} em
                                   </div>
 
                                   <div>
                                     {user?.conta?.updatedAt
                                       ? new Date(
-                                          user.conta.updatedAt
+                                          user.conta.updatedAt,
                                         ).toLocaleString()
                                       : "—"}{" "}
                                     (Atualizada)

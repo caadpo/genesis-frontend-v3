@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FiStar, FiChevronUp } from "react-icons/fi";
+import toast from "react-hot-toast";
+import { FaDownload } from "react-icons/fa";
+import { FiChevronUp } from "react-icons/fi";
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
+import { apiFetch } from "@/src/lib/api";
 
 type UsuarioResumo = {
   usuarioId: number;
@@ -25,12 +29,21 @@ type ResumoEvento = {
   qtd_of_evento: number;
   qtd_prc_evento: number;
   status_evento: string;
-  homologado_em?: string;
-  pd_concluida_em?: string;
-  pago_em?: string;
+
   ome: { id: number; nomeOme: string };
+  teto: { id: number; nome_verba: string; sistema: string };
   totalCotasOficiais: number;
   totalCotasPracas: number;
+
+  criado_em?: string;
+  criado_por?: string;
+  homologado_em?: string;
+  homologado_por?: string;
+  pd_concluida_em?: string;
+  pd_concluida_por?: string;
+  pago_em?: string;
+  pago_por?: string;
+
   usuarios: UsuarioResumo[];
 };
 
@@ -40,20 +53,55 @@ type Props = {
   eventoId: number | null;
 };
 
+// ─── Enum de Status ───────────────────────────────────────────────────────────
+
+enum STATUS_EVENTO {
+  CRIADO = "CRIADO",
+  HOMOLOGADO = "HOMOLOGADO",
+  PD_CONCLUIDA = "PD_CONCLUIDA",
+  PAGO = "PAGO",
+}
+
 export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
   const [resumo, setResumo] = useState<ResumoEvento | null>(null);
   const [loading, setLoading] = useState(false);
   const [busca, setBusca] = useState("");
+  const [gerandoPagamento, setGerandoPagamento] = useState(false);
+  const [progressoLinha, setProgressoLinha] = useState("0%");
+  const [fasesAtivas, setFasesAtivas] = useState<string[]>([]);
+  const { user } = useCurrentUser();
 
   useEffect(() => {
     if (!open || !eventoId) return;
 
+    setProgressoLinha("0%");
+    setFasesAtivas([]); // reseta os círculos
     setLoading(true);
+
     fetch(`/api/evento/${eventoId}`)
       .then((r) => r.json())
       .then((data) => {
         setResumo(data);
         setBusca("");
+
+        const fases = ["CRIADO", "HOMOLOGADO", "PD_CONCLUIDA", "PAGO"];
+        const idxAtual = fases.indexOf(data.status_evento);
+        const fasesParaAtivar = fases.slice(0, idxAtual + 1);
+
+        // linha começa a andar após 150ms
+        setTimeout(() => {
+          setProgressoLinha(calcEventoProgressoLinha(data.status_evento));
+        }, 150);
+
+        // cada círculo acende com delay proporcional à sua posição
+        fasesParaAtivar.forEach((fase, i) => {
+          setTimeout(
+            () => {
+              setFasesAtivas((prev) => [...prev, fase]);
+            },
+            150 + i * 550,
+          ); // 550ms por etapa, sincronizado com a linha
+        });
       })
       .finally(() => setLoading(false));
   }, [open, eventoId]);
@@ -74,22 +122,141 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
     return s.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   };
 
+  function calcEventoProgressoLinha(status: string) {
+    const map: Record<string, string> = {
+      CRIADO: "0%",
+      HOMOLOGADO: "33.3%",
+      PD_CONCLUIDA: "66.6%",
+      PAGO: "100%",
+    };
+    return map[status] ?? "0%";
+  }
+
+  // ─── Permissões por status e tipo de usuário ─────────────────────────────────
+  function getPermissoesEvento(status: string, typeUser: number | undefined) {
+    const isAdmin = Number(typeUser) === 9 || Number(typeUser) === 10;
+    const isAux = Number(typeUser) === 2;
+    const isPd = Number(typeUser) === 6;
+    const st = status?.trim();
+
+    console.log("DEBUG getPermissoesEvento:", {
+      status: `"${status}"`,
+      st: `"${st}"`,
+      typeUser,
+      isAdmin,
+      isAux,
+      isPd,
+      STATUS_EVENTO_CRIADO: STATUS_EVENTO.CRIADO,
+      comparacao: st === STATUS_EVENTO.CRIADO,
+    });
+
+    return {
+      podeHomologar: (isAdmin || isAux) && st === STATUS_EVENTO.CRIADO,
+      podeDeHomologar: isAdmin && st === STATUS_EVENTO.HOMOLOGADO,
+      podePD: (isAdmin || isPd) && st === STATUS_EVENTO.HOMOLOGADO,
+      podePago: (isAdmin || isPd) && st === STATUS_EVENTO.PD_CONCLUIDA,
+    };
+  }
+
+  function getEventoAcao(status?: string) {
+    switch (status?.trim()) {
+      case STATUS_EVENTO.CRIADO:
+        return {
+          label: "Homologar evento",
+          novoStatus: STATUS_EVENTO.HOMOLOGADO,
+        };
+      case STATUS_EVENTO.HOMOLOGADO:
+        return {
+          label: "Concluir previsão de desembolso",
+          novoStatus: STATUS_EVENTO.PD_CONCLUIDA,
+        };
+      case STATUS_EVENTO.PD_CONCLUIDA:
+        return {
+          label: "Marcar como pago",
+          novoStatus: STATUS_EVENTO.PAGO,
+        };
+      default:
+        return null;
+    }
+  }
+
+  async function handleAlterarStatus(novoStatus: STATUS_EVENTO) {
+    if (!resumo) return;
+
+    setGerandoPagamento(true);
+    try {
+      const response = await apiFetch(`/api/evento/${resumo.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: novoStatus }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : data?.message || "Erro ao alterar status",
+        );
+      }
+
+      toast.success(`Evento atualizado para ${data.status_evento} ✅`);
+      setResumo((prev) =>
+        prev
+          ? {
+              ...prev,
+              status_evento: data.status_evento,
+            }
+          : prev,
+      );
+
+      // Se mudou para PD_CONCLUIDA, gera os pagamentos
+      if (novoStatus === STATUS_EVENTO.PD_CONCLUIDA) {
+        try {
+          const pagamentoResponse = await fetch(
+            `/api/pagamento/evento/${resumo.id}`,
+            { method: "POST" },
+          );
+          const pagamentoData = await pagamentoResponse.json();
+          if (!pagamentoResponse.ok) {
+            throw new Error(
+              Array.isArray(pagamentoData?.message)
+                ? pagamentoData.message.join(", ")
+                : pagamentoData?.message || "Erro ao gerar pagamento",
+            );
+          }
+          toast.success(
+            `Previsão de desembolso gerada para ${pagamentoData.length} policial(is) ✅`,
+          );
+        } catch (pagamentoError: any) {
+          toast.error(pagamentoError?.message || "Erro ao gerar pagamento");
+        }
+      }
+
+      const refresh = await fetch(`/api/evento/${resumo.id}`);
+      const updated = await refresh.json();
+      setResumo(updated);
+      setBusca("");
+      const fases = ["CRIADO", "HOMOLOGADO", "PD_CONCLUIDA", "PAGO"];
+      const idxAtual = fases.indexOf(updated.status_evento);
+      const fasesParaAtivar = fases.slice(0, idxAtual + 1);
+      setProgressoLinha(calcEventoProgressoLinha(updated.status_evento));
+      setFasesAtivas(fasesParaAtivar);
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao alterar status do evento");
+    } finally {
+      setGerandoPagamento(false);
+    }
+  }
+
   return (
     <div className="modalOverlayEventoResumo" onClick={onClose}>
       <div
         className="modalCardEventoResumo"
-        style={{
-          maxWidth: "900px",
-          width: "95%",
-          maxHeight: "85vh",
-          overflowY: "auto",
-        }}
         onClick={(e) => e.stopPropagation()}
       >
         {loading && (
-          <div style={{ textAlign: "center", padding: "20px" }}>
-            Carregando...
-          </div>
+          <div className="divEventoResumoCarregando">Carregando...</div>
         )}
 
         {!loading && resumo && (
@@ -103,7 +270,7 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                 <div style={{ flex: 1, textAlign: "center" }}>
                   <div>
                     <img
-                      src="/gov_pe.png"
+                      src="/logo_pmpe.jpg"
                       alt="Logo da PMPE"
                       className="logoEventoResumo"
                     />
@@ -118,147 +285,76 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                   <h4 className="tituloEventoResumo">
                     Diretoria de Planejamento Operacional
                   </h4>
-                </div>
-              </div>
-              <div>
-                <div
-                  style={{ fontSize: "13px", marginTop: "4px", color: "#555" }}
-                >
-                  {resumo.ome.nomeOme} | {resumo.nome_evento}
-                </div>
-                <div
-                  style={{ fontSize: "12px", color: "#888", marginTop: "2px" }}
-                >
-                  Status: <strong>{resumo.status_evento}</strong>
-                  {resumo.homologado_em && (
-                    <span>
-                      {" "}
-                      | Homologado em{" "}
-                      {new Date(resumo.homologado_em).toLocaleString("pt-BR")}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* ─── Totalizadores ─────────────────────────────────────────── */}
-            <div style={{ display: "flex", gap: "16px", marginBottom: "16px" }}>
-              <div
-                className="cotasBox"
-                style={{ display: "flex", gap: "16px" }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    fontSize: "13px",
-                  }}
-                >
-                  <FiStar />
-                  <span>Oficiais:</span>
-                  <strong>
-                    {resumo.totalCotasOficiais} / {resumo.qtd_of_evento}
-                  </strong>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    fontSize: "13px",
-                  }}
-                >
-                  <FiChevronUp />
-                  <span>Praças:</span>
-                  <strong>
-                    {resumo.totalCotasPracas} / {resumo.qtd_prc_evento}
-                  </strong>
+                  <div className="divTitlePlanilha">
+                    PLANILHA DE RESUMO DO EVENTO
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* ─── Busca ─────────────────────────────────────────────────── */}
-            <div
-              style={{
-                width: "100%",
-                display: "flex",
-                justifyContent: "space-between",
-              }}
-            >
+            <div className="divNomeEventoInputBusca">
               <div>
-                <div style={{ fontSize: "13px", color: "#555" }}>
+                <div className="divOmeNomeEventoResumo">
                   {resumo.ome.nomeOme} | {resumo.nome_evento}
                 </div>
 
-                <div
-                  style={{ fontSize: "12px", color: "#888", marginTop: "2px" }}
-                >
-                  <strong>Status: </strong>
-                  {resumo.homologado_em && (
-                    <span>
-                      {resumo.status_evento}{" "}
-                      {new Date(resumo.homologado_em).toLocaleString("pt-BR")}
-                    </span>
-                  )}
+                <div className="divStatusEventoResumo">
+                  <strong>
+                    {resumo.homologado_em && (
+                      <span>
+                        {resumo.status_evento}{" "}
+                        {new Date(resumo.homologado_em).toLocaleString("pt-BR")}
+                      </span>
+                    )}
+                  </strong>
                 </div>
               </div>
 
-              <div>
-                <input
-                  type="text"
-                  placeholder="Buscar por matrícula, nome, OME..."
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 10px",
-                    fontSize: "12px",
-                    border: "1px solid #ddd",
-                    borderRadius: "4px",
-                    boxSizing: "border-box",
-                  }}
-                />
+              <div style={{ display: "flex" }}>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Buscar por matrícula, nome, OME..."
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    className="inputBusca"
+                  />
+                </div>
+
+                <div className="divIconeDonwloadEventoResumo">
+                  <FaDownload size={25} />
+                </div>
               </div>
             </div>
 
             {/* ─── Tabela ─────────────────────────────────────────────────── */}
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "11px",
-              }}
-            >
+            <table className="tabelaResumoEvento">
               <thead>
-                <tr
-                  style={{
-                    background: "#f3f4f6",
-                    fontWeight: "bold",
-                    color: "#374151",
-                  }}
-                >
-                  <th style={th}>IDENTIFICAÇÃO</th>
-
+                <tr className="trResumoEvento">
+                  <th className="hide-mobile" style={th}>
+                    FOLHA DE PAGAMENTO
+                  </th>
+                  <th style={th}>UNIDADE</th>
+                  <th style={th}>IDENTIFICAÇÃO DO POLICIAL</th>
                   <th style={th}>CPF</th>
-                  <th style={th}>TELEFONE</th>
-                  <th style={th}>NUFUNC</th>
-                  <th style={th}>DADOS BANCÁRIOS</th>
+                  <th className="hide-mobile" style={th}>
+                    TELEFONE
+                  </th>
+                  <th className="hide-mobile" style={th}>
+                    NUFUNC
+                  </th>
+                  <th className="hide-mobile" style={th}>
+                    DADOS BANCÁRIOS
+                  </th>
                   <th style={th}>TOTAL COTAS</th>
                 </tr>
               </thead>
               <tbody>
                 {usuariosFiltrados.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={9}
-                      style={{
-                        textAlign: "center",
-                        padding: "16px",
-                        color: "#888",
-                      }}
-                    >
-                      Nenhum policial escalado neste evento
+                    <td colSpan={9} className="tdDefaultEvento">
+                      NÃO HÁ POLICIAIS ESCALADOS
                     </td>
                   </tr>
                 )}
@@ -267,21 +363,32 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                     key={u.usuarioId}
                     style={{ borderBottom: "1px solid #eee" }}
                   >
+                    <td className="hide-mobile" style={td}>
+                      {resumo.teto.sistema} | {resumo.teto.nome_verba}
+                    </td>
+
+                    <td style={td}>{resumo.ome.nomeOme}</td>
+
                     <td style={td}>
                       {u.pg} {u.mat} {u.nomeGuerra} {u.nomeOme}
                     </td>
 
                     <td style={td}>{formatarCPF(u.cpf)}</td>
-                    <td style={td}>{u.phone || "-"}</td>
-                    <td style={td}>
+
+                    <td className="hide-mobile" style={td}>
+                      {u.phone || "-"}
+                    </td>
+
+                    <td className="hide-mobile" style={td}>
                       {u.nunfunc} | {u.nunvinc}
                     </td>
 
-                    <td style={td}>
+                    <td className="hide-mobile" style={td}>
                       {u.banco
                         ? `${u.banco} | Ag: ${u.agencia} | Ct: ${u.conta}`
                         : "-"}
                     </td>
+
                     <td
                       style={{ ...td, textAlign: "center", fontWeight: "bold" }}
                     >
@@ -293,68 +400,182 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
             </table>
 
             {/* ─── Rodapé ─────────────────────────────────────────────────── */}
-            <div
-              style={{
-                marginTop: "12px",
-                fontSize: "11px",
-                color: "#888",
-                textAlign: "right",
-              }}
-            >
+            <div className="divRodapeEventoPrincipal">
               {usuariosFiltrados.length} policial(is) escalado(s)
             </div>
 
-            <div
-              style={{
-                borderBottom: "1px solid #eee",
-                textAlign: "right",
-              }}
-            >
-              <div style={{ fontSize: "13px", color: "#555" }}>
-                <strong>Oficiais: </strong>
-                {resumo.totalCotasOficiais} cota(s){" "}
-                {(resumo.totalCotasOficiais * 300).toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
+            <div className="divRodapeEventoSecundaria">
+              <div style={{ fontSize: "10px", color: "#555" }}>
+                Oficiais:{" "}
+                <strong>
+                  {resumo.totalCotasOficiais} cota(s){" "}
+                  {(resumo.totalCotasOficiais * 300).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </strong>
               </div>
-              <div style={{ fontSize: "13px", color: "#555" }}>
-                <strong>Praças: </strong>
-                {resumo.totalCotasPracas} cota(s){" "}
-                {(resumo.totalCotasPracas * 200).toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
+              <div className="divRodapePrcValor">
+                Praças:{" "}
+                <strong>
+                  {resumo.totalCotasPracas} cota(s){" "}
+                  {(resumo.totalCotasPracas * 200).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </strong>
+              </div>
+
+              <div className="divValorTtEvento">
+                Valor total da planilha:{" "}
+                <strong>
+                  {(
+                    resumo.totalCotasPracas * 200 +
+                    resumo.totalCotasOficiais * 300
+                  ).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </strong>
               </div>
             </div>
-            <div
-              style={{ fontSize: "13px", color: "#555", textAlign: "right" }}
-            >
-              <strong>Valor total: </strong>
 
-              {(
-                resumo.totalCotasPracas * 200 +
-                resumo.totalCotasOficiais * 300
-              ).toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
+            <div className="divNomeSisGenesis">
+              <div>
+                <h4 className="tituloEventoResumo">
+                  Genesis - Sistema de Planejamento, Gestão e Controle
+                </h4>
+
+                <div>
+                  <img
+                    src="/logo_dpo.webp"
+                    alt="Logo da PMPE"
+                    className="logoEventoResumoRodape"
+                  />
+                </div>
+              </div>
+            </div>
+            {/* ─── Progresso do Evento ──────────────────────────────────────── */}
+            <div className="modalFooter">
+              <div className="eventoProgressoWrap">
+                <div className="eventoProgressoSteps">
+                  <div className="eventoProgressoLine">
+                    <div
+                      className="eventoProgressoLineFill"
+                      style={{ width: progressoLinha }}
+                    />
+                  </div>
+
+                  {[
+                    {
+                      key: "CRIADO",
+                      label: "Criado",
+                      icon: "ti-file-plus",
+                      data: resumo.criado_em,
+                      usuario: resumo.criado_por,
+                    },
+                    {
+                      key: "HOMOLOGADO",
+                      label: "Homologado",
+                      icon: "ti-circle-check",
+                      data: resumo.homologado_em,
+                      usuario: resumo.homologado_por,
+                    },
+                    {
+                      key: "PD_CONCLUIDA",
+                      label: "Prev. Desembolso",
+                      icon: "ti-cash",
+                      data: resumo.pd_concluida_em,
+                      usuario: resumo.pd_concluida_por,
+                    },
+                    {
+                      key: "PAGO",
+                      label: "Pago",
+                      icon: "ti-rosette-discount-check",
+                      data: resumo.pago_em,
+                      usuario: resumo.pago_por,
+                    },
+                  ].map(({ key, label, icon, data, usuario }) => {
+                    const fases = [
+                      "CRIADO",
+                      "HOMOLOGADO",
+                      "PD_CONCLUIDA",
+                      "PAGO",
+                    ];
+                    const idxAtual = fases.indexOf(resumo.status_evento);
+                    const idxFase = fases.indexOf(key);
+
+                    const ativo =
+                      fasesAtivas.includes(key) && idxFase < idxAtual;
+                    const atual =
+                      fasesAtivas.includes(key) && idxFase === idxAtual;
+
+                    return (
+                      <div className="eventoProgressoStep" key={key}>
+                        <div
+                          className={`eventoProgressoCircle${ativo ? " ativo" : atual ? " atual" : ""}`}
+                        >
+                          <i className={`ti ${icon}`} aria-hidden="true" />
+                        </div>
+                        <div
+                          className={`eventoProgressoLabel${ativo || atual ? " ativo" : ""}`}
+                        >
+                          {label}
+                        </div>
+                        {(ativo || atual) && data && (
+                          <div className="eventoProgressoInfo ativo">
+                            {new Date(data).toLocaleString("pt-BR")}
+                            {usuario && (
+                              <>
+                                <br />
+                                {usuario}
+                              </>
+                            )}
+                          </div>
+                        )}
+                        {!(ativo || atual) && (
+                          <div className="eventoProgressoInfo" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div
+                style={{
+                  width: "100%",
+                }}
+              >
+                {resumo &&
+                  (() => {
+                    const permissoes = getPermissoesEvento(
+                      resumo.status_evento,
+                      user?.typeUser,
+                    );
+                    const acao = getEventoAcao(resumo.status_evento);
+                    const podeExecutar =
+                      acao?.novoStatus === STATUS_EVENTO.HOMOLOGADO
+                        ? permissoes.podeHomologar
+                        : acao?.novoStatus === STATUS_EVENTO.PD_CONCLUIDA
+                          ? permissoes.podePD
+                          : acao?.novoStatus === STATUS_EVENTO.PAGO
+                            ? permissoes.podePago
+                            : false;
+
+                    return acao && podeExecutar ? (
+                      <button
+                        className="botaoConcluirPd"
+                        onClick={() => handleAlterarStatus(acao.novoStatus)}
+                        disabled={gerandoPagamento}
+                      >
+                        {gerandoPagamento ? "Aguarde..." : acao.label}
+                      </button>
+                    ) : null;
+                  })()}
+              </div>
             </div>
           </>
         )}
-
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <h4 className="tituloEventoResumo">
-            Coordenadoria de Planejamento Administrativo
-          </h4>
-          <div>
-            <img
-              src="/logo_dpo.webp"
-              alt="Logo da PMPE"
-              className="logoEventoResumoRodape"
-            />
-          </div>
-        </div>
       </div>
     </div>
   );

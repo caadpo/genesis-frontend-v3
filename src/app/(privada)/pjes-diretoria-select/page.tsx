@@ -480,22 +480,6 @@ export default function PjesDiretoriaSelectPage() {
                             <div ref={menuRef} className="dropdownMenu">
                               <div
                                 className={`dropdownItem ${
-                                  !permissoes.podeHomologar ? "disabled" : ""
-                                }`}
-                                onClick={() => {
-                                  if (!permissoes.podeHomologar) return;
-
-                                  alterarStatus(
-                                    evento.id,
-                                    STATUS_EVENTO.HOMOLOGADO,
-                                  );
-                                }}
-                              >
-                                Homologar
-                              </div>
-
-                              <div
-                                className={`dropdownItem ${
                                   !permissoes.podeDeHomologar ? "disabled" : ""
                                 }`}
                                 onClick={() => {
@@ -508,22 +492,6 @@ export default function PjesDiretoriaSelectPage() {
                                 }}
                               >
                                 Des-homologar
-                              </div>
-
-                              <div
-                                className={`dropdownItem ${
-                                  !permissoes.podePD ? "disabled" : ""
-                                }`}
-                                onClick={() => {
-                                  if (!permissoes.podePD) return;
-
-                                  alterarStatus(
-                                    evento.id,
-                                    STATUS_EVENTO.PD_CONCLUIDA,
-                                  );
-                                }}
-                              >
-                                PD Concluída
                               </div>
 
                               <div
@@ -579,21 +547,6 @@ export default function PjesDiretoriaSelectPage() {
                       <div className="itemOficiaisPracas direita">
                         Praças: {evento.qtd_prc_evento}
                       </div>
-                    </div>
-
-                    <div className="divEventoDireitaStatusEvento">
-                      {evento.user.pg} {evento.user.nomeGuerra} |{" "}
-                      {evento.status_evento} em{" "}
-                      {new Date(evento.updated_at).toLocaleString("pt-BR")}
-                      {evento.homologado_em && (
-                        <span>
-                          {" "}
-                          Homologado em{" "}
-                          {new Date(evento.homologado_em).toLocaleString(
-                            "pt-BR",
-                          )}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>

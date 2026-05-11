@@ -20,10 +20,9 @@ import ContaModal from "@/src/components/ui/ContaModal";
 type Usuario = {
   id: number;
   imagemUrl?: string;
-  loginSei: string;
+  mat: string;
   nomeGuerra: string;
   pg: string;
-  mat: string;
   tipo: string;
   typeUser: number;
   phone: string;
@@ -42,8 +41,8 @@ type Conta = {
   conta: string;
   createdAt: string;
   updatedAt: string;
-  createdByUser?: { loginSei: string };
-  updatedByUser?: { loginSei: string };
+  createdByUser?: { mat: string };
+  updatedByUser?: { mat: string };
 };
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
@@ -312,7 +311,7 @@ export default function UsuariosPage() {
                     )}
                   </div>
 
-                  <div className="usuarioLogin">{usuarioResumo.loginSei}</div>
+                  <div className="usuarioLogin">{usuarioResumo.mat}</div>
 
                   <div className="usuarioInfos">
                     <span>
@@ -361,13 +360,11 @@ export default function UsuariosPage() {
                       </div>
                     </div>
                     Cadastro:{" "}
-                    {usuarioDetalhe.conta.createdByUser?.loginSei ?? "Sistema"}{" "}
-                    em{" "}
+                    {usuarioDetalhe.conta.createdByUser?.mat ?? "Sistema"} em{" "}
                     {new Date(usuarioDetalhe.conta.createdAt).toLocaleString()}
                     <br />
                     Atualização:{" "}
-                    {usuarioDetalhe.conta.updatedByUser?.loginSei ??
-                      "—"} em{" "}
+                    {usuarioDetalhe.conta.updatedByUser?.mat ?? "—"} em{" "}
                     {new Date(usuarioDetalhe.conta.updatedAt).toLocaleString()}
                   </>
                 ) : (

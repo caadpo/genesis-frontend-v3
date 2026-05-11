@@ -26,7 +26,6 @@ export default function UsuariosModal({
   const [nomeGuerra, setNomeGuerra] = useState("");
   const [pg, setPg] = useState("");
   const [mat, setMat] = useState("");
-  const [loginSei, setLoginSei] = useState("");
   const [phone, setPhone] = useState("");
   const [cpf, setCpf] = useState("");
   const [nunfunc, setNunfunc] = useState("");
@@ -40,7 +39,6 @@ export default function UsuariosModal({
       setNomeGuerra(user.nomeGuerra ?? "");
       setPg(user.pg ?? "");
       setMat(user.mat ?? "");
-      setLoginSei(user.loginSei ?? "");
       setPhone(user.phone ?? "");
       setCpf(user.cpf ?? "");
       setNunfunc(user.nunfunc ?? "");
@@ -51,7 +49,6 @@ export default function UsuariosModal({
       setNomeGuerra("");
       setPg("");
       setMat("");
-      setLoginSei("");
       setPhone("");
       setCpf("");
       setNunfunc("");
@@ -81,8 +78,7 @@ export default function UsuariosModal({
     const payload = {
       nomeGuerra,
       pg,
-      mat: Number(mat),
-      loginSei,
+      mat,
       phone,
       typeUser,
       omeId: omeId,
@@ -119,7 +115,7 @@ export default function UsuariosModal({
 
     return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 3)}.${numbers.slice(
       3,
-      7
+      7,
     )}-${numbers.slice(7)}`;
   }
 
@@ -189,11 +185,11 @@ export default function UsuariosModal({
             <div style={{ width: "100%" }}>
               <input
                 style={{ width: "100%" }}
-                value={loginSei}
+                value={mat}
                 onChange={(e) => {
                   const value = e.target.value.toLowerCase();
                   const filtered = value.replace(/[^a-z0-9.]/g, "");
-                  setLoginSei(filtered);
+                  setMat(filtered);
                 }}
               />
             </div>

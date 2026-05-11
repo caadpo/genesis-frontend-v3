@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useApi } from "@/src/hooks/useApi";
@@ -15,6 +15,7 @@ import {
   FaUser,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
+import { FaTriangleExclamation } from "react-icons/fa6";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ type Usuario = {
   cpf?: string;
   nunfunc: string;
   nunvinc: string;
-  situacaoSgp?: string;
+  situacao: string;
   tipo: string;
   ome?: { nomeOme: string };
   conta?: { banco: string; agencia: string; conta: string };
@@ -48,7 +49,7 @@ type Usuario = {
 type Escala = {
   id: number;
   sistema: string;
-  mat: number;
+  mat: string;
   pg_escala: string;
   tipo_escala: string;
   nome_escala: string;
@@ -141,15 +142,16 @@ export default function PjesEscalasPage() {
     null,
   );
   const [selectedCargo, setSelectedCargo] = useState("");
-  const [selectedViatura, setSelectedViatura] = useState("Vtr001");
+  const [selectedViatura, setSelectedViatura] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
   const [horaFim, setHoraFim] = useState("");
-  const [localApresentacao, setLocalApresentacao] = useState("SEDE DA OME");
-  const [situacao, setSituacao] = useState("REGULAR");
+  const [localApresentacao, setLocalApresentacao] = useState("");
+  const [situacao, setSituacao] = useState("");
   const [anotacoes, setAnotacoes] = useState("");
   const [searchText, setSearchText] = useState("");
   const [tabelaEscalas, setTabelaEscalas] = useState<Escala[]>([]);
+  const isEditandoRef = useRef(false);
 
   const { data: escalasFromApi } = useApi<Escala[]>(
     operacaoId ? `/api/escala?operacaoId=${operacaoId}` : "",
@@ -182,13 +184,26 @@ export default function PjesEscalasPage() {
       ? (operacao?.qtd_oficiais_oper ?? 0) - cotasUsadas
       : (operacao?.qtd_pracas_oper ?? 0) - cotasUsadas;
   const tetoPermiteAdicionar = tetoDisponivel >= cotaEscala;
+  // ✅ substitua a definição atual de canAddEscala por:
+  const camposObrigatoriosFaltando = (): string[] => {
+    const faltando: string[] = [];
+    if (!usuario && !editandoEscala) faltando.push("Matrícula");
+    if (!dataInicio) faltando.push("Data de Início");
+    if (!horaInicio) faltando.push("Hora de Início");
+    if (!horaFim) faltando.push("Hora de Término");
+    if (!localApresentacao) faltando.push("Local de Apresentação");
+    if (!selectedCargo) faltando.push("Função");
+    return faltando;
+  };
+
   const canAddEscala =
-    !!usuario &&
+    (!!usuario || !!editandoEscala) &&
     !!dataInicio &&
     !!horaInicio &&
     !!horaFim &&
+    !!localApresentacao &&
     !!selectedCargo &&
-    !!localApresentacao;
+    !loadingUsuario; // ✅ desabilitado enquanto busca
 
   const filteredEscalas = tabelaEscalas.filter((escala) => {
     if (!searchText.trim()) return true;
@@ -227,6 +242,15 @@ export default function PjesEscalasPage() {
     if (matricula.trim().length === 0) {
       setUsuario(null);
       setBuscaUsuarioError(null);
+      setLocalApresentacao("");
+      setSituacao("");
+      return;
+    }
+
+    // ✅ não busca se tiver menos de 7 dígitos
+    if (matricula.trim().length < 7) {
+      setUsuario(null);
+      setBuscaUsuarioError(null);
       return;
     }
 
@@ -241,7 +265,7 @@ export default function PjesEscalasPage() {
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(errorText || "Erro ao buscar usuário");
+          throw new Error(errorText || "Matricula não existe ou está errada");
         }
 
         const data = await response.json();
@@ -250,13 +274,25 @@ export default function PjesEscalasPage() {
         if (!found || !found.id) {
           setUsuario(null);
           setBuscaUsuarioError("Usuário não encontrado");
+          setLocalApresentacao(""); // ✅ limpa se não encontrou
+          setSituacao("");
           return;
         }
 
         setUsuario(found);
+        if (!isEditandoRef.current) {
+          // ✅ só preenche automaticamente se NÃO for edição
+          setLocalApresentacao(found.localApresentacao ?? "");
+          setSituacao(found.situacao ?? "");
+        }
+        isEditandoRef.current = false;
       } catch (error: any) {
         setUsuario(null);
-        setBuscaUsuarioError(error?.message || "Erro ao buscar usuário");
+        setBuscaUsuarioError(
+          error?.message || "Matricula não existe ou está errada",
+        );
+        setLocalApresentacao("");
+        setSituacao("");
       } finally {
         setLoadingUsuario(false);
       }
@@ -264,21 +300,24 @@ export default function PjesEscalasPage() {
 
     return () => clearTimeout(timeout);
   }, [matricula]);
-
   async function handleAddEscala() {
-    if (!usuario && !editandoEscala) return;
-    if (!operacaoId || !operacao) return;
-
-    if (
-      !dataInicio ||
-      !horaInicio ||
-      !horaFim ||
-      !selectedCargo ||
-      !localApresentacao
-    ) {
-      toast.error("Preencha todos os campos obrigatórios");
+    // ✅ validação com toast PRIMEIRO — antes de qualquer return silencioso
+    const faltando = camposObrigatoriosFaltando();
+    console.log("faltando:", faltando);
+    console.log("usuario:", usuario);
+    console.log("editandoEscala:", editandoEscala);
+    console.log("dataInicio:", dataInicio);
+    console.log("horaInicio:", horaInicio);
+    console.log("horaFim:", horaFim);
+    console.log("localApresentacao:", localApresentacao);
+    console.log("selectedCargo:", selectedCargo);
+    if (faltando.length > 0) {
+      toast.error(`Preencha os campos obrigatórios: ${faltando.join(", ")}`);
       return;
     }
+
+    // ✅ só depois os guards técnicos (sem toast pois não deveriam ocorrer normalmente)
+    if (!operacaoId || !operacao) return;
 
     const isEdicao = !!editandoEscala;
     const url = isEdicao ? `/api/escala/${editandoEscala.id}` : "/api/escala";
@@ -293,7 +332,6 @@ export default function PjesEscalasPage() {
           funcao,
           situacao,
           anotacoes,
-          // ✅ inclui usuarioId se o usuário foi buscado/alterado
           ...(usuario && { usuarioId: usuario.id }),
         }
       : {
@@ -332,22 +370,18 @@ export default function PjesEscalasPage() {
         );
         toast.success("Escala atualizada com sucesso!");
         setEditandoEscala(null);
-
-        // ✅ No update limpa tudo
         setMatricula("");
         setDataInicio("");
         setHoraInicio("");
         setHoraFim("");
         setSelectedCargo("");
-        setSelectedViatura("Vtr001");
-        setLocalApresentacao("SEDE DA OME");
-        setSituacao("REGULAR");
+        setSelectedViatura("");
+        setLocalApresentacao("");
+        setSituacao("");
         setAnotacoes("");
       } else {
         setTabelaEscalas((prev) => [data, ...prev]);
         toast.success("Escala adicionada com sucesso!");
-
-        // ✅ No insert limpa apenas a matrícula — os demais campos ficam preenchidos
         setMatricula("");
       }
     } catch (error: any) {
@@ -377,23 +411,18 @@ export default function PjesEscalasPage() {
   }
 
   function handleEditarEscala(escala: Escala) {
+    isEditandoRef.current = true; // ✅ sinaliza que é edição
     setEditandoEscala(escala);
-
-    // ✅ Preenche os campos com os dados do registro
     setMatricula(String(escala.mat));
     setDataInicio(escala.dataInicio);
     setHoraInicio(escala.horaInicio);
     setHoraFim(escala.horaFim);
-    setLocalApresentacao(escala.localApresentacao);
+    setLocalApresentacao(escala.localApresentacao); // ✅ valor salvo, não do SGP
     setSituacao(escala.situacao);
     setAnotacoes(escala.anotacoes ?? "");
-
-    // ✅ Separa cargo e viatura do campo funcao (ex: "MOT - Vtr001")
     const [cargo, viatura] = escala.funcao.split(" - ");
     setSelectedCargo(cargo ?? "");
     setSelectedViatura(viatura ?? "Vtr001");
-
-    // ✅ Rola para o topo para o usuário ver o formulário
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -416,44 +445,41 @@ export default function PjesEscalasPage() {
             <div className="cardPolicialSelecionado">
               {/* ESQUERDA */}
               <div className="policialLeft">
-                <div className="usuarioImgEscala">
-                  {!matricula ? (
-                    <FaUser className="usuarioIcon" />
-                  ) : loadingUsuario ? (
-                    <FaUser className="usuarioIcon" />
-                  ) : usuario?.imagemUrl ? (
-                    <img
-                      src={usuario.imagemUrl}
-                      alt="Usuário"
-                      className="usuarioImgEscala"
+                <div className="divImgInoutMat">
+                  <div className="usuarioImgEscala">
+                    {!matricula ? (
+                      <FaUser className="usuarioIcon" />
+                    ) : loadingUsuario ? (
+                      <FaUser className="usuarioIcon" />
+                    ) : usuario?.imagemUrl ? (
+                      <img
+                        src={usuario.imagemUrl}
+                        alt="Usuário"
+                        className="usuarioImgEscala"
+                      />
+                    ) : (
+                      <FaUser className="usuarioIcon" />
+                    )}
+                  </div>
+                  <div className="matpolicial">
+                    <input
+                      type="text"
+                      className="inputDadosEscala"
+                      placeholder="matricula"
+                      value={matricula}
+                      onChange={(e) =>
+                        setMatricula(e.target.value.replace(/\D/g, ""))
+                      }
                     />
-                  ) : (
-                    <FaUser className="usuarioIcon" />
-                  )}
+                  </div>
                 </div>
-
-                <div className="matpolicial">
-                  <input
-                    type="text"
-                    placeholder="matricula"
-                    value={matricula}
-                    onChange={(e) =>
-                      setMatricula(e.target.value.replace(/\D/g, ""))
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* DIREITA */}
-              <div className="policialRight">
-                <div style={{ fontSize: "11px", width: "25%" }}>
+                <div
+                  style={{ fontSize: "11px", width: "100%", marginTop: "10px" }}
+                >
                   {loadingUsuario && <div>Buscando usuário...</div>}
                   {!loadingUsuario && usuario && (
                     <>
                       <div>
-                        <h1 style={{ fontSize: "14px", marginBottom: "10px" }}>
-                          DADOS DO POLCIAL
-                        </h1>
                         <strong>
                           <FaUser /> {usuario.pg} {usuario.nomeGuerra}{" "}
                           {usuario.ome?.nomeOme ?? ""}
@@ -467,8 +493,8 @@ export default function PjesEscalasPage() {
                       </div>
 
                       <div>
-                        Situação:{" "}
-                        <strong>{usuario.situacaoSgp || "REGULAR"}</strong>
+                        <FaTriangleExclamation />{" "}
+                        <strong>{usuario.situacao}</strong>
                       </div>
                       <div>
                         <strong>Banco:</strong> {usuario.conta?.banco || "-"}
@@ -492,12 +518,14 @@ export default function PjesEscalasPage() {
                     </div>
                   )}
                 </div>
-                <div style={{ fontSize: "12px", width: "75%" }}>
+              </div>
+
+              {/* DIREITA */}
+              <div className="policialRight">
+                <div style={{ fontSize: "12px", width: "100%" }}>
                   <div style={{ display: "flex", gap: "3px", width: "100%" }}>
                     <div className="divDadosEscala">
-                      <span>
-                        <strong>Data Inicio:</strong>
-                      </span>
+                      <span className="labelDadosEscala">Data Inicio:</span>
                       <input
                         className="inputDadosEscala"
                         style={{ width: "100px", padding: "4px" }}
@@ -519,9 +547,7 @@ export default function PjesEscalasPage() {
                       />
                     </div>
                     <div className="divDadosEscala">
-                      <span>
-                        <strong>Inicio:</strong>
-                      </span>
+                      <span className="labelDadosEscala">Inicio:</span>
                       <input
                         className="inputDadosEscala"
                         style={{ width: "80px", padding: "4px" }}
@@ -531,9 +557,7 @@ export default function PjesEscalasPage() {
                       />
                     </div>
                     <div className="divDadosEscala">
-                      <span>
-                        <strong>Término:</strong>
-                      </span>
+                      <span className="labelDadosEscala">Término:</span>
                       <input
                         className="inputDadosEscala"
                         style={{ width: "80px", padding: "4px" }}
@@ -543,8 +567,8 @@ export default function PjesEscalasPage() {
                       />
                     </div>
                     <div className="divDadosEscala" style={{ width: "100%" }}>
-                      <span>
-                        <strong>Local de Apresentação:</strong>
+                      <span className="labelDadosEscala">
+                        Local de Apresentação:
                       </span>
                       <input
                         className="inputDadosEscala"
@@ -563,6 +587,7 @@ export default function PjesEscalasPage() {
                       width: "100%",
                       textAlign: "center",
                       marginTop: "10px",
+                      color: "#a8a8a8",
                       border: "solid 1px #e2dbdb",
                     }}
                   >
@@ -582,6 +607,11 @@ export default function PjesEscalasPage() {
                         <label style={{ cursor: "pointer" }}>
                           <input
                             type="checkbox"
+                            className="ckeckboxCargo"
+                            style={{
+                              transform: "scale(1.2)", // aumenta o tamanho
+                              cursor: "pointer",
+                            }}
                             checked={selectedCargo === cargo}
                             onChange={() =>
                               setSelectedCargo(
@@ -594,7 +624,7 @@ export default function PjesEscalasPage() {
                         </label>
                       </div>
                     ))}
-                    <div style={{ marginLeft: "1%" }}>
+                    <div>
                       <select
                         style={{
                           width: "100%",
@@ -605,13 +635,14 @@ export default function PjesEscalasPage() {
                         }}
                         value={selectedViatura}
                         onChange={(e) => setSelectedViatura(e.target.value)}
+                        className="labelDadosEscala"
                       >
-                        <option>Vtr001</option>
-                        <option>Vtr002</option>
-                        <option>Vtr003</option>
-                        <option>Vtr004</option>
-                        <option>Vtr005</option>
-                        <option>Vtr006</option>
+                        <option>Vt01</option>
+                        <option>Vt02</option>
+                        <option>Vt03</option>
+                        <option>Vt04</option>
+                        <option>Vt05</option>
+                        <option>Vt06</option>
                       </select>
                       <span style={{ fontSize: "14px" }}>
                         <FaCar />
@@ -620,13 +651,20 @@ export default function PjesEscalasPage() {
                   </div>
 
                   <div className="divDadosEscala" style={{ width: "100%" }}>
-                    <span>
-                      <strong>Anotações:</strong>
-                    </span>
-                    <input
+                    <span className="labelDadosEscala">Anotações</span>
+
+                    <textarea
                       className="inputDadosEscala"
-                      style={{ width: "100%", padding: "6px" }}
-                      type="text"
+                      style={{
+                        width: "100%",
+                        padding: "6px",
+                        height: "40px",
+                        textAlign: "left",
+                        verticalAlign: "top",
+                        resize: "none",
+                        border: "1px solid #ccc",
+                        borderRadius: "6px",
+                      }}
                       value={anotacoes}
                       onChange={(e) => setAnotacoes(e.target.value)}
                     />
@@ -708,10 +746,18 @@ export default function PjesEscalasPage() {
             <button
               className="botaoCriarEscala"
               type="button"
-              disabled={!canAddEscala && !editandoEscala}
+              // ✅ remover disabled — a validação com toast acontece dentro do handleAddEscala
               onClick={handleAddEscala}
+              style={{
+                opacity: canAddEscala ? 1 : 0.5, // ✅ feedback visual de "desabilitado" sem bloquear o clique
+                cursor: canAddEscala ? "pointer" : "not-allowed",
+              }}
             >
-              {editandoEscala ? "SALVAR ALTERAÇÕES" : "ADICIONAR POLICIAL"}
+              {loadingUsuario
+                ? "BUSCANDO..."
+                : editandoEscala
+                  ? "SALVAR ALTERAÇÕES"
+                  : "ADICIONAR POLICIAL"}
             </button>
 
             {/* ✅ Botão de cancelar edição */}
@@ -726,9 +772,9 @@ export default function PjesEscalasPage() {
                   setHoraInicio("");
                   setHoraFim("");
                   setSelectedCargo("");
-                  setSelectedViatura("Vtr001");
-                  setLocalApresentacao("SEDE DA OME");
-                  setSituacao("REGULAR");
+                  setSelectedViatura("");
+                  setLocalApresentacao("");
+                  setSituacao("");
                   setAnotacoes("");
                 }}
               >
@@ -764,7 +810,7 @@ export default function PjesEscalasPage() {
               />
             </div>
 
-            <div style={{ flex: 1, textAlign: "center", marginTop: "20px" }}>
+            <div style={{ flex: 1, textAlign: "center" }}>
               <h4 className="tituloEscala">POLICIA MILITAR DE PERNAMBUCO</h4>
               <h4 className="tituloEscala">QUARTEL DO COMANDO GERAL</h4>
               <h4 className="tituloEscala">

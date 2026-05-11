@@ -43,18 +43,23 @@
 .policialLeft {
   display: flex;
   flex-direction: column;
+  width: 25%;
+  height: 100%;
+}
+
+.divImgInoutMat {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  width: 10%;
 }
 
 .matpolicial input {
   font-size: 13px;
-  width: 80px;
+  width: 100px;
   color: #555;
   text-align: center;
   border: 1px solid #dcdcdc;
-  border-radius: 8px;
+  margin-left: 10px;
+  border-radius: 15px;
   padding: 3px;
 }
 
@@ -62,12 +67,15 @@
   display: flex;
   gap: 8px;
   flex: 1;
-  width: 90%;
-  padding-left: 10px;
+  width: 75%;
 }
 
 .divDadosEscala {
   display: grid;
+}
+
+.ckeckboxCargo {
+  padding: 18px;
 }
 
 .inputDadosEscala {
@@ -75,9 +83,26 @@
   width: 80px;
   color: #555;
   text-align: center;
-  border: 1px solid #dcdcdc;
-  border-radius: 3px;
+  border: 1px solid #e2e5e7;
+  border-radius: 15px;
   padding: 3px;
+}
+
+.inputDadosEscala:focus {
+  outline: none;
+  border: 1px solid #2fc211;
+  box-shadow: 0 0 5px #31d31b;
+}
+
+.labelDadosEscala {
+  font-size: 11px;
+  color: #9c9999;
+  font-weight: 600;
+  padding-left: 4px;
+}
+
+textarea {
+  vertical-align: top;
 }
 
 .divOperacaoSelecionada {
@@ -134,8 +159,8 @@
 }
 
 .usuarioImgEscala {
-  width: 70px;
-  height: 70px;
+  width: 40px;
+  height: 40px;
   object-fit: cover;
   border-radius: 50%;
   background: #f2f2f2;
@@ -160,13 +185,12 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 8px;
   flex: 1;
-  padding-left: 10px;
+  padding-left: 3px;
 }
 
 .nomeOperacao {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   color: #2f2f2f;
   border-bottom: solid 1px hsl(0, 12%, 90%);
@@ -248,14 +272,14 @@
 }
 
 .tituloEscala {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 600;
   font-family: Arial, Helvetica, sans-serif;
   text-align: center;
 }
 
 .divtitleEscalaServico {
-  margin-top: 20px;
+  margin-top: 10px;
   margin-bottom: 10px;
   border-bottom: 1px solid #c4c0c0;
   justify-content: space-between;

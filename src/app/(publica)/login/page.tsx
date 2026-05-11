@@ -42,7 +42,7 @@ export default function LoginPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        loginSei: username,
+        mat: username,
         password: password,
       }),
     });
