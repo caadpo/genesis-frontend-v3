@@ -74,6 +74,13 @@
   font-size: 18px;
 }
 
+.usuarioImgPerfilDrawer {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .user-text {
   display: flex;
   flex-direction: column;
@@ -398,7 +405,7 @@
   flex: 1;
   overflow-y: auto;
   padding: 5px;
-  background: #f5f7f9;
+  background: #ffffff;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 

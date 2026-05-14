@@ -862,7 +862,7 @@ export default function PjesEscalasPage() {
                 filteredEscalas.map((escala) => (
                   <tr key={escala.id} className="tabelaLinhaEscalas">
                     <td>
-                      {escala.pg_escala} {escala.nome_escala}{" "}
+                      {escala.pg_escala} {escala.mat} {escala.nome_escala}{" "}
                       {escala.nomeome_escala}
                     </td>
                     <td>{formatarCPF(escala.cpf_escala)}</td>

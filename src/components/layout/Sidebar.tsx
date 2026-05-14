@@ -11,6 +11,7 @@ import {
   FiUser,
   FiLayers,
   FiGrid,
+  FiRefreshCcw,
 } from "react-icons/fi";
 import toast from "react-hot-toast";
 
@@ -94,6 +95,14 @@ export default function Sidebar() {
         >
           <FiUsers />
           {open && <span>Usuarios</span>}
+        </Link>
+
+        <Link
+          href="/repasses"
+          className={`icon-btn ${isActive("/repasses") ? "active" : ""}`}
+        >
+          <FiRefreshCcw />
+          {open && <span>Repasse</span>}
         </Link>
 
         <button className="icon-btn" onClick={handleLogout}>

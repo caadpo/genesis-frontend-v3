@@ -17,7 +17,7 @@
 .divUsuario {
   width: 30%;
   padding: 8px;
-  height: 180px;
+  height: 130px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
   background: #ffffff;
@@ -45,12 +45,14 @@
 
 .usuarioCard {
   width: 100%;
-  min-height: 120px;
   border: 1px solid #ddd;
   border-radius: 8px;
   display: flex;
   gap: 15px;
-  padding: 15px;
+  padding-top: 5px;
+  padding-right: 15px;
+  padding-left: 15px;
+  padding-bottom: 5px;
   align-items: center;
   position: relative;
 }
@@ -61,18 +63,6 @@
 }
 
 /* AVATAR */
-
-.usuarioAvatar {
-  min-width: 55px;
-  height: 55px;
-  border-radius: 50%;
-  border: 2px solid #0a756c;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26px;
-  color: #0a756c;
-}
 
 /* CONTEÚDO DIREITO */
 
@@ -89,10 +79,24 @@
   align-items: center;
 }
 
-.usuarioAvatarImg {
-  width: 100%;
-  height: 100%;
+.usuarioImgBusca {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
   object-fit: cover;
+}
+
+/* fallback com ícone */
+.usuarioIcon {
+  display: flex;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  padding: 3px;
+
+  background-color: #f3f4f8;
+  color: #555;
+  font-size: 18px;
 }
 
 .usuarioNome {

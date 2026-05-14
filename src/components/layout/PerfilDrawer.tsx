@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { FiArrowLeft, FiKey, FiUser } from "react-icons/fi";
 import toast from "react-hot-toast";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
@@ -9,11 +9,11 @@ import {
   FaUser,
   FaPhone,
   FaUniversity,
-  FaAddressCard,
   FaMale,
   FaDollarSign,
   FaBarcode,
   FaChartLine,
+  FaHandPointUp,
 } from "react-icons/fa";
 import { AiFillCalendar } from "react-icons/ai";
 
@@ -27,6 +27,12 @@ export default function PerfilDrawer() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loadingPassword, setLoadingPassword] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [loadingPhone, setLoadingPhone] = useState(false);
+  const [loadingImagem, setLoadingImagem] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imagemUrl, setImagemUrl] = useState(user?.imagemUrl || "");
 
   useEffect(() => {
     const openDrawer = () => {
@@ -36,6 +42,16 @@ export default function PerfilDrawer() {
     window.addEventListener("openPerfilDrawer", openDrawer);
     return () => window.removeEventListener("openPerfilDrawer", openDrawer);
   }, []);
+
+  useEffect(() => {
+    if (user?.phone) {
+      setPhone(user.phone);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.imagemUrl) setImagemUrl(user.imagemUrl);
+  }, [user]);
 
   function getUserTypeLabel(type?: number) {
     switch (type) {
@@ -58,6 +74,49 @@ export default function PerfilDrawer() {
       default:
         return "Usuário";
     }
+  }
+
+  async function handleUpdatePhone() {
+    try {
+      setLoadingPhone(true);
+
+      const response = await fetch("/api/user", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error();
+      }
+
+      toast.success("Telefone atualizado com sucesso");
+      setEditingPhone(false);
+    } catch {
+      toast.error("Erro ao atualizar telefone");
+    } finally {
+      setLoadingPhone(false);
+    }
+  }
+
+  function formatPhone(value: string) {
+    const numbers = value.replace(/\D/g, "");
+
+    if (numbers.length <= 10) {
+      return numbers
+        .replace(/^(\d{2})(\d)/g, "($1) $2")
+        .replace(/(\d{4})(\d)/, "$1-$2")
+        .slice(0, 14);
+    }
+
+    return numbers
+      .replace(/^(\d{2})(\d)/g, "($1) $2")
+      .replace(/(\d{5})(\d)/, "$1-$2")
+      .slice(0, 15);
   }
 
   async function handleChangePassword() {
@@ -84,6 +143,36 @@ export default function PerfilDrawer() {
       toast.error("Erro ao alterar senha");
     } finally {
       setLoadingPassword(false);
+    }
+  }
+
+  // Sincroniza quando user carrega
+  async function handleImagemUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user?.mat) return;
+
+    try {
+      setLoadingImagem(true);
+      const formData = new FormData();
+      formData.append("imagem", file);
+      formData.append("mat", user.mat);
+
+      const response = await fetch("/api/user/upload-imagem", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error();
+
+      const { imagemUrl: novaUrl } = await response.json();
+      // Força recarregar quebrando o cache do browser
+      setImagemUrl(`${novaUrl}?t=${Date.now()}`);
+      toast.success("Foto atualizada!");
+    } catch {
+      toast.error("Erro ao atualizar foto");
+    } finally {
+      setLoadingImagem(false);
+      e.target.value = ""; // limpa o input para permitir reenvio da mesma imagem
     }
   }
 
@@ -149,17 +238,68 @@ export default function PerfilDrawer() {
                 <div>
                   <div className="usuario_detalhes_item">
                     <div className="usuario_detalhes_icon">
-                      <FaAddressCard color="blue" />{" "}
-                      <div style={{ marginLeft: "5px", color: "blue" }}>
-                        {" "}
-                        Login
+                      <div
+                        style={{
+                          marginLeft: "5px",
+                          color: "blue",
+                          position: "relative",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Clique para trocar a foto"
+                      >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          style={{ display: "none" }}
+                          onChange={handleImagemUpload}
+                        />
+
+                        {loadingImagem ? (
+                          <div
+                            style={{
+                              width: 60,
+                              height: 60,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <span>...</span>
+                          </div>
+                        ) : imagemUrl ? (
+                          <img
+                            src={imagemUrl}
+                            alt="Usuário"
+                            className="usuarioImgPerfilDrawer"
+                            style={{ opacity: 0.85 }}
+                          />
+                        ) : (
+                          <FaUser className="usuarioIcon" />
+                        )}
+
+                        {/* Ícone de câmera sobreposto */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: 0,
+                            right: 0,
+                            background: "#f7b80d",
+                            borderRadius: "50%",
+                            padding: "3px",
+                            fontSize: "10px",
+                            color: "#fff",
+                            lineHeight: 1,
+                          }}
+                        >
+                          📷
+                        </div>
                       </div>
                     </div>
                     <div className="usuario_detalhes_texto">
                       <div className="usuario_detalhes_titulo_item">
-                        <div className="divUsuarioDetalhesRight">
-                          {user?.mat}
-                        </div>
+                        <div className="divUsuarioDetalhesRight"></div>
                       </div>
                     </div>
                   </div>
@@ -262,9 +402,82 @@ export default function PerfilDrawer() {
                     </div>
                     <div className="usuario_detalhes_texto">
                       <div className="usuario_detalhes_titulo_item">
-                        <div className="divUsuarioDetalhesRight">
-                          {user?.phone}
-                        </div>
+                        {editingPhone ? (
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: "5px",
+                              alignItems: "center",
+                            }}
+                          >
+                            <input
+                              type="text"
+                              value={phone}
+                              onChange={(e) =>
+                                setPhone(formatPhone(e.target.value))
+                              }
+                              maxLength={15}
+                              placeholder="(81) 99999-9999"
+                              style={{
+                                borderRadius: "10px",
+                                border: "1px solid #f7b80d",
+                                padding: "5px 10px",
+                                width: "130px",
+                                outline: "none",
+                              }}
+                            />
+
+                            <button
+                              onClick={handleUpdatePhone}
+                              disabled={loadingPhone}
+                              style={{
+                                background: "#f7b80d",
+                                border: "none",
+                                borderRadius: "8px",
+                                padding: "5px 10px",
+                                cursor: "pointer",
+                                color: "#fff",
+                              }}
+                            >
+                              {loadingPhone ? "..." : "Salvar"}
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setEditingPhone(false);
+                                setPhone(user?.phone || "");
+                              }}
+                              style={{
+                                background: "#ddd",
+                                border: "none",
+                                borderRadius: "8px",
+                                padding: "5px 10px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            className="divUsuarioDetalhesRight"
+                            onClick={() => setEditingPhone(true)}
+                            style={{
+                              borderRadius: "15px",
+                              border: "solid 1px #f7b80d",
+                              padding: "5px",
+                              color: "#f88f06",
+                              cursor: "pointer",
+                              transition: "0.2s",
+                            }}
+                          >
+                            {phone}
+
+                            <span style={{ marginLeft: "5px" }}>
+                              <FaHandPointUp />
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

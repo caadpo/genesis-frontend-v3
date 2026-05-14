@@ -15,6 +15,24 @@ type Ome = {
   nomeOme: string;
 };
 
+const USER_TYPES = [
+  { value: 1, label: "Comum" },
+  { value: 2, label: "Auxiliar" },
+  { value: 3, label: "Diretor" },
+  { value: 4, label: "Estratégico" },
+  { value: 5, label: "Financeiro" },
+  { value: 6, label: "PD" },
+  { value: 9, label: "Técnico" },
+  { value: 10, label: "Master" },
+];
+
+function formatPhone(value: string) {
+  const n = value.replace(/\D/g, "").slice(0, 11);
+  if (n.length <= 2) return n;
+  if (n.length <= 7) return `(${n.slice(0, 2)}) ${n.slice(2)}`;
+  return `(${n.slice(0, 2)}) ${n.slice(2, 3)}.${n.slice(3, 7)}-${n.slice(7)}`;
+}
+
 export default function UsuariosModal({
   open,
   onClose,
@@ -22,261 +40,151 @@ export default function UsuariosModal({
   onSuccess,
 }: Props) {
   const [omes, setOmes] = useState<Ome[]>([]);
-
-  const [nomeGuerra, setNomeGuerra] = useState("");
-  const [pg, setPg] = useState("");
   const [mat, setMat] = useState("");
   const [phone, setPhone] = useState("");
-  const [cpf, setCpf] = useState("");
-  const [nunfunc, setNunfunc] = useState("");
-  const [nunvinc, setNunvinc] = useState("");
   const [typeUser, setTypeUser] = useState<number>(1);
-  const [omeId, setOmeId] = useState<number>();
+  const [omeId, setOmeId] = useState<number | "">("");
+  const [loading, setLoading] = useState(false);
 
-  // RESET / PREENCHIMENTO
+  // ─── Reset / preenchimento ao abrir ──────────────────────────────────────────
   useEffect(() => {
     if (user) {
-      setNomeGuerra(user.nomeGuerra ?? "");
-      setPg(user.pg ?? "");
       setMat(user.mat ?? "");
       setPhone(user.phone ?? "");
-      setCpf(user.cpf ?? "");
-      setNunfunc(user.nunfunc ?? "");
-      setNunvinc(user.nunvinc ?? "");
       setTypeUser(user.typeUser ?? 1);
-      setOmeId(user.ome?.id);
+      setOmeId(user.ome?.id ?? "");
     } else {
-      setNomeGuerra("");
-      setPg("");
       setMat("");
       setPhone("");
-      setCpf("");
-      setNunfunc("");
-      setNunvinc("");
       setTypeUser(1);
-      setOmeId(undefined);
+      setOmeId("");
     }
   }, [user, open]);
 
-  // carregar OMEs
+  // ─── Carregar OMEs ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (open) {
       fetch("/api/ome")
         .then((r) => r.json())
-        .then(setOmes);
+        .then(setOmes)
+        .catch(() => toast.error("Erro ao carregar OMEs"));
     }
   }, [open]);
 
   if (!open) return null;
 
+  // ─── Submit ───────────────────────────────────────────────────────────────────
   async function handleSubmit() {
-    const isEdit = !!user;
+    if (!mat.trim()) return toast.error("Informe a matrícula");
+    if (!omeId) return toast.error("Selecione a OME");
 
-    const url = isEdit ? `/api/user/${user.id}` : `/api/user`;
-    const method = isEdit ? "PUT" : "POST";
+    setLoading(true);
+    try {
+      const isEdit = !!user;
+      const url = isEdit ? `/api/user/${user.id}` : `/api/user`;
+      const method = isEdit ? "PUT" : "POST";
 
-    const payload = {
-      nomeGuerra,
-      pg,
-      mat,
-      phone,
-      typeUser,
-      omeId: omeId,
-      cpf,
-      nunfunc,
-      nunvinc,
-    };
+      const payload = {
+        mat: mat.trim(),
+        phone,
+        typeUser,
+        omeId: Number(omeId),
+      };
 
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    if (!res.ok) {
-      const err = await res.json();
-      toast.error(err.message || "Erro ao salvar usuário ❌");
-      return;
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.message || "Erro ao salvar usuário");
+        return;
+      }
+
+      const data = await res.json();
+      toast.success(isEdit ? "Usuário atualizado ✅" : "Usuário criado ✅");
+      onSuccess(data.id);
+      onClose();
+    } finally {
+      setLoading(false);
     }
-
-    const data = await res.json();
-    toast.success(isEdit ? "Usuário atualizado ✅" : "Usuário criado ✅");
-    onSuccess(data.id);
-
-    onClose();
-  }
-
-  function formatPhone(value: string) {
-    const numbers = value.replace(/\D/g, "").slice(0, 11);
-
-    if (numbers.length <= 2) return numbers;
-    if (numbers.length <= 7)
-      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
-
-    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 3)}.${numbers.slice(
-      3,
-      7,
-    )}-${numbers.slice(7)}`;
   }
 
   return (
     <div className="modalUsuarioOverlay">
       <div className="modalUsuarioCard">
         <h2>{user ? "Editar Usuário" : "Novo Usuário"}</h2>
-        <div>
-          <div style={{ display: "flex", width: "100%" }}>
-            <div style={{ width: "50%" }}>
-              <label>Posto/Graduação</label>
-              <select
-                style={{ width: "100%" }}
-                value={pg}
-                onChange={(e) => setPg(e.target.value)}
-              >
-                <option value="">Selecione</option>
-                <option value="SD">SD</option>
-                <option value="CB">CB</option>
-                <option value="3º SGT">3º SGT</option>
-                <option value="2º SGT">2º SGT</option>
-                <option value="1º SGT">1º SGT</option>
-                <option value="ST">ST</option>
-                <option value="ASP">ASP</option>
-                <option value="2º TEN">2º TEN</option>
-                <option value="1º TEN">1º TEN</option>
-                <option value="CAP">CAP</option>
-                <option value="MAJ">MAJ</option>
-                <option value="TC">TC</option>
-                <option value="CEL">CEL</option>
-              </select>
-            </div>
 
-            <div style={{ width: "50%" }}>
-              <label>Matrícula</label>
-              <input
-                value={mat}
-                maxLength={7}
-                inputMode="numeric"
-                onChange={(e) => {
-                  const onlyNumbers = e.target.value.replace(/\D/g, "");
-                  if (onlyNumbers.length <= 7) setMat(onlyNumbers);
-                }}
-              />
-            </div>
+        <div className="modalUsuarioForm">
+          {/* Matrícula */}
+          <div className="modalUsuarioCampo">
+            <label>Matrícula</label>
+            <input
+              value={mat}
+              placeholder="Ex: 1000005"
+              disabled={!!user} // matrícula não é editável após criação
+              onChange={(e) => setMat(e.target.value.replace(/\D/g, ""))}
+            />
           </div>
 
-          <div>
-            <div>
-              <label>Nome de Guerra</label>
-            </div>
-
-            <div style={{ width: "100%" }}>
-              <input
-                style={{ width: "100%" }}
-                value={nomeGuerra}
-                onChange={(e) => setNomeGuerra(e.target.value)}
-              />
-            </div>
+          {/* OME */}
+          <div className="modalUsuarioCampo">
+            <label>Organização Militar (OME)</label>
+            <select
+              value={omeId}
+              onChange={(e) => setOmeId(Number(e.target.value))}
+            >
+              <option value="">Selecione</option>
+              {omes.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nomeOme}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div>
-            <div>
-              <label>Login SEI</label>
-            </div>
-
-            <div style={{ width: "100%" }}>
-              <input
-                style={{ width: "100%" }}
-                value={mat}
-                onChange={(e) => {
-                  const value = e.target.value.toLowerCase();
-                  const filtered = value.replace(/[^a-z0-9.]/g, "");
-                  setMat(filtered);
-                }}
-              />
-            </div>
+          {/* Telefone */}
+          <div className="modalUsuarioCampo">
+            <label>Telefone</label>
+            <input
+              value={phone}
+              placeholder="(81) 9.9999-9999"
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
+            />
           </div>
 
-          <div style={{ display: "flex", width: "100%" }}>
-            <div style={{ width: "50%" }}>
-              <label>Organização Militar</label>
-              <select
-                style={{ width: "100%" }}
-                value={omeId ?? ""}
-                onChange={(e) => setOmeId(Number(e.target.value))}
-              >
-                <option value="">Selecione</option>
-                {omes.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.nomeOme}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ width: "50%" }}>
-              <label>Telefone</label>
-              <input
-                value={phone}
-                onChange={(e) => setPhone(formatPhone(e.target.value))}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: "flex", width: "100%" }}>
-            <div style={{ width: "50%" }}>
-              <label>Cpf:</label>
-              <input
-                style={{ width: "100%" }}
-                value={cpf}
-                onChange={(e) => setCpf(e.target.value)}
-              />
-            </div>
-
-            <div style={{ width: "50%" }}>
-              <label>NunFunc</label>
-              <input
-                style={{ width: "100%" }}
-                value={nunfunc}
-                onChange={(e) => setNunfunc(e.target.value)}
-              />
-            </div>
-            <div style={{ width: "50%" }}>
-              <label>NunVinc</label>
-              <input
-                style={{ width: "100%" }}
-                value={nunvinc}
-                onChange={(e) => setNunvinc(e.target.value)}
-              />
-            </div>
-          </div>
-          <div>
-            <div>
-              <label>Tipo Usuário</label>
-            </div>
-            <div style={{ width: "100%" }}>
-              <select
-                style={{ width: "100%" }}
-                value={typeUser}
-                onChange={(e) => setTypeUser(Number(e.target.value))}
-              >
-                <option value={1}>Comum</option>
-                <option value={2}>Auxiliar</option>
-                <option value={3}>Diretor</option>
-                <option value={4}>Estrategico</option>
-                <option value={5}>Financeiro</option>
-                <option value={6}>PD</option>
-                <option value={9}>Técnico</option>
-                <option value={10}>Master</option>
-              </select>
-            </div>
+          {/* Tipo de usuário */}
+          <div className="modalUsuarioCampo">
+            <label>Nível de acesso</label>
+            <select
+              value={typeUser}
+              onChange={(e) => setTypeUser(Number(e.target.value))}
+            >
+              {USER_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
         <div className="modalUsuarioActions">
-          <button onClick={onClose} className="btnUsuarioCancel">
+          <button
+            onClick={onClose}
+            className="btnUsuarioCancel"
+            disabled={loading}
+          >
             Cancelar
           </button>
-          <button onClick={handleSubmit} className="btnUsuarioSave">
-            Salvar
+          <button
+            onClick={handleSubmit}
+            className="btnUsuarioSave"
+            disabled={loading}
+          >
+            {loading ? "Salvando..." : "Salvar"}
           </button>
         </div>
       </div>

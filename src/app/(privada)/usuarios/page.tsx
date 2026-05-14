@@ -29,7 +29,7 @@ type Usuario = {
   cpf: string;
   nunfunc: string;
   nunvinc: string;
-  situacaoSgp: string;
+  situacao: string;
   conta?: Conta;
   ome?: { nomeOme: string };
 };
@@ -250,15 +250,40 @@ export default function UsuariosPage() {
 
             {usuarioResumo && (
               <>
-                <div className="usuarioAvatar">
+                {menuAberto === usuarioResumo.id && (
+                  <div ref={menuRef} className="dropdownMenu">
+                    <div
+                      className="dropdownItem"
+                      onClick={() => {
+                        setUsuarioEdit(usuarioResumo);
+                        setModalOpen(true);
+                      }}
+                    >
+                      Editar
+                    </div>
+                    <div
+                      className="dropdownItem"
+                      onClick={() => excluirUsuario(usuarioResumo)}
+                    >
+                      Excluir
+                    </div>
+                    <div
+                      className="dropdownItem"
+                      onClick={() => resetarSenha(usuarioResumo)}
+                    >
+                      Reset Senha
+                    </div>
+                  </div>
+                )}
+                <div>
                   {usuarioResumo.imagemUrl ? (
                     <img
                       src={usuarioResumo.imagemUrl}
                       alt="Usuário"
-                      className="usuarioAvatarImg"
+                      className="usuarioImgBusca"
                     />
                   ) : (
-                    <FaUser />
+                    <FaUser className="usuarioIcon" />
                   )}
                 </div>
 
@@ -283,35 +308,7 @@ export default function UsuariosPage() {
                         );
                       }}
                     />
-
-                    {menuAberto === usuarioResumo.id && (
-                      <div ref={menuRef} className="dropdownMenu">
-                        <div
-                          className="dropdownItem"
-                          onClick={() => {
-                            setUsuarioEdit(usuarioResumo);
-                            setModalOpen(true);
-                          }}
-                        >
-                          Editar
-                        </div>
-                        <div
-                          className="dropdownItem"
-                          onClick={() => excluirUsuario(usuarioResumo)}
-                        >
-                          Excluir
-                        </div>
-                        <div
-                          className="dropdownItem"
-                          onClick={() => resetarSenha(usuarioResumo)}
-                        >
-                          Reset Senha
-                        </div>
-                      </div>
-                    )}
                   </div>
-
-                  <div className="usuarioLogin">{usuarioResumo.mat}</div>
 
                   <div className="usuarioInfos">
                     <span>
@@ -441,7 +438,7 @@ export default function UsuariosPage() {
                   <div className="usuario_detalhes_texto">
                     <div className="usuario_detalhes_titulo_item">
                       <div className="divUsuarioDetalhesRight">
-                        {usuarioResumo.situacaoSgp}
+                        {usuarioResumo.situacao}
                       </div>
                     </div>
                   </div>
