@@ -26,14 +26,20 @@ type Distribuicao = {
   id: number;
   nome_dist: string;
   qtd_dist_of: number;
+  totalCotasOficiais: number;
+  saldo_of: number;
   qtd_dist_prc: number;
+  totalCotasPracas: number;
+  saldo_prc: number;
   diretoria: { nomeDiretoria: string };
 };
 type Evento = {
   id: number;
   nome_evento: string;
   qtd_of_evento: number;
+  totalCotasOficiais: number;
   qtd_prc_evento: number;
+  totalCotasPracas: number;
   status_evento: string;
   updated_at: string;
   homologado_em: string;
@@ -48,7 +54,9 @@ type Operacao = {
   id: number;
   nome_operacao: string;
   qtd_oficiais_oper: number;
+  totalCotasOficiais: number;
   qtd_pracas_oper: number;
+  totalCotasPracas: number;
   cod_op: string;
   ome: { nomeOme: string };
 };
@@ -327,7 +335,10 @@ export default function PjesDiretoriaSelectPage() {
                         </div>
                         <div>OFICIAIS</div>
                       </div>
-                      <strong>{distribuicao.qtd_dist_of} | 1900</strong>
+                      <strong>
+                        {distribuicao.qtd_dist_of} |{" "}
+                        {distribuicao.totalCotasOficiais}
+                      </strong>
                     </div>
 
                     <div>
@@ -338,7 +349,10 @@ export default function PjesDiretoriaSelectPage() {
                         <div>PRAÇAS</div>
                       </div>
 
-                      <strong>{distribuicao.qtd_dist_prc} | 18302</strong>
+                      <strong>
+                        {distribuicao.qtd_dist_prc} |{" "}
+                        {distribuicao.totalCotasPracas}
+                      </strong>
                     </div>
                   </div>
                 </div>
@@ -350,13 +364,17 @@ export default function PjesDiretoriaSelectPage() {
                   <div>
                     <FiStar />
                   </div>
-                  <div className="saldoDiretoriaValor">2510</div>
+                  <div className="saldoDiretoriaValor">
+                    {distribuicao.saldo_of}
+                  </div>
                 </div>
                 <div className="saldoDiretoriaIconePrc">
                   <div>
                     <FiChevronUp />
                   </div>
-                  <div className="saldoDiretoriaValor">19340</div>
+                  <div className="saldoDiretoriaValor">
+                    {distribuicao.saldo_prc}
+                  </div>
                 </div>
               </div>
             </div>
@@ -541,11 +559,13 @@ export default function PjesDiretoriaSelectPage() {
 
                     <div className="linhaOficiaisPracas">
                       <div className="itemOficiaisPracas">
-                        Oficiais: {evento.qtd_of_evento}
+                        Oficiais: {evento.qtd_of_evento} |{" "}
+                        {evento.totalCotasOficiais}
                       </div>
 
                       <div className="itemOficiaisPracas direita">
-                        Praças: {evento.qtd_prc_evento}
+                        Praças: {evento.qtd_prc_evento} |{" "}
+                        {evento.totalCotasPracas}
                       </div>
                     </div>
                   </div>
@@ -594,8 +614,13 @@ export default function PjesDiretoriaSelectPage() {
                     <tr key={op.id} className="tabelaLinha">
                       <td className="colOperacao">{op.ome.nomeOme}</td>
                       <td>{op.nome_operacao}</td>
-                      <td> {op.qtd_oficiais_oper} | 00</td>
-                      <td>{op.qtd_pracas_oper} | 00</td>
+                      <td>
+                        {" "}
+                        {op.qtd_oficiais_oper} | {op.totalCotasOficiais}
+                      </td>
+                      <td>
+                        {op.qtd_pracas_oper} | {op.totalCotasPracas}
+                      </td>
                       <td>{op.cod_op}</td>
                       <td className="acoesTabela">
                         <button

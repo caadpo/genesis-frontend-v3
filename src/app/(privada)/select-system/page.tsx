@@ -58,7 +58,7 @@ export default function SelectSystem() {
 
           <span
             className="ver-todas"
-            onClick={() => router.push("/minhasescalas")}
+            onClick={() => router.push("/minhas-escalas")}
           >
             Ver todas &gt;
           </span>
@@ -68,7 +68,7 @@ export default function SelectSystem() {
           {/* primieira escala */}
           <div
             className="card-escala"
-            onClick={() => router.push("/minhasescalas")}
+            onClick={() => router.push("/minhas-escalas")}
           >
             <div className="top-card">
               <div className="dia-hora">🌙 Terça, 18:30</div>

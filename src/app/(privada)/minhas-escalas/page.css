@@ -1,0 +1,83 @@
+.escala-card {
+  margin-top: 12px;
+  overflow: hidden;
+  width: 100%;
+  height: 350px;
+  color: #17212c;
+  font-family: "Segoe UI", sans-serif;
+  display: flex;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  border: 1px solid #ececec;
+}
+
+.escala-card__header_direita {
+  padding: 10px 3px;
+  width: 100%;
+  font-size: 10px;
+}
+
+.escala-card__titulo {
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  color: #fff;
+  align-items: center;
+}
+
+.escala-card__body {
+  display: flex;
+  gap: 0;
+}
+
+.escala-card-secundaria {
+  width: 100%;
+  padding-left: 5px;
+}
+
+.btn-repassar {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 7px 13px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  letter-spacing: 0.3px;
+  transition:
+    opacity 0.2s,
+    transform 0.15s;
+}
+.btn-repassar:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+.btn-repassar:disabled {
+  display: none;
+}
+
+.btn-cancelar-repasse {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 7px 13px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: opacity 0.2s;
+}
+.btn-cancelar-repasse:hover:not(:disabled) {
+  opacity: 0.85;
+}
+.btn-cancelar-repasse:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

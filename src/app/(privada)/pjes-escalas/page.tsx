@@ -46,6 +46,12 @@ type Usuario = {
   conta?: { banco: string; agencia: string; conta: string };
 };
 
+type Viatura = {
+  id: number;
+  patrimonio: string;
+  statusVtr: "DISPONIVEL" | "INDISPONIVEL";
+};
+
 type Escala = {
   id: number;
   sistema: string;
@@ -69,6 +75,8 @@ type Escala = {
   anotacoes?: string;
   usuarioId: number;
   operacaoId: number;
+  viaturaId?: number | null;
+  viatura?: Viatura | null; // ✅ objeto, não string
 };
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
@@ -142,7 +150,7 @@ export default function PjesEscalasPage() {
     null,
   );
   const [selectedCargo, setSelectedCargo] = useState("");
-  const [selectedViatura, setSelectedViatura] = useState("");
+  const [selectedViatura, setSelectedViatura] = useState<number | null>(null);
   const [dataInicio, setDataInicio] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
   const [horaFim, setHoraFim] = useState("");
@@ -157,6 +165,8 @@ export default function PjesEscalasPage() {
     operacaoId ? `/api/escala?operacaoId=${operacaoId}` : "",
     [operacaoId],
   );
+
+  const { data: viaturas } = useApi<Viatura[]>("/api/viatura", []);
 
   const SISTEMA = "PJES";
   const minDate =
@@ -329,9 +339,10 @@ export default function PjesEscalasPage() {
           horaInicio,
           horaFim,
           localApresentacao,
-          funcao,
+          funcao: selectedCargo, // ✅ só a função, viatura vai separada
           situacao,
           anotacoes,
+          viaturaId: selectedViatura ?? null, // ✅ null remove a viatura
           ...(usuario && { usuarioId: usuario.id }),
         }
       : {
@@ -342,9 +353,10 @@ export default function PjesEscalasPage() {
           horaInicio,
           horaFim,
           localApresentacao,
-          funcao,
+          funcao: selectedCargo, // ✅ só a função
           situacao,
           anotacoes,
+          viaturaId: selectedViatura ?? undefined, // ✅ sem viatura = omite
         };
 
     try {
@@ -375,7 +387,7 @@ export default function PjesEscalasPage() {
         setHoraInicio("");
         setHoraFim("");
         setSelectedCargo("");
-        setSelectedViatura("");
+        setSelectedViatura(null);
         setLocalApresentacao("");
         setSituacao("");
         setAnotacoes("");
@@ -411,18 +423,17 @@ export default function PjesEscalasPage() {
   }
 
   function handleEditarEscala(escala: Escala) {
-    isEditandoRef.current = true; // ✅ sinaliza que é edição
+    isEditandoRef.current = true;
     setEditandoEscala(escala);
     setMatricula(String(escala.mat));
     setDataInicio(escala.dataInicio);
     setHoraInicio(escala.horaInicio);
     setHoraFim(escala.horaFim);
-    setLocalApresentacao(escala.localApresentacao); // ✅ valor salvo, não do SGP
+    setLocalApresentacao(escala.localApresentacao);
     setSituacao(escala.situacao);
     setAnotacoes(escala.anotacoes ?? "");
-    const [cargo, viatura] = escala.funcao.split(" - ");
-    setSelectedCargo(cargo ?? "");
-    setSelectedViatura(viatura ?? "Vtr001");
+    setSelectedCargo(escala.funcao);
+    setSelectedViatura(escala.viaturaId ?? null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -633,16 +644,21 @@ export default function PjesEscalasPage() {
                           borderRadius: "4px",
                           border: "solid 1px #c4c0c0",
                         }}
-                        value={selectedViatura}
-                        onChange={(e) => setSelectedViatura(e.target.value)}
+                        value={selectedViatura ?? ""}
+                        onChange={(e) =>
+                          setSelectedViatura(
+                            e.target.value ? Number(e.target.value) : null,
+                          )
+                        }
                         className="labelDadosEscala"
                       >
-                        <option>Vt01</option>
-                        <option>Vt02</option>
-                        <option>Vt03</option>
-                        <option>Vt04</option>
-                        <option>Vt05</option>
-                        <option>Vt06</option>
+                        <option value="">— Sem viatura —</option>
+                        {viaturas?.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.patrimonio}{" "}
+                            {v.statusVtr === "INDISPONIVEL" ? "⚠️" : ""}
+                          </option>
+                        ))}
                       </select>
                       <span style={{ fontSize: "14px" }}>
                         <FaCar />
@@ -772,7 +788,7 @@ export default function PjesEscalasPage() {
                   setHoraInicio("");
                   setHoraFim("");
                   setSelectedCargo("");
-                  setSelectedViatura("");
+                  setSelectedViatura(null);
                   setLocalApresentacao("");
                   setSituacao("");
                   setAnotacoes("");
@@ -852,7 +868,7 @@ export default function PjesEscalasPage() {
                 <th>DATA E HORA</th>
                 <th>APRESENTAÇÃO</th>
                 <th>FUNÇÃO</th>
-                <th>SITUAÇÃO</th>
+                <th>VIATURA</th>
                 <th>ANOTAÇÕES</th>
                 <th>AÇÕES</th>
               </tr>
@@ -863,7 +879,7 @@ export default function PjesEscalasPage() {
                   <tr key={escala.id} className="tabelaLinhaEscalas">
                     <td>
                       {escala.pg_escala} {escala.mat} {escala.nome_escala}{" "}
-                      {escala.nomeome_escala}
+                      {escala.nomeome_escala} - {escala.situacao}
                     </td>
                     <td>{formatarCPF(escala.cpf_escala)}</td>
                     <td>{formatarTelefone(escala.phone_escala)}</td>
@@ -879,8 +895,13 @@ export default function PjesEscalasPage() {
                       {escala.horaFim}
                     </td>
                     <td>{escala.localApresentacao}</td>
+
                     <td>{escala.funcao}</td>
-                    <td>{escala.situacao}</td>
+                    <td>
+                      {escala.viatura
+                        ? `${escala.viatura.patrimonio} ${escala.viatura.statusVtr === "INDISPONIVEL" ? "⚠️" : ""}`
+                        : "-"}
+                    </td>
                     <td>{escala.anotacoes || "-"}</td>
                     <td className="acoesTabelaEscalas">
                       <FaEdit
