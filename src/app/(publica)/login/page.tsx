@@ -52,40 +52,56 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    sessionStorage.setItem("showWelcomeToast", "1");
 
+    sessionStorage.setItem("showWelcomeToast", "1");
     router.replace("/select-system");
   };
 
   return (
-    <form onSubmit={handleSubmit} className="formLogin">
-      <div className="input-wrapperLogin">
-        <FaUser className="input-iconLogin" />
-        <input
-          type="text"
-          placeholder="Usuário"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="inputLogin with-icon"
-        />
-        {errors.username && <span className="error">{errors.username}</span>}
+    <>
+      <div className="card-body_login">
+        <p className="section-label_login">Acesso Restrito ao Sistema</p>
+
+        <form onSubmit={handleSubmit}>
+          {/* Usuário */}
+          <div className="input-wrapper_login">
+            <FaUser className="input-icon_login" />
+            <input
+              type="text"
+              placeholder="Matrícula / Usuário"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="input_login"
+            />
+            {errors.username && (
+              <span className="error_login">{errors.username}</span>
+            )}
+          </div>
+
+          {/* Senha */}
+          <div className="input-wrapper_login">
+            <FaLock className="input-icon_login" />
+            <input
+              type="password"
+              placeholder="Senha"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input_login"
+            />
+            {errors.password && (
+              <span className="error_login">{errors.password}</span>
+            )}
+          </div>
+
+          <button type="submit" className="btn_login" disabled={loading}>
+            {loading ? "Verificando..." : "Acessar o Sistema"}
+          </button>
+        </form>
       </div>
 
-      <div className="input-wrapperLogin">
-        <FaLock className="input-iconLogin" />
-        <input
-          type="password"
-          placeholder="Senha"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="inputLogin with-icon"
-        />
-        {errors.password && <span className="error">{errors.password}</span>}
+      <div className="card-footer_login">
+        <span>Acesso exclusivo para servidores autorizados da PMPE</span>
       </div>
-
-      <button type="submit" className="buttonLogin" disabled={loading}>
-        {loading ? "Carregando..." : "ACESSAR"}
-      </button>
-    </form>
+    </>
   );
 }

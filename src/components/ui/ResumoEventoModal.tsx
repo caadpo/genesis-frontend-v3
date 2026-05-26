@@ -9,11 +9,7 @@ import { apiFetch } from "@/src/lib/api";
 
 type UsuarioResumo = {
   usuarioId: number;
-  mat: number;
-  pg: string;
-  nomeGuerra: string;
-  nomeOme: string;
-  phone: string;
+  nomeCompleto: string;
   cpf: string;
   nunfunc: string;
   nunvinc: string;
@@ -112,7 +108,7 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
     resumo?.usuarios.filter((u) => {
       if (!busca.trim()) return true;
       const term = busca.toLowerCase();
-      return [u.mat, u.pg, u.nomeGuerra, u.nomeOme, u.cpf, u.nunfunc]
+      return [u.nomeCompleto, u.cpf, u.nunfunc]
         .map((v) => String(v).toLowerCase())
         .some((v) => v.includes(term));
     }) ?? [];
@@ -338,9 +334,7 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                   <th style={th}>UNIDADE</th>
                   <th style={th}>IDENTIFICAÇÃO DO POLICIAL</th>
                   <th style={th}>CPF</th>
-                  <th className="hide-mobile" style={th}>
-                    TELEFONE
-                  </th>
+
                   <th className="hide-mobile" style={th}>
                     NUFUNC
                   </th>
@@ -369,15 +363,9 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
 
                     <td style={td}>{resumo.ome.nomeOme}</td>
 
-                    <td style={td}>
-                      {u.pg} {u.mat} {u.nomeGuerra} {u.nomeOme}
-                    </td>
+                    <td style={td}>{u.nomeCompleto}</td>
 
                     <td style={td}>{formatarCPF(u.cpf)}</td>
-
-                    <td className="hide-mobile" style={td}>
-                      {u.phone || "-"}
-                    </td>
 
                     <td className="hide-mobile" style={td}>
                       {u.nunfunc} | {u.nunvinc}

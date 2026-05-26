@@ -4,14 +4,12 @@ import { useEffect, useState } from "react";
 import { useApi } from "@/src/hooks/useApi";
 import toast from "react-hot-toast";
 import {
-  FaCar,
   FaCalendarAlt,
   FaChevronLeft,
   FaChevronRight,
   FaExchangeAlt,
   FaBan,
   FaUser,
-  FaShieldAlt,
 } from "react-icons/fa";
 import { FiGrid, FiLayers } from "react-icons/fi";
 
@@ -23,15 +21,15 @@ type Viatura = {
   statusVtr: "DISPONIVEL" | "INDISPONIVEL";
 };
 
-// ─── Tipo atualizado ─────────────────────────────────────────────────────────
 type Escala = {
   id: number;
   sistema: string;
-  mat: string;
-  pg_escala: string;
-  nome_escala: string;
+  mat_escala: string; // ← adicione
+  pg_escala: string; // ← adicione
+  ng_escala: string; // ← adicione
+  cpf_escala: string; // ← adicione
+  tipo_escala: string;
   nomeome_escala: string;
-  phone_escala?: string;
   dataInicio: string;
   horaInicio: string;
   horaFim: string;
@@ -45,12 +43,23 @@ type Escala = {
   operacaoId?: number;
   nomeOperacao?: string;
   nomeEvento?: string;
-  nomeOme?: string; // ✅ novo
+  nomeOme?: string;
+  status_teto?: string;
+  somacota_escala: number;
+  somaCotaFinal: number;
+  pagamento: string;
+  phone?: string | null;
+
+  conta?: {
+    banco: string;
+    agencia: string;
+    conta: string;
+  } | null;
 };
 
 type Repasse = {
   id: number;
-  escalaId: number; // ✅ número direto, não objeto
+  escalaId: number;
   statusRepasse: "ABERTO" | "ACEITO" | "CANCELADO";
   dataInicioRepasse: string;
   horaInicioRepasse: string;
@@ -92,22 +101,85 @@ export default function MinhasEscalasPage() {
   const hoje = new Date();
   const [mesAtual, setMesAtual] = useState(hoje.getMonth());
   const [anoAtual, setAnoAtual] = useState(hoje.getFullYear());
-  const [escalaSelecionada, setEscalaSelecionada] = useState<Escala | null>(
-    null,
-  );
+
+  const [escalasDoDiaSelecionado, setEscalasDoDiaSelecionado] = useState<
+    Escala[]
+  >([]);
+  const [escalaSelecionadaParaRepasse, setEscalaSelecionadaParaRepasse] =
+    useState<Escala | null>(null);
+
   const [motivo, setMotivo] = useState("");
   const [loadingRepasse, setLoadingRepasse] = useState(false);
   const [loadingCancelar, setLoadingCancelar] = useState(false);
   const [modalRepasse, setModalRepasse] = useState(false);
-  // ─── Estado dos colegas ───────────────────────────────────────────────────────
-  const [colegas, setColegas] = useState<Escala[]>([]);
-  const [loadingColegas, setLoadingColegas] = useState(false);
-  const [matLogado, setMatLogado] = useState<string | null>(null);
+
+  const [colegas, setColegas] = useState<Record<number, Escala[]>>({});
+  const [loadingColegas, setLoadingColegas] = useState<Record<number, boolean>>(
+    {},
+  );
+
   const { data: escalas, loading } = useApi<Escala[]>("/api/escala/minhas", []);
-
-  // ✅ busca todos os repasses do usuário para saber o status de cada escala
-
   const [meusRepasses, setMeusRepasses] = useState<Repasse[] | null>(null);
+
+  // ─── Resumo financeiro ───────────────────────────────────────────────────────
+  const mesStr = String(mesAtual + 1).padStart(2, "0");
+  const prefixoMes = `${anoAtual}-${mesStr}`;
+
+  const escalasContexto: Escala[] =
+    escalasDoDiaSelecionado.length > 0
+      ? escalasDoDiaSelecionado
+      : (escalas?.filter((e) => e.dataInicio.startsWith(prefixoMes)) ?? []);
+
+  const tituloContexto =
+    escalasDoDiaSelecionado.length > 0
+      ? `${formatarData(escalasDoDiaSelecionado[0].dataInicio)}`
+      : `${MESES[mesAtual]} ${anoAtual}`;
+
+  function isPago(pagamento: string): boolean {
+    return pagamento.trim().toLowerCase().startsWith("pago");
+  }
+
+  function resumoPorSistema(sistema: string) {
+    const lista = escalasContexto.filter((e) => e.sistema === sistema);
+    if (lista.length === 0)
+      return {
+        cota_escala: 0,
+        somaCotaFinal: 0,
+        pagamento: "—",
+        pago: false,
+        somaCotaFinalPago: 0,
+      };
+
+    const totalCotas = lista.reduce((acc, e) => acc + e.cota_escala, 0);
+    const somaCotaFinal = lista[0].somaCotaFinal;
+    const todosPagos = lista.every((e) => isPago(e.pagamento));
+    const algumPago = lista.some((e) => isPago(e.pagamento));
+
+    const pagamentoLabel = todosPagos
+      ? "Pago"
+      : algumPago
+        ? "Parcialmente pago"
+        : lista[0].pagamento;
+
+    const somaCotaFinalPago = lista
+      .filter((e) => isPago(e.pagamento))
+      .reduce(
+        (acc, e) =>
+          acc + (e.somaCotaFinal / (e.somacota_escala || 1)) * e.cota_escala,
+        0,
+      );
+
+    return {
+      cota_escala: totalCotas,
+      somaCotaFinal,
+      somaCotaFinalPago,
+      pagamento: pagamentoLabel,
+      pago: todosPagos,
+    };
+  }
+
+  const pjes = resumoPorSistema("PJES");
+  const diarias = resumoPorSistema("DIARIAS");
 
   async function recarregarRepasses() {
     const res = await fetch("/api/repasse/meus");
@@ -119,29 +191,18 @@ export default function MinhasEscalasPage() {
     recarregarRepasses();
   }, []);
 
-  // ─── Buscar mat do usuário logado (para excluir da lista de colegas) ──────────
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((u) => setMatLogado(u?.mat ?? null))
-      .catch(() => {});
-  }, []);
+  function getRepasseAtivo(escalaId: number): Repasse | null {
+    return (
+      meusRepasses?.find(
+        (r) => r.escalaId === escalaId && r.statusRepasse === "ABERTO",
+      ) ?? null
+    );
+  }
 
-  // ─── Repasse ativo da escala selecionada ────────────────────────────────────
-  const repasseAtivo = escalaSelecionada
-    ? (meusRepasses?.find(
-        (r) =>
-          r.escalaId === escalaSelecionada.id && r.statusRepasse === "ABERTO",
-      ) ?? null)
-    : null;
-
-  // ✅ Expirado = data+hora do serviço já passou
-  const repasseExpirado = escalaSelecionada
-    ? (() => {
-        const dataHora = `${escalaSelecionada.dataInicio}T${escalaSelecionada.horaInicio}`;
-        return new Date(dataHora) <= new Date();
-      })()
-    : false;
+  function isRepasseExpirado(escala: Escala): boolean {
+    const dataHora = `${escala.dataInicio}T${escala.horaInicio}`;
+    return new Date(dataHora) <= new Date();
+  }
 
   // ─── Mapa de datas com escalas ───────────────────────────────────────────────
   const escalaPorData = new Map<string, Escala[]>();
@@ -154,55 +215,56 @@ export default function MinhasEscalasPage() {
   function irParaMesAnterior() {
     setMesAtual((m) => (m === 0 ? 11 : m - 1));
     if (mesAtual === 0) setAnoAtual((a) => a - 1);
-    setEscalaSelecionada(null);
+    setEscalasDoDiaSelecionado([]);
   }
 
   function irParaProximoMes() {
     setMesAtual((m) => (m === 11 ? 0 : m + 1));
     if (mesAtual === 11) setAnoAtual((a) => a + 1);
-    setEscalaSelecionada(null);
+    setEscalasDoDiaSelecionado([]);
   }
 
-  // ─── Gerar dias do calendário ────────────────────────────────────────────────
+  // ─── Grade do calendário ─────────────────────────────────────────────────────
   const primeiroDia = new Date(anoAtual, mesAtual, 1).getDay();
   const totalDias = new Date(anoAtual, mesAtual + 1, 0).getDate();
   const celulas = Array.from({ length: primeiroDia + totalDias }, (_, i) =>
     i < primeiroDia ? null : i - primeiroDia + 1,
   );
 
-  // ─── Buscar colegas ao selecionar escala ─────────────────────────────────────
-  async function selecionarEscala(escala: Escala) {
-    setEscalaSelecionada(escala);
-    setColegas([]);
+  async function selecionarDia(escalasNoDia: Escala[]) {
+    setEscalasDoDiaSelecionado(escalasNoDia);
+    setColegas({});
 
-    if (!escala.operacaoId) return;
+    for (const escala of escalasNoDia) {
+      if (!escala.operacaoId) continue;
 
-    setLoadingColegas(true);
-    try {
-      const res = await fetch(`/api/escala?operacaoId=${escala.operacaoId}`);
-      const todas: Escala[] = await res.json();
+      setLoadingColegas((prev) => ({ ...prev, [escala.id]: true }));
+      try {
+        const res = await fetch(`/api/escala?operacaoId=${escala.operacaoId}`);
+        const data = await res.json(); // ← recebe o objeto
+        const todas: Escala[] = data.escalas ?? data; // ← extrai o array
 
-      // ✅ filtra pelo mesmo grupo: data + hora + viatura, excluindo o próprio usuário
-      const mesmoGrupo = todas.filter(
-        (e) =>
-          e.mat !== escala.mat && // exclui o usuário logado
-          e.dataInicio === escala.dataInicio &&
-          e.horaInicio === escala.horaInicio &&
-          e.horaFim === escala.horaFim &&
-          (escala.viaturaId ? e.viaturaId === escala.viaturaId : true),
-      );
+        const mesmoGrupo = todas.filter(
+          (e) =>
+            e.mat_escala !== escala.mat_escala &&
+            e.dataInicio === escala.dataInicio &&
+            e.horaInicio === escala.horaInicio &&
+            e.horaFim === escala.horaFim &&
+            (escala.viaturaId ? e.viaturaId === escala.viaturaId : true),
+        );
 
-      setColegas(mesmoGrupo);
-    } catch {
-      setColegas([]);
-    } finally {
-      setLoadingColegas(false);
+        setColegas((prev) => ({ ...prev, [escala.id]: mesmoGrupo }));
+      } catch {
+        setColegas((prev) => ({ ...prev, [escala.id]: [] }));
+      } finally {
+        setLoadingColegas((prev) => ({ ...prev, [escala.id]: false }));
+      }
     }
   }
 
   // ─── Solicitar repasse ───────────────────────────────────────────────────────
   async function handleRepasse() {
-    if (!escalaSelecionada) return;
+    if (!escalaSelecionadaParaRepasse) return;
     if (!motivo.trim()) {
       toast.error("Informe o motivo do repasse");
       return;
@@ -214,7 +276,7 @@ export default function MinhasEscalasPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          escalaId: escalaSelecionada.id,
+          escalaId: escalaSelecionadaParaRepasse.id,
           motivo: motivo.trim(),
         }),
       });
@@ -231,7 +293,7 @@ export default function MinhasEscalasPage() {
       toast.success("Repasse solicitado com sucesso!");
       setModalRepasse(false);
       setMotivo("");
-      recarregarRepasses?.(); // ✅ atualiza lista de repasses
+      recarregarRepasses();
     } catch (error: any) {
       toast.error(error?.message || "Não foi possível solicitar o repasse");
     } finally {
@@ -240,7 +302,8 @@ export default function MinhasEscalasPage() {
   }
 
   // ─── Cancelar repasse ────────────────────────────────────────────────────────
-  async function handleCancelarRepasse() {
+  async function handleCancelarRepasse(escala: Escala) {
+    const repasseAtivo = getRepasseAtivo(escala.id);
     if (!repasseAtivo) return;
     const ok = confirm("Deseja cancelar este repasse?");
     if (!ok) return;
@@ -251,14 +314,11 @@ export default function MinhasEscalasPage() {
         `/api/repasse/${repasseAtivo.id}?acao=cancelar`,
         { method: "PATCH" },
       );
-
       const data = await response.json();
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(data?.message || "Erro ao cancelar repasse");
-      }
-
       toast.success("Repasse cancelado com sucesso!");
-      recarregarRepasses?.(); // ✅ atualiza lista de repasses
+      recarregarRepasses();
     } catch (error: any) {
       toast.error(error?.message || "Não foi possível cancelar o repasse");
     } finally {
@@ -266,7 +326,7 @@ export default function MinhasEscalasPage() {
     }
   }
 
-  // componente auxiliar para avatar do colega
+  // ─── Avatar do colega ─────────────────────────────────────────────────────────
   function AvatarColega({ mat, nome }: { mat: string; nome: string }) {
     const [erro, setErro] = useState(false);
     if (erro)
@@ -276,8 +336,6 @@ export default function MinhasEscalasPage() {
             border: "1px solid #ececec",
             borderRadius: "25px",
             marginRight: "5px",
-            justifyContent: "center",
-            justifyItems: "center",
           }}
           size={30}
           color="#94a3b8"
@@ -296,6 +354,228 @@ export default function MinhasEscalasPage() {
           marginRight: "5px",
         }}
       />
+    );
+  }
+
+  // ─── Card de detalhe por escala ───────────────────────────────────────────────
+  function CardEscala({ escala }: { escala: Escala }) {
+    const repasseAtivo = getRepasseAtivo(escala.id);
+    const expirado = isRepasseExpirado(escala);
+    const colegasEscala = colegas[escala.id] ?? [];
+    const carregandoColegas = loadingColegas[escala.id] ?? false;
+
+    return (
+      <div className="escala-card" style={{ marginBottom: "3px" }}>
+        <div className="escala-card__header_direita">
+          <div
+            style={{
+              background: "#482cad",
+              fontWeight: "bold",
+              width: "100%",
+              borderRadius: "20px",
+              height: "30px",
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: "10px",
+              padding: "5px",
+            }}
+          >
+            <span className="escala-card__titulo">
+              <FaCalendarAlt
+                style={{ marginLeft: "5px", marginRight: "5px" }}
+              />
+              {formatarData(escala.dataInicio)} | {escala.nomeOme}
+            </span>
+
+            <button
+              className="btn-repassar"
+              onClick={() => {
+                setEscalaSelecionadaParaRepasse(escala);
+                setModalRepasse(true);
+              }}
+              disabled={!!repasseAtivo || expirado}
+            >
+              <FaExchangeAlt />
+              {expirado ? "PRAZO ENCERRADO" : "REPASSAR"}
+            </button>
+
+            {repasseAtivo && (
+              <button
+                className="btn-cancelar-repasse"
+                onClick={() => handleCancelarRepasse(escala)}
+                disabled={loadingCancelar}
+              >
+                <FaBan />
+                {loadingCancelar ? "CANCELANDO..." : "CANCELAR REPASSE"}
+              </button>
+            )}
+          </div>
+
+          <div>
+            <div className="escala-card__body">
+              <div className="escala-card-secundaria">
+                <div style={{ display: "flex" }}>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    {escala.nomeEvento && (
+                      <div style={{ display: "flex" }}>
+                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                          EVENTO:{" "}
+                        </div>
+                        <div>{escala.nomeEvento}</div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    {escala.nomeOperacao && (
+                      <div style={{ display: "flex" }}>
+                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                          OPERAÇÃO:{" "}
+                        </div>
+                        <div>{escala.nomeOperacao}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex" }}>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                      SISTEMA:{" "}
+                    </div>
+                    <div>{escala.sistema}</div>
+                  </div>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                      FUNÇÃO:{" "}
+                    </div>
+                    <div>{escala.funcao}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex" }}>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                      HORÁRIO:{" "}
+                    </div>
+                    <div>
+                      {formatarHora(escala.horaInicio)} às{" "}
+                      {formatarHora(escala.horaFim)}
+                    </div>
+                  </div>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                      LOCAL:{" "}
+                    </div>
+                    <div>{escala.localApresentacao}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex" }}>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                      SITUAÇÃO:{" "}
+                    </div>
+                    <div>{escala.situacao}</div>
+                  </div>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                      TOTAL DE COTA:{" "}
+                    </div>
+                    <div>{escala.cota_escala}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex" }}>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                      VIATURA:{" "}
+                    </div>
+                    {escala.viatura && (
+                      <div>
+                        {escala.viatura.patrimonio}{" "}
+                        <span
+                          style={{
+                            color:
+                              escala.viatura.statusVtr === "INDISPONIVEL"
+                                ? "#f87171"
+                                : "#4ade80",
+                            fontSize: 10,
+                          }}
+                        >
+                          ({escala.viatura.statusVtr})
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                      ANOTAÇÕES:{" "}
+                    </div>
+                    {escala.anotacoes && <div>{escala.anotacoes}</div>}
+                  </div>
+                </div>
+
+                {/* Equipe de serviço */}
+                {(carregandoColegas || colegasEscala.length > 0) && (
+                  <div
+                    style={{
+                      paddingTop: "10px",
+                      paddingLeft: "10px",
+                      paddingRight: "10px",
+                    }}
+                  >
+                    <div style={{ color: "#a09e9e", fontSize: "12px" }}>
+                      Equipe de Serviço
+                    </div>
+                    {carregandoColegas ? (
+                      <div style={{ fontSize: 11, color: "#64748b" }}>
+                        Carregando...
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          overflowY: "scroll",
+                          borderRadius: "10px",
+                          border: "1px solid #ececec",
+                          padding: "10px",
+                        }}
+                      >
+                        {colegasEscala.map((c) => (
+                          <div
+                            key={c.id}
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              marginBottom: "6px",
+                            }}
+                          >
+                            {/* ✅ nome vem de dadosSgp.nomeGuerraSgp */}
+                            <AvatarColega
+                              mat={c.mat_escala ?? c.mat_escala}
+                              nome={c.ng_escala ?? c.ng_escala}
+                            />
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                fontSize: "11px",
+                                borderBottom: "1px solid #ececec",
+                              }}
+                            >
+                              {c.pg_escala} {c.mat_escala} {c.ng_escala}{" "}
+                              {c.nomeome_escala} {c.phone} | {c.funcao}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -375,19 +655,19 @@ export default function MinhasEscalasPage() {
               dia === hoje.getDate() &&
               mesAtual === hoje.getMonth() &&
               anoAtual === hoje.getFullYear();
-            const isSelecionado = escalaSelecionada?.dataInicio === chave;
-
-            // ─── Badge no calendário ────────────────────────────────────────────────────
+            const isSelecionado =
+              escalasDoDiaSelecionado.length > 0 &&
+              escalasDoDiaSelecionado[0].dataInicio === chave;
             const temRepasseAberto = escalasNoDia.some((e) =>
               meusRepasses?.some(
-                (r) => r.escalaId === e.id && r.statusRepasse === "ABERTO", // ✅ era r.escala?.id
+                (r) => r.escalaId === e.id && r.statusRepasse === "ABERTO",
               ),
             );
 
             return (
               <div
                 key={chave}
-                onClick={() => temEscala && selecionarEscala(escalasNoDia[0])}
+                onClick={() => temEscala && selecionarDia(escalasNoDia)}
                 style={{
                   border: isSelecionado
                     ? "2px solid #1a56db"
@@ -401,9 +681,9 @@ export default function MinhasEscalasPage() {
                   backgroundColor: isSelecionado
                     ? "#eff6ff"
                     : temRepasseAberto
-                      ? "#fff7ed" // ✅ laranja suave = tem repasse aberto
+                      ? "#fff7ed"
                       : temEscala
-                        ? "#f0fdf4" // verde suave = escalado
+                        ? "#f0fdf4"
                         : "#fff",
                   transition: "background 0.15s",
                 }}
@@ -437,7 +717,6 @@ export default function MinhasEscalasPage() {
                     {e.sistema} {e.funcao}
                   </div>
                 ))}
-                {/* ✅ badge de repasse aberto */}
                 {temRepasseAberto && (
                   <div
                     style={{
@@ -455,270 +734,12 @@ export default function MinhasEscalasPage() {
         </div>
       )}
 
-      {/* ─── Detalhes da escala selecionada ─── */}
-      {escalaSelecionada && (
-        <div className="escala-card">
-          <div className="escala-card__header_direita">
-            <div
-              style={{
-                background: "#482cad",
-                fontWeight: "bold",
-                width: "100%",
-                borderRadius: "20px",
-                height: "30px",
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: "10px",
-                padding: "5px",
-              }}
-            >
-              <span className="escala-card__titulo">
-                <FaCalendarAlt
-                  style={{ marginLeft: "5px", marginRight: "5px" }}
-                />
-                {formatarData(escalaSelecionada.dataInicio)}
-              </span>
+      {/* Cards do dia selecionado */}
+      {escalasDoDiaSelecionado.map((escala) => (
+        <CardEscala key={escala.id} escala={escala} />
+      ))}
 
-              <button
-                className="btn-repassar"
-                onClick={() => setModalRepasse(true)}
-                disabled={!!repasseAtivo || repasseExpirado}
-              >
-                <FaExchangeAlt />
-                {repasseExpirado ? "PRAZO ENCERRADO" : "REPASSAR"}
-              </button>
-
-              {repasseAtivo && (
-                <button
-                  className="btn-cancelar-repasse"
-                  onClick={handleCancelarRepasse}
-                  disabled={loadingCancelar}
-                >
-                  <FaBan />
-                  {loadingCancelar ? "CANCELANDO..." : "CANCELAR REPASSE"}
-                </button>
-              )}
-            </div>
-
-            <div>
-              <div className="escala-card__body">
-                <div className="escala-card-secundaria">
-                  <div style={{ display: "flex" }}>
-                    <div style={{ width: "50%", display: "flex" }}>
-                      {escalaSelecionada.nomeEvento && (
-                        <div style={{ display: "flex" }}>
-                          <div
-                            style={{ paddingRight: "5px", fontWeight: "700" }}
-                          >
-                            EVENTO:{" "}
-                          </div>
-                          <div> {escalaSelecionada.nomeEvento}</div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ width: "50%", display: "flex" }}>
-                      {escalaSelecionada.nomeOperacao && (
-                        <div style={{ display: "flex" }}>
-                          <div
-                            style={{ paddingRight: "5px", fontWeight: "700" }}
-                          >
-                            OPERAÇÃO:{" "}
-                          </div>
-                          <div> {escalaSelecionada.nomeOperacao}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex" }}>
-                    <div style={{ width: "50%", display: "flex" }}>
-                      <div style={{ display: "flex" }}>
-                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                          SISTEMA:{" "}
-                        </div>
-                        <div> {escalaSelecionada.sistema}</div>
-                      </div>
-                    </div>
-
-                    <div style={{ width: "50%", display: "flex" }}>
-                      <div style={{ display: "flex" }}>
-                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                          FUNÇÃO:{" "}
-                        </div>
-                        <div> {escalaSelecionada.funcao}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex" }}>
-                    <div style={{ width: "50%", display: "flex" }}>
-                      <div style={{ display: "flex" }}>
-                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                          HORÁRIO:{" "}
-                        </div>
-                        <div>
-                          {" "}
-                          {formatarHora(escalaSelecionada.horaInicio)} às{" "}
-                          {formatarHora(escalaSelecionada.horaFim)}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ width: "50%", display: "flex" }}>
-                      <div style={{ display: "flex" }}>
-                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                          LOCAL:{" "}
-                        </div>
-                        <div> {escalaSelecionada.localApresentacao}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex" }}>
-                    <div style={{ width: "50%", display: "flex" }}>
-                      <div style={{ display: "flex" }}>
-                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                          SITUAÇÃO:{" "}
-                        </div>
-                        <div>{escalaSelecionada.situacao}</div>
-                      </div>
-                    </div>
-
-                    <div style={{ width: "50%", display: "flex" }}>
-                      <div style={{ display: "flex" }}>
-                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                          TOTAL DE COTA:{" "}
-                        </div>
-                        <div> {escalaSelecionada.cota_escala}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex" }}>
-                    <div style={{ width: "50%", display: "flex" }}>
-                      <div style={{ display: "flex" }}>
-                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                          VIATURA:{" "}
-                        </div>
-                        {escalaSelecionada.viatura && (
-                          <div>
-                            {escalaSelecionada.viatura.patrimonio}{" "}
-                            <span
-                              style={{
-                                color:
-                                  escalaSelecionada.viatura.statusVtr ===
-                                  "INDISPONIVEL"
-                                    ? "#f87171"
-                                    : "#4ade80",
-                                fontSize: 10,
-                              }}
-                            >
-                              ({escalaSelecionada.viatura.statusVtr})
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div style={{ width: "50%", display: "flex" }}>
-                      <div style={{ display: "flex" }}>
-                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                          ANOTAÇÕES:{" "}
-                        </div>
-                        {escalaSelecionada.anotacoes && (
-                          <div> {escalaSelecionada.anotacoes}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div
-                      style={{
-                        display: "flex",
-                        paddingTop: "10px",
-                        paddingLeft: "10px",
-                        paddingRight: "10px",
-                        width: "100%",
-                      }}
-                    >
-                      {(loadingColegas || colegas.length > 0) && (
-                        <div
-                          style={{
-                            width: "100%",
-                          }}
-                        >
-                          <div
-                            style={{
-                              color: "#a09e9e",
-                              fontSize: "12px",
-                            }}
-                          >
-                            Equipe de Serviço
-                          </div>
-                          {loadingColegas ? (
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: "#64748b",
-                              }}
-                            >
-                              Carregando...
-                            </div>
-                          ) : (
-                            colegas.map((c) => (
-                              <div
-                                key={c.id}
-                                style={{
-                                  width: "100%",
-                                  height: "180px",
-                                  padding: "10px",
-                                  overflowY: "scroll",
-                                  borderRadius: "10px",
-
-                                  border: "1px solid #ececec",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    width: "100%",
-                                    display: "flex",
-                                  }}
-                                >
-                                  <div>
-                                    <AvatarColega
-                                      mat={c.mat}
-                                      nome={c.nome_escala}
-                                    />
-                                  </div>
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      fontSize: "11px",
-                                      borderBottom: "1px solid #ececec",
-                                    }}
-                                  >
-                                    {c.pg_escala} {c.mat} {c.nome_escala}{" "}
-                                    {c.nomeome_escala} {c.phone_escala} |{" "}
-                                    {c.funcao}
-                                  </div>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* ─── Resumo financeiro ─── */}
       <div
         style={{
           width: "100%",
@@ -733,7 +754,30 @@ export default function MinhasEscalasPage() {
           gap: "14px",
         }}
       >
-        {/* ITEM */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "11px",
+              color: "#9ca3af",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            Resumo financeiro
+          </span>
+          <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: 600 }}>
+            📅 {tituloContexto}
+          </span>
+        </div>
+
+        {/* PJES */}
         <div
           style={{
             display: "flex",
@@ -742,7 +786,6 @@ export default function MinhasEscalasPage() {
             borderBottom: "1px solid #f1f1f1",
           }}
         >
-          {/* ICON */}
           <div
             style={{
               minWidth: "48px",
@@ -756,8 +799,6 @@ export default function MinhasEscalasPage() {
           >
             <FiLayers size={22} color="#2563eb" />
           </div>
-
-          {/* CONTENT */}
           <div style={{ width: "100%" }}>
             <div
               style={{
@@ -767,30 +808,24 @@ export default function MinhasEscalasPage() {
                 marginBottom: "6px",
               }}
             >
-              <strong
-                style={{
-                  fontSize: "15px",
-                  color: "#111827",
-                  letterSpacing: "0.3px",
-                }}
-              >
+              <strong style={{ fontSize: "15px", color: "#111827" }}>
                 SISTEMA PJES
               </strong>
-
               <span
                 style={{
-                  background: "#dcfce7",
-                  color: "#166534",
+                  background: pjes.cota_escala > 0 ? "#dcfce7" : "#f3f4f6",
+                  color: pjes.cota_escala > 0 ? "#166534" : "#9ca3af",
                   padding: "4px 10px",
                   borderRadius: "999px",
                   fontSize: "12px",
                   fontWeight: 600,
                 }}
               >
-                Pago
+                {pjes.cota_escala > 0
+                  ? `${pjes.cota_escala} Cota(s)`
+                  : "Sem escalas"}
               </span>
             </div>
-
             <div
               style={{
                 display: "flex",
@@ -798,12 +833,28 @@ export default function MinhasEscalasPage() {
                 fontSize: "13px",
                 color: "#6b7280",
                 marginBottom: "8px",
+                alignItems: "center",
               }}
             >
-              <span>Enviado em 01/04/2026</span>
-              <span>R$ 1.000,00</span>
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: pjes.pago
+                    ? "#16a34a"
+                    : pjes.cota_escala === 0
+                      ? "#9ca3af"
+                      : "#f97316",
+                }}
+              >
+                {pjes.pago
+                  ? "✔ PAGO"
+                  : pjes.cota_escala > 0
+                    ? `● ${pjes.pagamento}`
+                    : "—"}
+              </span>
+              <span>R$ {pjes.somaCotaFinal.toFixed(2).replace(".", ",")}</span>
             </div>
-
             <div
               style={{
                 display: "flex",
@@ -811,35 +862,21 @@ export default function MinhasEscalasPage() {
                 alignItems: "center",
               }}
             >
-              <span
-                style={{
-                  fontSize: "13px",
-                  color: "#4b5563",
-                }}
-              >
-                Valor total pago em 01/04/2026
+              <span style={{ fontSize: "13px", color: "#4b5563" }}>
+                Valor total pago
               </span>
-
-              <strong
-                style={{
-                  color: "#16a34a",
-                  fontSize: "16px",
-                }}
-              >
-                + R$ 1.000,00
+              <strong style={{ color: "#16a34a", fontSize: "16px" }}>
+                + R${" "}
+                {(pjes.somaCotaFinalPago ?? 0) > 0
+                  ? (pjes.somaCotaFinalPago ?? 0).toFixed(2).replace(".", ",")
+                  : "0,00"}
               </strong>
             </div>
           </div>
         </div>
 
-        {/* ITEM 2 */}
-        <div
-          style={{
-            display: "flex",
-            gap: "14px",
-          }}
-        >
-          {/* ICON */}
+        {/* DIÁRIAS */}
+        <div style={{ display: "flex", gap: "14px" }}>
           <div
             style={{
               minWidth: "48px",
@@ -853,8 +890,6 @@ export default function MinhasEscalasPage() {
           >
             <FiGrid size={22} color="#7c3aed" />
           </div>
-
-          {/* CONTENT */}
           <div style={{ width: "100%" }}>
             <div
               style={{
@@ -864,30 +899,24 @@ export default function MinhasEscalasPage() {
                 marginBottom: "6px",
               }}
             >
-              <strong
-                style={{
-                  fontSize: "15px",
-                  color: "#111827",
-                  letterSpacing: "0.3px",
-                }}
-              >
+              <strong style={{ fontSize: "15px", color: "#111827" }}>
                 SISTEMA DIÁRIAS
               </strong>
-
               <span
                 style={{
-                  background: "#fef3c7",
-                  color: "#92400e",
+                  background: diarias.cota_escala > 0 ? "#fef3c7" : "#f3f4f6",
+                  color: diarias.cota_escala > 0 ? "#92400e" : "#9ca3af",
                   padding: "4px 10px",
                   borderRadius: "999px",
                   fontSize: "12px",
                   fontWeight: 600,
                 }}
               >
-                Processando
+                {diarias.cota_escala > 0
+                  ? `${diarias.cota_escala} Cota(s)`
+                  : "Sem escalas"}
               </span>
             </div>
-
             <div
               style={{
                 display: "flex",
@@ -895,12 +924,30 @@ export default function MinhasEscalasPage() {
                 fontSize: "13px",
                 color: "#6b7280",
                 marginBottom: "8px",
+                alignItems: "center",
               }}
             >
-              <span>Enviado em 01/04/2026</span>
-              <span>R$ 1.000,00</span>
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: diarias.pago
+                    ? "#16a34a"
+                    : diarias.cota_escala === 0
+                      ? "#9ca3af"
+                      : "#f97316",
+                }}
+              >
+                {diarias.pago
+                  ? "✔ PAGO"
+                  : diarias.cota_escala > 0
+                    ? `● ${diarias.pagamento}`
+                    : "—"}
+              </span>
+              <span>
+                R$ {diarias.somaCotaFinal.toFixed(2).replace(".", ",")}
+              </span>
             </div>
-
             <div
               style={{
                 display: "flex",
@@ -908,31 +955,26 @@ export default function MinhasEscalasPage() {
                 alignItems: "center",
               }}
             >
-              <span
-                style={{
-                  fontSize: "13px",
-                  color: "#4b5563",
-                }}
-              >
-                Valor total pago em 01/04/2026
+              <span style={{ fontSize: "13px", color: "#4b5563" }}>
+                Valor total pago
               </span>
-
-              <strong
-                style={{
-                  color: "#16a34a",
-                  fontSize: "16px",
-                }}
-              >
-                + R$ 1.000,00
+              <strong style={{ color: "#16a34a", fontSize: "16px" }}>
+                + R${" "}
+                {(diarias.somaCotaFinalPago ?? 0) > 0
+                  ? (diarias.somaCotaFinalPago ?? 0)
+                      .toFixed(2)
+                      .replace(".", ",")
+                  : "0,00"}
               </strong>
             </div>
           </div>
         </div>
       </div>
+
       <div style={{ height: "80px" }}></div>
 
       {/* ─── Modal de repasse ─── */}
-      {modalRepasse && (
+      {modalRepasse && escalaSelecionadaParaRepasse && (
         <div
           style={{
             position: "fixed",
@@ -969,7 +1011,7 @@ export default function MinhasEscalasPage() {
                 marginBottom: "4px",
               }}
             >
-              <strong>{escalaSelecionada?.nomeEvento}</strong>
+              <strong>{escalaSelecionadaParaRepasse.nomeEvento}</strong>
             </p>
             <p
               style={{
@@ -978,9 +1020,9 @@ export default function MinhasEscalasPage() {
                 marginBottom: "12px",
               }}
             >
-              {escalaSelecionada?.nomeOperacao} —{" "}
-              {formatarData(escalaSelecionada?.dataInicio ?? "")} |{" "}
-              {escalaSelecionada?.funcao}
+              {escalaSelecionadaParaRepasse.nomeOperacao} —{" "}
+              {formatarData(escalaSelecionadaParaRepasse.dataInicio)} |{" "}
+              {escalaSelecionadaParaRepasse.funcao}
             </p>
             <label style={{ fontSize: "12px", fontWeight: "bold" }}>
               Motivo *
@@ -1012,6 +1054,7 @@ export default function MinhasEscalasPage() {
                 onClick={() => {
                   setModalRepasse(false);
                   setMotivo("");
+                  setEscalaSelecionadaParaRepasse(null);
                 }}
                 style={{
                   padding: "7px 14px",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { useApi } from "@/src/hooks/useApi";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
@@ -12,29 +12,44 @@ import {
   FiSettings,
   FiMoreVertical,
 } from "react-icons/fi";
+import { FaFilePdf, FaEdit, FaTrash } from "react-icons/fa";
 import { BsCurrencyDollar } from "react-icons/bs";
 import { toast } from "react-hot-toast";
 import EventoModal from "@/src/components/ui/EventoModal";
+import ResumoEventoModal from "@/src/components/ui/ResumoEventoModal";
+import OperacaoModal from "@/src/components/ui/OperacaoModal";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Teto = { id: number; imagemUrl: string; nome_verba: string };
+type Teto = {
+  id: number;
+  imagemUrl: string;
+  nome_verba: string;
+  data_inicio: string;
+  data_fim: string;
+};
 type Distribuicao = {
   id: number;
   nome_dist: string;
   qtd_dist_of: number;
+  totalCotasOficiais: number;
+  saldo_of: number;
   qtd_dist_prc: number;
+  totalCotasPracas: number;
+  saldo_prc: number;
   diretoria: { nomeDiretoria: string };
 };
 type Evento = {
   id: number;
   nome_evento: string;
   qtd_of_evento: number;
+  totalCotasOficiais: number;
   qtd_prc_evento: number;
+  totalCotasPracas: number;
   status_evento: string;
   updated_at: string;
   homologado_em: string;
-  ome: { nomeOme: string; diretoria: { nomeDiretoria: string } };
+  ome: { id: number; nomeOme: string; diretoria: { nomeDiretoria: string } };
   user: {
     pg: string;
     nomeGuerra: string;
@@ -45,7 +60,9 @@ type Operacao = {
   id: number;
   nome_operacao: string;
   qtd_oficiais_oper: number;
+  totalCotasOficiais: number;
   qtd_pracas_oper: number;
+  totalCotasPracas: number;
   cod_op: string;
   ome: { nomeOme: string };
 };
@@ -65,19 +82,24 @@ export default function DiariasDiretoriaSelectPage() {
   const params = useSearchParams();
   const tetoId = Number(params?.get("tetoId"));
   const distribuicaoId = Number(params?.get("distribuicaoId"));
-
   // ─── Estados ────────────────────────────────────────────────────────────────
   const [eventoSelecionado, setEventoSelecionado] = useState<Evento | null>(
     null,
   );
+  const [resumoEventoId, setResumoEventoId] = useState<number | null>(null);
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
   const [openModal, setOpenModal] = useState(false);
+  const [openModalOperacao, setOpenModalOperacao] = useState(false);
   const [editando, setEditando] = useState<Evento | null>(null);
+  const [editandoOperacao, setEditandoOperacao] = useState<Operacao | null>(
+    null,
+  );
   const [menuAberto, setMenuAberto] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // ─── Dados do usuário autenticado ────
   const { user, loading: loadingUser } = useCurrentUser();
+  const router = useRouter();
 
   console.log("O usuario logado é", { loading: loadingUser, user });
 
@@ -192,6 +214,17 @@ export default function DiariasDiretoriaSelectPage() {
     const isPd = Number(typeUser) === 6;
     const st = status?.trim();
 
+    console.log("DEBUG getPermissoesEvento:", {
+      status: `"${status}"`,
+      st: `"${st}"`,
+      typeUser,
+      isAdmin,
+      isAux,
+      isPd,
+      STATUS_EVENTO_CRIADO: STATUS_EVENTO.CRIADO,
+      comparacao: st === STATUS_EVENTO.CRIADO,
+    });
+
     return {
       podeHomologar: (isAdmin || isAux) && st === STATUS_EVENTO.CRIADO,
       podeDeHomologar: isAdmin && st === STATUS_EVENTO.HOMOLOGADO,
@@ -216,10 +249,46 @@ export default function DiariasDiretoriaSelectPage() {
     }
   }
 
+  // ─── Excluir Operacao ──────────────────────────────────────────────────────────
+  async function excluirOperacao(id: number) {
+    const ok = confirm("Deseja realmente excluir esta operacao?");
+    if (!ok) return;
+
+    const promise = apiFetch(`/api/operacao/${id}`, {
+      method: "DELETE",
+    }).then(async (res) => {
+      if (!res.ok) {
+        const erro = await res.text();
+        throw new Error(erro || "Erro ao excluir operacao");
+      }
+      return res;
+    });
+
+    toast.promise(promise, {
+      loading: "Excluindo operacao...",
+      success: "Operacao excluída com sucesso ✅",
+      error: (err) => err.message || "Erro ao excluir ❌",
+    });
+
+    await promise;
+
+    // ✅ Recarrega operações do evento atual, não os eventos
+    if (eventoSelecionado) carregarOperacoes(eventoSelecionado);
+  }
+
   return (
     <div className="page">
       <div style={{ display: "flex", alignItems: "center" }}>
-        <h1 className="h1DiretoriaSelect">DIARIAS</h1>
+        <h1 className="h1DiretoriaSelect">
+          DIARIAS |{" "}
+          {teto?.data_inicio
+            ? new Date(teto.data_inicio).toLocaleDateString("pt-BR")
+            : ""}{" "}
+          a{" "}
+          {teto?.data_fim
+            ? new Date(teto.data_fim).toLocaleDateString("pt-BR")
+            : ""}
+        </h1>
 
         <button
           onClick={() => {
@@ -259,7 +328,10 @@ export default function DiariasDiretoriaSelectPage() {
                         </div>
                         <div>OFICIAIS</div>
                       </div>
-                      <strong>{distribuicao.qtd_dist_of} | 1900</strong>
+                      <strong>
+                        {distribuicao.qtd_dist_of} |{" "}
+                        {distribuicao.totalCotasOficiais}
+                      </strong>
                     </div>
 
                     <div>
@@ -270,7 +342,10 @@ export default function DiariasDiretoriaSelectPage() {
                         <div>PRAÇAS</div>
                       </div>
 
-                      <strong>{distribuicao.qtd_dist_prc} | 18302</strong>
+                      <strong>
+                        {distribuicao.qtd_dist_prc} |{" "}
+                        {distribuicao.totalCotasPracas}
+                      </strong>
                     </div>
                   </div>
                 </div>
@@ -282,13 +357,17 @@ export default function DiariasDiretoriaSelectPage() {
                   <div>
                     <FiStar />
                   </div>
-                  <div className="saldoDiretoriaValor">2510</div>
+                  <div className="saldoDiretoriaValor">
+                    {distribuicao.saldo_of}
+                  </div>
                 </div>
                 <div className="saldoDiretoriaIconePrc">
                   <div>
                     <FiChevronUp />
                   </div>
-                  <div className="saldoDiretoriaValor">19340</div>
+                  <div className="saldoDiretoriaValor">
+                    {distribuicao.saldo_prc}
+                  </div>
                 </div>
               </div>
             </div>
@@ -385,6 +464,15 @@ export default function DiariasDiretoriaSelectPage() {
                         <div className="divEventoDireitaIcones">
                           {/* 🔥 ÍCONES DINÂMICOS POR STATUS */}
                           <FiUnlock size={15} color={cores.unlock} />
+                          <button
+                            className="botaoResumoEvento"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setResumoEventoId(evento.id); // ✅ abre a modal com o id do evento
+                            }}
+                          >
+                            Resumo
+                          </button>
                           <FiSettings size={15} color={cores.settings} />
                           <BsCurrencyDollar size={15} color={cores.money} />
 
@@ -403,22 +491,6 @@ export default function DiariasDiretoriaSelectPage() {
                             <div ref={menuRef} className="dropdownMenu">
                               <div
                                 className={`dropdownItem ${
-                                  !permissoes.podeHomologar ? "disabled" : ""
-                                }`}
-                                onClick={() => {
-                                  if (!permissoes.podeHomologar) return;
-
-                                  alterarStatus(
-                                    evento.id,
-                                    STATUS_EVENTO.HOMOLOGADO,
-                                  );
-                                }}
-                              >
-                                Homologar
-                              </div>
-
-                              <div
-                                className={`dropdownItem ${
                                   !permissoes.podeDeHomologar ? "disabled" : ""
                                 }`}
                                 onClick={() => {
@@ -431,22 +503,6 @@ export default function DiariasDiretoriaSelectPage() {
                                 }}
                               >
                                 Des-homologar
-                              </div>
-
-                              <div
-                                className={`dropdownItem ${
-                                  !permissoes.podePD ? "disabled" : ""
-                                }`}
-                                onClick={() => {
-                                  if (!permissoes.podePD) return;
-
-                                  alterarStatus(
-                                    evento.id,
-                                    STATUS_EVENTO.PD_CONCLUIDA,
-                                  );
-                                }}
-                              >
-                                PD Concluída
                               </div>
 
                               <div
@@ -496,27 +552,14 @@ export default function DiariasDiretoriaSelectPage() {
 
                     <div className="linhaOficiaisPracas">
                       <div className="itemOficiaisPracas">
-                        Oficiais: {evento.qtd_of_evento}
+                        Oficiais: {evento.qtd_of_evento} |{" "}
+                        {evento.totalCotasOficiais}
                       </div>
 
                       <div className="itemOficiaisPracas direita">
-                        Praças: {evento.qtd_prc_evento}
+                        Praças: {evento.qtd_prc_evento} |{" "}
+                        {evento.totalCotasPracas}
                       </div>
-                    </div>
-
-                    <div className="divEventoDireitaStatusEvento">
-                      {evento.user.pg} {evento.user.nomeGuerra} |{" "}
-                      {evento.status_evento} em{" "}
-                      {new Date(evento.updated_at).toLocaleString("pt-BR")}
-                      {evento.homologado_em && (
-                        <span>
-                          {" "}
-                          Homologado em{" "}
-                          {new Date(evento.homologado_em).toLocaleString(
-                            "pt-BR",
-                          )}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -537,38 +580,78 @@ export default function DiariasDiretoriaSelectPage() {
                   placeholder="Buscar"
                 />
                 <div className="divCriarOperacao">
-                  <button className="botaoCriarOperacao">CRIAR OPERAÇÃO</button>
+                  <button
+                    onClick={() => {
+                      setEditandoOperacao(null);
+                      setOpenModalOperacao(true);
+                    }}
+                    className="botaoCriarOperacao"
+                  >
+                    CRIAR OPERAÇÃO
+                  </button>
                 </div>
               </div>
-              <div className="tabelaOperacoes">
-                <div className="tabelaHeader">
-                  <div>Unidade</div>
-                  <div>Operação</div>
-                  <div className="acoesTabela">Of</div>
-                  <div className="acoesTabela">Prç</div>
-                  <div className="acoesTabela">Status</div>
-                  <div>Cod Operação</div>
-                  <div className="acoesTabela">Ações</div>
-                </div>
+              <table className="tabelaOperacoes">
+                <thead>
+                  <tr className="tabelaHeader">
+                    <th>UNIDADE</th>
+                    <th>OPERAÇÃO</th>
+                    <th>OFICIAIS</th>
+                    <th>PRAÇAS</th>
+                    <th>COD OPERAÇÃO</th>
+                    <th>AÇÕES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {operacoes.map((op) => (
+                    <tr key={op.id} className="tabelaLinha">
+                      <td className="colOperacao">{op.ome.nomeOme}</td>
+                      <td>{op.nome_operacao}</td>
+                      <td>
+                        {" "}
+                        {op.qtd_oficiais_oper} | {op.totalCotasOficiais}
+                      </td>
+                      <td>
+                        {op.qtd_pracas_oper} | {op.totalCotasPracas}
+                      </td>
+                      <td>{op.cod_op}</td>
+                      <td className="acoesTabela">
+                        <button
+                          className="botaoAddPoliciais"
+                          onClick={() => {
+                            router.push(
+                              `/diarias-escalas?&tetoId=${tetoId}&operacaoId=${op.id}`,
+                            );
+                          }}
+                        >
+                          Adicionar Policiais
+                        </button>
 
-                {operacoes.map((op) => (
-                  <div key={op.id} className="tabelaLinha">
-                    <div className="colOperacao">{op.ome.nomeOme}</div>
-                    <div>{op.nome_operacao}</div>
-                    <div className="acoesTabela">
-                      {op.qtd_oficiais_oper} | 00
-                    </div>
-                    <div className="acoesTabela">{op.qtd_pracas_oper} | 00</div>
-                    <div className="statusPendente">CRIADA</div>
-                    <div>{op.cod_op}</div>
-                    <div className="acoesTabela">
-                      <FiUnlock size={14} color="green" />
-                      <FiSettings size={14} color="orange" />
-                      <BsCurrencyDollar size={14} color="purple" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        <FaEdit
+                          size={16}
+                          color="orange"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuAberto(null);
+                            setEditandoOperacao(op);
+                            setOpenModalOperacao(true);
+                          }}
+                        />
+                        <FaTrash
+                          size={16}
+                          color="red"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuAberto(null);
+                            excluirOperacao(op.id);
+                          }}
+                        />
+                        <FaFilePdf size={16} color="blue" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -581,7 +664,27 @@ export default function DiariasDiretoriaSelectPage() {
         }}
         onCreated={carregarEventos}
         evento={editando}
-        distribuicao={distribuicao} // 👈 AQUI
+        distribuicao={distribuicao}
+      />
+
+      <ResumoEventoModal
+        open={resumoEventoId !== null}
+        onClose={() => setResumoEventoId(null)}
+        eventoId={resumoEventoId}
+      />
+
+      <OperacaoModal
+        open={openModalOperacao}
+        onClose={() => {
+          setOpenModalOperacao(false);
+          setEditandoOperacao(null);
+        }}
+        onCreated={() => {
+          // ✅ wrapper sem argumento
+          if (eventoSelecionado) carregarOperacoes(eventoSelecionado);
+        }}
+        operacao={editandoOperacao}
+        evento={eventoSelecionado}
       />
     </div>
   );

@@ -24,13 +24,14 @@
   width: 100%;
   background: #ffffff;
   border-radius: 8px;
-  border: 1px solid #7c7c7c;
+  border: 1px solid #f2f6ff;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 5px;
   padding: 5px 6px;
   animation: cardEnter 0.45s ease-out forwards;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
 }
 
 .cardPolicialSelecionado img {
@@ -133,7 +134,7 @@ textarea {
   width: 100%;
   background: #ffffff;
   border-radius: 10px;
-  border: 1px solid #7c7b7b;
+  border: 1px solid #ffffff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
@@ -159,8 +160,8 @@ textarea {
 }
 
 .usuarioImgEscala {
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   object-fit: cover;
   border-radius: 50%;
   background: #f2f2f2;
@@ -236,12 +237,13 @@ textarea {
   display: flex;
   gap: 5px;
   padding: 10px;
-  border: solid 1px #929292;
-  border-radius: 5px;
+  border: solid 1px #f0e5e5;
+  border-radius: 15px;
   width: 100%;
   height: 60%;
   background-color: #ffffff;
   overflow-y: auto;
+  box-shadow: -2px -11px 18px rgba(0, 0, 0, 0.08);
 }
 
 .divTituloEscalas {
@@ -348,7 +350,7 @@ textarea {
 .tabelaEscalas {
   border-radius: 6px;
   border: 1px solid #a8a8a8;
-  font-size: 10px;
+  font-size: 12px;
   font-family: Arial, Helvetica, sans-serif;
   width: 100%;
   border-collapse: collapse;

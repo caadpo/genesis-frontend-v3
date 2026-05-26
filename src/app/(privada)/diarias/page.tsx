@@ -9,24 +9,34 @@ import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/src/lib/api";
 import DiariaDistribuicaoModal from "@/src/components/ui/DiariaDistribuicaoModal";
+import TetoModal from "@/src/components/ui/TetoModal";
 
 type Teto = {
   id: number;
   imagemUrl: string;
+  sistema: string;
   nome_verba: string;
   cod_verba: string;
-  valor_total: number;
   ttctof: number;
+  saldo_of: number;
+  totalCotasOficiais: number;
   ttctprc: number;
+  saldo_prc: number;
+  totalCotasPracas: number;
   data_inicio: string;
-  data_fim: string;
+  data_fim?: string;
+  tipo_periodo: string;
+  status: string;
+  valor_total: number;
 };
 
 type Distribuicao = {
   id: number;
   nome_dist: string;
   qtd_dist_of: number;
+  totalCotasOficiais: number;
   qtd_dist_prc: number;
+  totalCotasPracas: number;
   diretoria: {
     id: number;
     nomeDiretoria: string;
@@ -41,8 +51,19 @@ export default function DiariasPage() {
   const [tetos, setTetos] = useState<Teto[]>([]);
   const [tetoSelecionado, setTetoSelecionado] = useState<Teto | null>(null);
   const [distribuicoes, setDistribuicoes] = useState<Distribuicao[]>([]);
+  const [status, setStatus] = useState<"ABERTO" | "ENCERRADO">("ABERTO");
   const [openModal, setOpenModal] = useState(false);
   const [editando, setEditando] = useState<Distribuicao | null>(null);
+
+  // Modal teto
+  const [openTetoModal, setOpenTetoModal] = useState(false);
+  const [tetoEditando, setTetoEditando] = useState<Teto | null>(null);
+
+  // Double-click control
+  const [clickTimer, setClickTimer] = useState<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
   const router = useRouter();
 
   async function carregarDistribuicoes(tetoId: number) {
@@ -53,24 +74,48 @@ export default function DiariasPage() {
     setDistribuicoes(data);
   }
 
+  // 🖱️ Clique simples seleciona, duplo clique abre edição
+  function handleTetoClick(teto: Teto) {
+    if (clickTimer) {
+      // Double click
+      clearTimeout(clickTimer);
+      setClickTimer(null);
+      setTetoEditando(teto);
+      setOpenTetoModal(true);
+    } else {
+      // Single click — aguarda para ver se vira duplo
+      const timer = setTimeout(() => {
+        setTetoSelecionado(teto);
+        setClickTimer(null);
+      }, 250);
+      setClickTimer(timer);
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
 
-    apiFetch("/api/tetos?sistema=DIARIAS")
+    apiFetch(`/api/tetos?sistema=DIARIAS&status=${status}`)
       .then((res) => res.json())
       .then((data) => {
         if (!mounted) return;
         setTetos(data);
-        setTetoSelecionado((prev) => prev ?? data[0]);
+        setTetoSelecionado((prev) => prev ?? data[0] ?? null);
       });
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [status]);
 
   // 🔁 Sempre que a lista mudar, recalcula o selecionado
   useEffect(() => {
+    if (tetoSelecionado && !tetos.some((t) => t.id === tetoSelecionado.id)) {
+      setTetoSelecionado(null);
+      setDistribuicoes([]);
+      return;
+    }
+
     if (tetos.length > 0 && tetoSelecionado === null) {
       setTetoSelecionado(tetos[0]);
     }
@@ -140,31 +185,87 @@ export default function DiariasPage() {
     return data.toLocaleDateString("pt-BR");
   };
 
+  // 💰 Valores unitários
+  const VALOR_OFICIAL = 300;
+  const VALOR_PRACA = 200;
+
+  // 📊 Valor total da folha
+  const valor_total =
+    Number(tetoSelecionado?.ttctof || 0) * VALOR_OFICIAL +
+    Number(tetoSelecionado?.ttctprc || 0) * VALOR_PRACA;
+
+  // 📊 Valor total do saldo
+  const valor_total_saldo =
+    Number(tetoSelecionado?.saldo_of || 0) * VALOR_OFICIAL +
+    Number(tetoSelecionado?.saldo_prc || 0) * VALOR_PRACA;
+
+  // 📊 Valor total executado
+  const valor_total_executado =
+    Number(tetoSelecionado?.totalCotasOficiais || 0) * VALOR_OFICIAL +
+    Number(tetoSelecionado?.totalCotasPracas || 0) * VALOR_PRACA;
+
+  // 📈 Percentual Oficiais
+  const percentualOficiais =
+    Number(tetoSelecionado?.ttctof || 0) > 0
+      ? (
+          (Number(tetoSelecionado?.totalCotasOficiais || 0) /
+            Number(tetoSelecionado?.ttctof || 0)) *
+          100
+        ).toFixed(1)
+      : "0";
+
+  // 📈 Percentual Praças
+  const percentualPracas =
+    Number(tetoSelecionado?.ttctprc || 0) > 0
+      ? (
+          (Number(tetoSelecionado?.totalCotasPracas || 0) /
+            Number(tetoSelecionado?.ttctprc || 0)) *
+          100
+        ).toFixed(1)
+      : "0";
+
+  // 📈 Percentual total
+  const percentualTotal = (
+    (Number(percentualOficiais) + Number(percentualPracas)) /
+    2
+  ).toFixed(1);
+
   return (
     <div className="page">
       <div className="filtros">
         <h1 className="title">DIARIAS</h1>
-        <div className="selectGroup">
-          <label className="labelselectGroup">Folha</label>
-          <select>
-            <option>Vigente</option>
-          </select>
-        </div>
 
         <div className="selectGroup">
-          <label className="labelselectGroup">Ano</label>
-          <select>
-            <option>Vigente</option>
+          <label className="labelselectGroup">Status</label>
+          <select
+            value={status}
+            onChange={(e) =>
+              setStatus(e.target.value as "ABERTO" | "ENCERRADO")
+            }
+          >
+            <option value="ABERTO">ABERTO</option>
+            <option value="ENCERRADO">ENCERRADO</option>
           </select>
         </div>
 
         <div className="menuGroup">
-          <div style={{ fontSize: "20px" }}>
+          <div
+            style={{ fontSize: "20px", cursor: "pointer" }}
+            title="Novo Teto"
+            onClick={() => {
+              setTetoEditando(null);
+              setOpenTetoModal(true);
+            }}
+          >
             <FiGrid />
           </div>
           <div>
             <button
               onClick={() => {
+                if (!tetoSelecionado?.id) {
+                  toast.error("Selecione um teto antes de distribuir.");
+                  return;
+                }
                 setEditando(null);
                 setOpenModal(true);
               }}
@@ -188,7 +289,8 @@ export default function DiariasPage() {
         {tetos.map((teto) => (
           <button
             key={teto.id}
-            onClick={() => setTetoSelecionado(teto)}
+            onClick={() => handleTetoClick(teto)}
+            title="Clique para selecionar · Duplo clique para editar"
             className={`card ${
               tetoSelecionado?.id === teto.id ? "cardDestaque" : ""
             }`}
@@ -200,6 +302,7 @@ export default function DiariasPage() {
       </div>
 
       {/* INICIO DIV ITEM PRINCIPAL */}
+      {/* 📊 Painel do teto selecionado */}
       {tetoSelecionado && (
         <div>
           <div className="divItemPrincipal">
@@ -207,11 +310,16 @@ export default function DiariasPage() {
             <div className="divItem">
               <div className="divItensConsumo">
                 <div style={{ fontSize: "12px", color: "#949090" }}>
-                  Valor Total
+                  Valor total da Folha
                 </div>
 
                 <div style={{ fontSize: "16px", color: "#494848" }}>
-                  <strong>R$ {tetoSelecionado.valor_total}</strong>
+                  <strong>
+                    R${" "}
+                    {valor_total.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </strong>
                 </div>
 
                 <div style={{ display: "flex" }}>
@@ -238,21 +346,30 @@ export default function DiariasPage() {
             <div className="divItem">
               <div className="divItensConsumo">
                 <div style={{ fontSize: "12px", color: "#949090" }}>
-                  Distribuição das cotas
+                  Saldo de Cotas
                 </div>
 
                 <div style={{ fontSize: "16px", color: "#494848" }}>
-                  <strong>Distribuição</strong>
+                  <strong>
+                    R${" "}
+                    {valor_total_saldo.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </strong>
                 </div>
 
                 <div style={{ display: "flex" }}>
                   <label className="labelItensConsumo">Oficiais:</label>
-                  <span className="spamItensConsumo">99999</span>
+                  <span className="spamItensConsumo">
+                    {tetoSelecionado.saldo_of} Cota(s)
+                  </span>
                 </div>
 
                 <div style={{ display: "flex" }}>
                   <label className="labelItensConsumo">Praças:</label>
-                  <span className="spamItensConsumo">99999</span>
+                  <span className="spamItensConsumo">
+                    {tetoSelecionado.saldo_prc} Cota(s)
+                  </span>
                 </div>
               </div>
               <div className="divIconeConsumo">
@@ -265,24 +382,29 @@ export default function DiariasPage() {
             <div className="divItem">
               <div className="divItensConsumo">
                 <div style={{ fontSize: "12px", color: "#949090" }}>
-                  Saldo Atual
+                  Consumo Real da Folha
                 </div>
 
                 <div style={{ fontSize: "16px", color: "#494848" }}>
-                  <strong>R$ {tetoSelecionado.valor_total}</strong>
+                  <strong>
+                    R${" "}
+                    {valor_total_executado.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </strong>
                 </div>
 
                 <div style={{ display: "flex" }}>
                   <label className="labelItensConsumo">Oficiais:</label>
                   <span className="spamItensConsumo">
-                    {Number(tetoSelecionado.ttctof)} Cota(s)
+                    {Number(tetoSelecionado.totalCotasOficiais)} Cota(s)
                   </span>
                 </div>
 
                 <div style={{ display: "flex" }}>
                   <label className="labelItensConsumo">Praças:</label>
                   <span className="spamItensConsumo">
-                    {Number(tetoSelecionado.ttctprc)} Cota(s)
+                    {Number(tetoSelecionado.totalCotasPracas)} Cota(s)
                   </span>
                 </div>
               </div>
@@ -296,31 +418,24 @@ export default function DiariasPage() {
             <div className="divItem">
               <div className="divItensConsumo">
                 <div style={{ fontSize: "12px", color: "#949090" }}>
-                  Gestão Financeira
+                  Eventos Homologados
                 </div>
 
-                <div style={{ fontSize: "14px", color: "#494848" }}>
-                  <strong>
-                    Validade: {formatarData(tetoSelecionado?.data_inicio)} a{" "}
-                    {formatarData(tetoSelecionado?.data_fim)}{" "}
-                  </strong>
+                <div style={{ fontSize: "16px", color: "#494848" }}>
+                  <strong>Homologação: {percentualTotal}%</strong>
                 </div>
 
                 <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">
-                    Prev desembolso (PD):
-                  </label>
-                  <span className="spamItensConsumo">15%</span>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">Pagamento</label>
-                  <span className="spamItensConsumo">8%</span>
-                </div>
-                <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">Nº Empenho:</label>
+                  <label className="labelItensConsumo">Oficiais:</label>
                   <span className="spamItensConsumo">
-                    {tetoSelecionado.cod_verba}
+                    {percentualOficiais}% Concluído
+                  </span>
+                </div>
+
+                <div style={{ display: "flex" }}>
+                  <label className="labelItensConsumo">Praças:</label>
+                  <span className="spamItensConsumo">
+                    {percentualPracas}% Concluído
                   </span>
                 </div>
               </div>
@@ -336,11 +451,11 @@ export default function DiariasPage() {
               <table className="tabelaDistribuicao">
                 <thead>
                   <tr>
-                    <th>Diretoria</th>
-                    <th>Destribuição</th>
+                    <th>Dir</th>
+                    <th>Distribuição</th>
                     <th>Oficiais</th>
                     <th>Praças</th>
-                    <th>#</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -348,8 +463,12 @@ export default function DiariasPage() {
                     <tr key={dist.id}>
                       <td>{dist.diretoria.nomeDiretoria}</td>
                       <td>{dist.nome_dist}</td>
-                      <td>{dist.qtd_dist_of} | 2510</td>
-                      <td>{dist.qtd_dist_prc} | 19340</td>
+                      <td>
+                        {dist.qtd_dist_of} | {dist.totalCotasOficiais}
+                      </td>
+                      <td>
+                        {dist.qtd_dist_prc} | {dist.totalCotasPracas}
+                      </td>
                       <td>
                         <button
                           onClick={() => handleEdit(dist)}
@@ -368,7 +487,7 @@ export default function DiariasPage() {
                         <button
                           onClick={() => {
                             router.push(
-                              `/diaria-diretoria-select?tetoId=${tetoSelecionado?.id}&distribuicaoId=${dist.id}`
+                              `/diaria-diretoria-select?tetoId=${tetoSelecionado?.id}&distribuicaoId=${dist.id}`,
                             );
                           }}
                           className="btnEntrarDist"
@@ -384,19 +503,38 @@ export default function DiariasPage() {
           </div>
         </div>
       )}
-      <DiariaDistribuicaoModal
-        open={openModal}
+      {tetoSelecionado && (
+        <DiariaDistribuicaoModal
+          open={openModal}
+          onClose={() => {
+            setOpenModal(false);
+            setEditando(null);
+          }}
+          onCreated={() => {
+            if (tetoSelecionado?.id) {
+              carregarDistribuicoes(tetoSelecionado.id);
+            }
+          }}
+          tetoId={tetoSelecionado.id}
+          distribuicao={editando}
+        />
+      )}
+
+      {/* Modal de teto (criar / editar) */}
+      <TetoModal
+        open={openTetoModal}
+        sistema="DIARIAS"
         onClose={() => {
-          setOpenModal(false);
-          setEditando(null);
+          setOpenTetoModal(false);
+          setTetoEditando(null);
         }}
-        onCreated={() => {
-          if (tetoSelecionado?.id) {
-            carregarDistribuicoes(tetoSelecionado.id);
-          }
+        onSaved={() => {
+          setTetoSelecionado(null);
+          apiFetch(`/api/tetos?sistema=DIARIAS&status=${status}`)
+            .then((res) => res.json())
+            .then((data) => setTetos(data));
         }}
-        tetoId={tetoSelecionado?.id!}
-        distribuicao={editando}
+        teto={tetoEditando}
       />
     </div>
   );

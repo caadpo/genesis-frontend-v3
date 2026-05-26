@@ -475,7 +475,7 @@ export default function PjesDiretoriaSelectPage() {
                             className="botaoResumoEvento"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setResumoEventoId(evento.id); // ✅ abre a modal com o id do evento
+                              setResumoEventoId(evento.id);
                             }}
                           >
                             Resumo

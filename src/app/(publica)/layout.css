@@ -1,113 +1,340 @@
-/* Barras superiores */
-.top-bar {
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500&display=swap");
+
+/* ───────────────────────────────
+   Barras superiores
+─────────────────────────────── */
+.top-bar_login {
   width: 100%;
-  height: 25px;
-  background-color: #155a9b;
-  color: white;
+  height: 30px;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
   display: flex;
   align-items: center;
-  padding-left: 10px;
-  font-size: 18px;
+  padding-left: 20px;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
 }
 
-.sub-bar {
+.sub-bar_login {
   width: 100%;
-  height: 25px;
-  background-color: #0d3a5f;
-  color: white;
+  height: 26px;
+  background-color: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: rgba(200, 169, 81, 0.88);
   display: flex;
   align-items: center;
-  padding-left: 10px;
-  font-size: 14px;
-  font-weight: 500;
+  padding-left: 20px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
 }
 
-/* Main */
-.main-container {
+/* ───────────────────────────────
+   Fundo / página
+─────────────────────────────── */
+.page-bg_login {
+  flex: 1;
+  min-height: 100vh;
+  background: linear-gradient(160deg, #0a1f3c 0%, #0d3260 45%, #0f4a8a 100%);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Faixa dourada no topo */
+.page-bg_login::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #c8a951 0%, #f0d070 50%, #c8a951 100%);
+  z-index: 2;
+}
+
+/* Grid sutil de fundo */
+.page-bg_login::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 39px,
+      rgba(255, 255, 255, 0.025) 39px,
+      rgba(255, 255, 255, 0.025) 40px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 39px,
+      rgba(255, 255, 255, 0.025) 39px,
+      rgba(255, 255, 255, 0.025) 40px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Círculos decorativos */
+.bg-circle-left_login,
+.bg-circle-right_login {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-circle-left_login {
+  width: 320px;
+  height: 320px;
+  border: 1px solid rgba(200, 169, 81, 0.07);
+  left: -80px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.bg-circle-right_login {
+  width: 440px;
+  height: 440px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  right: -120px;
+  top: 28%;
+}
+
+/* ───────────────────────────────
+   Container central
+─────────────────────────────── */
+.main-container_login {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px 16px;
-}
-
-/* Card */
-.cardLogin {
-  background-color: #ffffff;
-  width: 85%;
-  max-width: 400px;
-  height: 400px;
-  padding: 30px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  border: 1px solid #e5e5e5;
-}
-
-/* Logo */
-.logoLogin {
-  margin-bottom: 20px;
-  width: 150px;
-  height: 150px;
-  object-fit: contain;
-  opacity: 0.9;
-}
-
-/* Form */
-.formLogin {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* Wrapper para input com ícone */
-.input-wrapperLogin {
   position: relative;
+  z-index: 1;
+}
+
+/* ───────────────────────────────
+   Card
+─────────────────────────────── */
+.card_login {
   width: 100%;
+  max-width: 360px;
+  background: #ffffff;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* ───────────────────────────────
+   Cabeçalho do card
+─────────────────────────────── */
+.card-header_login {
+  background: #0a1f3c;
+  padding: 30px 28px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+/* Linha dourada inferior do cabeçalho */
+.card-header_login::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #c8a951, transparent);
+}
+
+/* Anel da logo */
+.logo-ring_login {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  border: 2px solid rgba(200, 169, 81, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
   margin-bottom: 16px;
 }
 
-/* Ícone dentro do input */
-.input-iconLogin {
+.logo-img_login {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+}
+
+.card-title_login {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.35;
+  margin: 0 0 5px;
+}
+
+.card-badge_login {
+  font-family: "DM Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  color: rgba(200, 169, 81, 0.82);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* ───────────────────────────────
+   Corpo do card
+─────────────────────────────── */
+.card-body_login {
+  background: #ffffff;
+  padding: 28px 28px 8px;
+}
+
+.section-label_login {
+  font-family: "DM Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  color: #8899bb;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #eef0f5;
+}
+
+/* ───────────────────────────────
+   Campos
+─────────────────────────────── */
+.input-wrapper_login {
+  position: relative;
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.input-icon_login {
   position: absolute;
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #888;
-  font-size: 16px;
-  pointer-events: none; /* ícone não bloqueia clique no input */
+  color: #8899bb;
+  font-size: 15px;
+  pointer-events: none;
 }
 
-/* Input com espaço para ícone */
-.inputLogin.with-icon {
-  padding-left: 36px; /* espaço para o ícone */
-}
-
-/* Inputs */
-.inputLogin {
+.input_login {
   width: 100%;
-  padding: 8px 16px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 14px;
+  box-sizing: border-box;
+  padding: 10px 14px 10px 36px;
+  border: 1.5px solid #dde3ef;
+  border-radius: 3px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 13px;
+  color: #1a2a4a;
+  background: #f7f9fc;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 
-/* Botão */
-.buttonLogin {
+.input_login::placeholder {
+  color: #aab4cc;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+}
+
+.input_login:focus {
+  border-color: #155a9b;
+  background: #ffffff;
+}
+
+/* Mensagem de erro */
+.error_login {
+  display: block;
+  font-family: "DM Sans", sans-serif;
+  font-size: 11px;
+  color: #c0392b;
+  margin-top: 5px;
+  padding-left: 2px;
+}
+
+/* ───────────────────────────────
+   Botão
+─────────────────────────────── */
+.btn_login {
   width: 100%;
-  padding: 10px;
-  background-color: #155a9b;
-  color: white;
+  padding: 12px;
+  background: #0d3260;
+  color: #ffffff;
   border: none;
-  border-radius: 6px;
+  border-radius: 3px;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
   cursor: pointer;
+  margin-top: 8px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s ease;
 }
 
-.buttonLogin:hover {
-  background-color: #0d3a5f;
+/* Linha dourada no rodapé do botão */
+.btn_login::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #c8a951, #f0d070, #c8a951);
+}
+
+.btn_login:hover:not(:disabled) {
+  background: #155a9b;
+}
+
+.btn_login:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ───────────────────────────────
+   Rodapé do card
+─────────────────────────────── */
+.card-footer_login {
+  padding: 14px 28px 20px;
+  text-align: center;
+}
+
+.card-footer_login span {
+  font-family: "DM Sans", sans-serif;
+  font-size: 10px;
+  color: #aab4cc;
+  letter-spacing: 0.5px;
 }

@@ -19,7 +19,13 @@ import { FaTriangleExclamation } from "react-icons/fa6";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Teto = { id: number; imagemUrl: string; nome_verba: string };
+type Teto = {
+  id: number;
+  imagemUrl: string;
+  nome_verba: string;
+  data_inicio: string;
+  data_fim: string;
+};
 type Evento = { id: number; nome_evento: string; teto?: Teto };
 type Operacao = {
   id: number;
@@ -81,7 +87,7 @@ type Escala = {
   operacaoId?: number;
   viaturaId?: number | null;
   viatura?: Viatura | null;
-  phone?: string | null;
+  phone?: string;
 
   conta?: {
     banco: string;
@@ -92,30 +98,11 @@ type Escala = {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function PjesEscalasPage() {
+export default function DiariasEscalasPage() {
   const params = useSearchParams();
-  const mes = params?.get("mes") ?? "";
-  const ano = params?.get("ano") ?? "";
   const tetoId = Number(params?.get("tetoId"));
   const operacaoId = Number(params?.get("operacaoId"));
   const [editandoEscala, setEditandoEscala] = useState<Escala | null>(null);
-
-  // ─── Constantes PJES ────────────────────────────────────────────────────────
-  const MESES = [
-    "JAN",
-    "FEV",
-    "MAR",
-    "ABR",
-    "MAI",
-    "JUN",
-    "JUL",
-    "AGO",
-    "SET",
-    "OUT",
-    "NOV",
-    "DEZ",
-  ];
-  const mesAbreviado = mes ? MESES[Number(mes) - 1] : "";
 
   // ─── Funções Utilitárias ─────────────────────────────────────────────────────
   const formatarCPF = (cpf: string | number): string => {
@@ -129,21 +116,18 @@ export default function PjesEscalasPage() {
     return `${dia}/${mes}/${ano}`;
   };
 
-  const formatarTelefone = (telefone: string | undefined | null): string => {
+  const formatarTelefone = (telefone: string | undefined): string => {
     if (!telefone) return "-";
     const tel = String(telefone).replace(/\D/g, "");
-    if (tel.length === 11)
+    if (tel.length === 11) {
       return tel.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-    if (tel.length === 10)
+    } else if (tel.length === 10) {
       return tel.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+    }
     return telefone;
   };
-
   // ─── API ─────────────────────────────────────────────────────────────────────
-  const { data: tetos } = useApi<Teto[]>(
-    mes && ano ? `/api/tetos?sistema=PJES&mes=${mes}&ano=${ano}` : "",
-    [mes, ano],
-  );
+  const { data: tetos } = useApi<Teto[]>(`/api/tetos?sistema=DIARIAS`);
 
   const {
     data: operacao,
@@ -181,17 +165,27 @@ export default function PjesEscalasPage() {
 
   const { data: viaturas } = useApi<Viatura[]>("/api/viatura", []);
 
-  const SISTEMA = "PJES";
-  const minDate =
-    mes && ano ? `${ano}-${String(Number(mes)).padStart(2, "0")}-01` : "";
-  const maxDate = mes && ano ? new Date(Number(ano), Number(mes), 0) : null;
-  const maxDateStr =
-    maxDate && ano
-      ? `${ano}-${String(Number(mes)).padStart(2, "0")}-${String(maxDate.getDate()).padStart(2, "0")}`
-      : "";
+  const SISTEMA = "DIARIAS";
+  const formatDateToInput = (date?: string) => {
+    if (!date) return "";
 
+    // Se já estiver no formato YYYY-MM-DD
+    if (date.includes("-")) {
+      return date;
+    }
+    // Se vier em DD/MM/YYYY
+    if (date.includes("/")) {
+      const [dia, mes, ano] = date.split("/");
+      if (!dia || !mes || !ano) return "";
+      return `${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
+    }
+    return "";
+  };
+  const minDate = formatDateToInput(teto?.data_inicio);
+  const maxDateStr = formatDateToInput(teto?.data_fim);
+
+  const funcao = selectedCargo ? `${selectedCargo} - ${selectedViatura}` : "";
   const cotaEscala = horaInicio && horaFim && horaInicio === horaFim ? 2 : 1;
-
   const totalCotasOficiais = tabelaEscalas
     .filter((e) => e.tipo_escala === "O")
     .reduce((sum, e) => sum + e.cota_escala, 0);
@@ -234,9 +228,8 @@ export default function PjesEscalasPage() {
     !!horaFim &&
     !!localApresentacao &&
     !!selectedCargo &&
-    !loadingUsuario;
+    !loadingUsuario; // ✅ desabilitado enquanto busca
 
-  // ✅ busca agora usa dadosSgp.pgSgp, dadosSgp.nomeGuerraSgp, dadosSgp.cpfSgp, phone
   const filteredEscalas = tabelaEscalas.filter((escala) => {
     if (!searchText.trim()) return true;
     const term = searchText.toLowerCase();
@@ -273,6 +266,7 @@ export default function PjesEscalasPage() {
       return;
     }
 
+    // ✅ não busca se tiver menos de 7 dígitos
     if (matricula.trim().length < 7) {
       setUsuario(null);
       setBuscaUsuarioError(null);
@@ -299,13 +293,14 @@ export default function PjesEscalasPage() {
         if (!found || !found.id) {
           setUsuario(null);
           setBuscaUsuarioError("Usuário não encontrado");
-          setLocalApresentacao("");
+          setLocalApresentacao(""); // ✅ limpa se não encontrou
           setSituacao("");
           return;
         }
 
         setUsuario(found);
         if (!isEditandoRef.current) {
+          // ✅ só preenche automaticamente se NÃO for edição
           setLocalApresentacao(found.localApresentacao ?? "");
           setSituacao(found.situacao ?? "");
         }
@@ -324,14 +319,23 @@ export default function PjesEscalasPage() {
 
     return () => clearTimeout(timeout);
   }, [matricula]);
-
   async function handleAddEscala() {
+    // ✅ validação com toast PRIMEIRO — antes de qualquer return silencioso
     const faltando = camposObrigatoriosFaltando();
+    console.log("faltando:", faltando);
+    console.log("usuario:", usuario);
+    console.log("editandoEscala:", editandoEscala);
+    console.log("dataInicio:", dataInicio);
+    console.log("horaInicio:", horaInicio);
+    console.log("horaFim:", horaFim);
+    console.log("localApresentacao:", localApresentacao);
+    console.log("selectedCargo:", selectedCargo);
     if (faltando.length > 0) {
       toast.error(`Preencha os campos obrigatórios: ${faltando.join(", ")}`);
       return;
     }
 
+    // ✅ só depois os guards técnicos (sem toast pois não deveriam ocorrer normalmente)
     if (!operacaoId || !operacao) return;
 
     const isEdicao = !!editandoEscala;
@@ -344,10 +348,10 @@ export default function PjesEscalasPage() {
           horaInicio,
           horaFim,
           localApresentacao,
-          funcao: selectedCargo,
+          funcao: selectedCargo, // ✅ só a função, viatura vai separada
           situacao,
           anotacoes,
-          viaturaId: selectedViatura ?? null,
+          viaturaId: selectedViatura ?? null, // ✅ null remove a viatura
           ...(usuario && { usuarioId: usuario.id }),
         }
       : {
@@ -358,10 +362,10 @@ export default function PjesEscalasPage() {
           horaInicio,
           horaFim,
           localApresentacao,
-          funcao: selectedCargo,
+          funcao: selectedCargo, // ✅ só a função
           situacao,
           anotacoes,
-          viaturaId: selectedViatura ?? undefined,
+          viaturaId: selectedViatura ?? undefined, // ✅ sem viatura = omite
         };
 
     try {
@@ -411,7 +415,9 @@ export default function PjesEscalasPage() {
     if (!ok) return;
 
     try {
-      const response = await fetch(`/api/escala/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/escala/${id}`, {
+        method: "DELETE",
+      });
 
       if (!response.ok) {
         const data = await response.json();
@@ -444,10 +450,22 @@ export default function PjesEscalasPage() {
     <div className="page" style={{ overflow: "hidden" }}>
       <div style={{ width: "70%" }}>
         <h1 className="h1PjesEscalas">
-          PJES | {mesAbreviado} {ano}
+          DIARIAS |{" "}
+          {teto?.data_inicio
+            ? new Date(teto.data_inicio).toLocaleDateString("pt-BR")
+            : ""}{" "}
+          a{" "}
+          {teto?.data_fim
+            ? new Date(teto.data_fim).toLocaleDateString("pt-BR")
+            : ""}
         </h1>
       </div>
-      <div style={{ display: "flex", width: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          width: "100%",
+        }}
+      >
         {/* inicio Card Policial Escalado */}
         <div className="divPolicialEscalado">
           <div className="divPolicialSelecionado">
@@ -456,14 +474,18 @@ export default function PjesEscalasPage() {
               <div className="policialLeft">
                 <div className="divImgInoutMat">
                   <div className="usuarioImgEscala">
-                    {!matricula || loadingUsuario || !usuario?.imagemUrl ? (
+                    {!matricula ? (
                       <FaUser className="usuarioIcon" />
-                    ) : (
+                    ) : loadingUsuario ? (
+                      <FaUser className="usuarioIcon" />
+                    ) : usuario?.imagemUrl ? (
                       <img
                         src={usuario.imagemUrl}
                         alt="Usuário"
                         className="usuarioImgEscala"
                       />
+                    ) : (
+                      <FaUser className="usuarioIcon" />
                     )}
                   </div>
                   <div className="matpolicial">
@@ -496,9 +518,19 @@ export default function PjesEscalasPage() {
                       <div>
                         <FaBarcode /> {usuario.nunfunc} | {usuario.nunvinc}
                       </div>
+
                       <div>
                         <FaTriangleExclamation />{" "}
                         <strong>{usuario.situacao}</strong>
+                      </div>
+                      <div>
+                        <strong>Banco:</strong> {usuario.conta?.banco || "-"}
+                      </div>
+                      <div>
+                        <strong>Ag:</strong> {usuario.conta?.agencia || "-"}
+                      </div>
+                      <div>
+                        <strong>Conta:</strong> {usuario.conta?.conta || "-"}
                       </div>
                     </>
                   )}
@@ -530,12 +562,15 @@ export default function PjesEscalasPage() {
                         max={maxDateStr}
                         onChange={(e) => {
                           const value = e.target.value;
+
                           if (
                             minDate &&
                             maxDateStr &&
                             (value < minDate || value > maxDateStr)
-                          )
+                          ) {
                             return;
+                          }
+
                           setDataInicio(value);
                         }}
                       />
@@ -603,7 +638,7 @@ export default function PjesEscalasPage() {
                             type="checkbox"
                             className="ckeckboxCargo"
                             style={{
-                              transform: "scale(1.2)",
+                              transform: "scale(1.2)", // aumenta o tamanho
                               cursor: "pointer",
                             }}
                             checked={selectedCargo === cargo}
@@ -651,6 +686,7 @@ export default function PjesEscalasPage() {
 
                   <div className="divDadosEscala" style={{ width: "100%" }}>
                     <span className="labelDadosEscala">Anotações</span>
+
                     <textarea
                       className="inputDadosEscala"
                       style={{
@@ -686,6 +722,7 @@ export default function PjesEscalasPage() {
               )}
               {operacao && (
                 <div className="cardOperacaoSelecionado">
+                  {/* ESQUERDA */}
                   <div className="operacaoLeft">
                     {tetoReferencia?.imagemUrl && (
                       <img
@@ -698,6 +735,7 @@ export default function PjesEscalasPage() {
                     </div>
                   </div>
 
+                  {/* DIREITA */}
                   <div className="operacaoRight">
                     <div className="nomeOperacao">
                       {operacao.ome?.nomeOme} | {operacao.nome_operacao} | COP:{" "}
@@ -724,6 +762,7 @@ export default function PjesEscalasPage() {
                           </div>
                           <div>PRAÇAS</div>
                         </div>
+
                         <strong>
                           {operacao.qtd_pracas_oper} | {totalCotasPracas}
                         </strong>
@@ -736,13 +775,15 @@ export default function PjesEscalasPage() {
           </div>
           {/* fim Card dados da Operação */}
 
+          {/* inicio botao adiconar policiaal */}
           <div>
             <button
               className="botaoCriarEscala"
               type="button"
+              // ✅ remover disabled — a validação com toast acontece dentro do handleAddEscala
               onClick={handleAddEscala}
               style={{
-                opacity: canAddEscala ? 1 : 0.5,
+                opacity: canAddEscala ? 1 : 0.5, // ✅ feedback visual de "desabilitado" sem bloquear o clique
                 cursor: canAddEscala ? "pointer" : "not-allowed",
               }}
             >
@@ -753,6 +794,7 @@ export default function PjesEscalasPage() {
                   : "ADICIONAR POLICIAL"}
             </button>
 
+            {/* ✅ Botão de cancelar edição */}
             {editandoEscala && (
               <button
                 className="botaoCancelarEscala"
@@ -781,12 +823,18 @@ export default function PjesEscalasPage() {
               onChange={(e) => setSearchText(e.target.value)}
             />
           </div>
+
+          {/* fim botao adiconar policiaal */}
         </div>
       </div>
 
       {/* inicio escalas */}
       <div className="divPjesEscalas">
-        <div style={{ width: "100%" }}>
+        <div
+          style={{
+            width: "100%",
+          }}
+        >
           <div className="divLogoEscalas">
             <div>
               <img
@@ -795,6 +843,7 @@ export default function PjesEscalasPage() {
                 className="logoPmpeEscalas"
               />
             </div>
+
             <div style={{ flex: 1, textAlign: "center" }}>
               <h4 className="tituloEscala">POLICIA MILITAR DE PERNAMBUCO</h4>
               <h4 className="tituloEscala">QUARTEL DO COMANDO GERAL</h4>
@@ -802,6 +851,7 @@ export default function PjesEscalasPage() {
                 DIRETORIA DE PLANEJAMENTO OPERACIONAL
               </h4>
             </div>
+
             <div>
               <img
                 src="/logo_pe.jpg"
@@ -847,7 +897,6 @@ export default function PjesEscalasPage() {
                       {escala.pg_escala} {escala.mat_escala} {escala.ng_escala}{" "}
                       {escala.nomeome_escala} - {escala.situacao}
                     </td>
-
                     <td>{formatarTelefone(escala.phone)}</td>
 
                     <td>
@@ -855,6 +904,7 @@ export default function PjesEscalasPage() {
                       {escala.horaFim}
                     </td>
                     <td>{escala.localApresentacao}</td>
+
                     <td>{escala.funcao}</td>
                     <td>
                       {escala.viatura
