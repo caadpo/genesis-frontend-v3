@@ -67,8 +67,8 @@ export default function LoginPage() {
           <div className="input-wrapper_login">
             <FaUser className="input-icon_login" />
             <input
-              type="text"
-              placeholder="Matrícula / Usuário"
+              type="number"
+              placeholder="Matrícula"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="input_login"

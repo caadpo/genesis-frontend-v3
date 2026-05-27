@@ -436,7 +436,7 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
 
                 <div>
                   <img
-                    src="/logo_dpo.webp"
+                    src="/logo_dpo.png"
                     alt="Logo da PMPE"
                     className="logoEventoResumoRodape"
                   />

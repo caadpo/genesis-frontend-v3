@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useApi } from "@/src/hooks/useApi";
-import { FiChevronUp, FiStar } from "react-icons/fi";
+import { FiArrowLeft, FiChevronUp, FiStar } from "react-icons/fi";
 import {
   FaBarcode,
   FaCar,
-  FaDownload,
   FaEdit,
+  FaFilePdf,
+  FaLock,
+  FaLockOpen,
   FaPhone,
   FaTrash,
   FaUser,
@@ -20,7 +22,12 @@ import { FaTriangleExclamation } from "react-icons/fa6";
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Teto = { id: number; imagemUrl: string; nome_verba: string };
-type Evento = { id: number; nome_evento: string; teto?: Teto };
+type Evento = {
+  id: number;
+  nome_evento: string;
+  teto?: Teto;
+  status_evento: string;
+};
 type Operacao = {
   id: number;
   nome_operacao: string;
@@ -173,6 +180,7 @@ export default function PjesEscalasPage() {
   const [searchText, setSearchText] = useState("");
   const [tabelaEscalas, setTabelaEscalas] = useState<Escala[]>([]);
   const isEditandoRef = useRef(false);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const { data: escalasData } = useApi<EscalaOperacaoResponse>(
     operacaoId ? `/api/escala?operacaoId=${operacaoId}` : "",
@@ -440,9 +448,65 @@ export default function PjesEscalasPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  const CARGOS = [
+    "POG",
+    "CMT",
+    "MOT",
+    "PAT",
+    "FISCAL",
+    "MO",
+    "CMT_GD",
+    "SENT",
+    "AUX",
+    "OUTRO",
+  ];
+
+  async function handleDownloadPdf() {
+    if (!operacaoId || gerandoPdf) return;
+
+    setGerandoPdf(true);
+    const toastId = toast.loading("Gerando PDF, aguarde...");
+
+    try {
+      const response = await fetch(`/api/escala/pdf?operacaoId=${operacaoId}`);
+      if (!response.ok) throw new Error("Erro ao gerar PDF");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+
+      const disposition = response.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="(.+)"/);
+      a.download = match?.[1] ?? `escala_op${operacaoId}.pdf`;
+
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF gerado com sucesso!", { id: toastId });
+    } catch (error: any) {
+      toast.error(error?.message || "Não foi possível gerar o PDF", {
+        id: toastId,
+      });
+    } finally {
+      setGerandoPdf(false);
+    }
+  }
+
   return (
     <div className="page" style={{ overflow: "hidden" }}>
-      <div style={{ width: "70%" }}>
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
+        <span style={{ display: "flex", justifyContent: "center" }}>
+          <FiArrowLeft size={20} />
+          <span>Voltar</span>
+        </span>
         <h1 className="h1PjesEscalas">
           PJES | {mesAbreviado} {ano}
         </h1>
@@ -450,224 +514,185 @@ export default function PjesEscalasPage() {
       <div style={{ display: "flex", width: "100%" }}>
         {/* inicio Card Policial Escalado */}
         <div className="divPolicialEscalado">
-          <div className="divPolicialSelecionado">
-            <div className="cardPolicialSelecionado">
-              {/* ESQUERDA */}
-              <div className="policialLeft">
-                <div className="divImgInoutMat">
-                  <div className="usuarioImgEscala">
-                    {!matricula || loadingUsuario || !usuario?.imagemUrl ? (
-                      <FaUser className="usuarioIcon" />
-                    ) : (
-                      <img
-                        src={usuario.imagemUrl}
-                        alt="Usuário"
-                        className="usuarioImgEscala"
-                      />
-                    )}
+          {/* ESQUERDA */}
+          <div className="policialLeft">
+            <div className="divImgInoutMat">
+              <div className="usuarioImgEscala">
+                {!matricula || loadingUsuario || !usuario?.imagemUrl ? (
+                  <FaUser className="usuarioIcon" />
+                ) : (
+                  <img
+                    src={usuario.imagemUrl}
+                    alt="Usuário"
+                    className="usuarioImgEscala"
+                  />
+                )}
+              </div>
+              <div className="matpolicial">
+                <input
+                  type="text"
+                  className="inputDadosEscala"
+                  placeholder="matricula"
+                  value={matricula}
+                  onChange={(e) =>
+                    setMatricula(e.target.value.replace(/\D/g, ""))
+                  }
+                />
+              </div>
+            </div>
+            <div style={{ fontSize: "11px", width: "100%", marginTop: "10px" }}>
+              {loadingUsuario && <div>Buscando usuário...</div>}
+              {!loadingUsuario && usuario && (
+                <>
+                  <div>
+                    <strong>
+                      <FaUser /> {usuario.pg} {usuario.nomeGuerra}{" "}
+                      {usuario.ome?.nomeOme ?? ""}
+                    </strong>
                   </div>
-                  <div className="matpolicial">
-                    <input
-                      type="text"
-                      className="inputDadosEscala"
-                      placeholder="matricula"
-                      value={matricula}
-                      onChange={(e) =>
-                        setMatricula(e.target.value.replace(/\D/g, ""))
-                      }
-                    />
+                  <div>
+                    <FaPhone /> {usuario.phone || "Telefone não informado"}
                   </div>
+                  <div>
+                    <FaBarcode /> {usuario.nunfunc} | {usuario.nunvinc}
+                  </div>
+                  <div>
+                    <FaTriangleExclamation />{" "}
+                    <strong>{usuario.situacao}</strong>
+                  </div>
+                </>
+              )}
+              {!loadingUsuario && !usuario && (
+                <div style={{ color: "#555" }}>
+                  Digite a matrícula para carregar o usuário.
                 </div>
-                <div
-                  style={{ fontSize: "11px", width: "100%", marginTop: "10px" }}
-                >
-                  {loadingUsuario && <div>Buscando usuário...</div>}
-                  {!loadingUsuario && usuario && (
-                    <>
-                      <div>
-                        <strong>
-                          <FaUser /> {usuario.pg} {usuario.nomeGuerra}{" "}
-                          {usuario.ome?.nomeOme ?? ""}
-                        </strong>
-                      </div>
-                      <div>
-                        <FaPhone /> {usuario.phone || "Telefone não informado"}
-                      </div>
-                      <div>
-                        <FaBarcode /> {usuario.nunfunc} | {usuario.nunvinc}
-                      </div>
-                      <div>
-                        <FaTriangleExclamation />{" "}
-                        <strong>{usuario.situacao}</strong>
-                      </div>
-                    </>
-                  )}
-                  {!loadingUsuario && !usuario && (
-                    <div style={{ color: "#555" }}>
-                      Digite a matrícula para carregar o usuário.
-                    </div>
-                  )}
-                  {buscaUsuarioError && (
-                    <div style={{ color: "red", marginTop: "4px" }}>
-                      {buscaUsuarioError}
-                    </div>
-                  )}
+              )}
+              {buscaUsuarioError && (
+                <div style={{ color: "red", marginTop: "4px" }}>
+                  {buscaUsuarioError}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* DIREITA */}
+          <div className="policialRight">
+            <div className="escala-form">
+              {/* ── Linha 1: datas + local ── */}
+              <div className="escala-row">
+                <div className="field-group">
+                  <span className="field-label">Data de início</span>
+                  <input
+                    className="field-input"
+                    type="date"
+                    value={dataInicio}
+                    min={minDate}
+                    max={maxDateStr}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (
+                        minDate &&
+                        maxDateStr &&
+                        (value < minDate || value > maxDateStr)
+                      )
+                        return;
+                      setDataInicio(value);
+                    }}
+                  />
+                </div>
+
+                <div className="field-group">
+                  <span className="field-label">Início</span>
+                  <input
+                    className="field-input field-input--time"
+                    type="time"
+                    value={horaInicio}
+                    onChange={(e) => setHoraInicio(e.target.value)}
+                  />
+                </div>
+
+                <div className="field-group">
+                  <span className="field-label">Término</span>
+                  <input
+                    className="field-input field-input--time"
+                    type="time"
+                    value={horaFim}
+                    onChange={(e) => setHoraFim(e.target.value)}
+                  />
+                </div>
+
+                <div className="field-group field-group--grow">
+                  <span className="field-label">Local de apresentação</span>
+                  <input
+                    className="field-input"
+                    type="text"
+                    value={localApresentacao}
+                    onChange={(e) => setLocalApresentacao(e.target.value)}
+                    placeholder="Informe o local..."
+                  />
                 </div>
               </div>
 
-              {/* DIREITA */}
-              <div className="policialRight">
-                <div style={{ fontSize: "12px", width: "100%" }}>
-                  <div style={{ display: "flex", gap: "3px", width: "100%" }}>
-                    <div className="divDadosEscala">
-                      <span className="labelDadosEscala">Data Inicio:</span>
-                      <input
-                        className="inputDadosEscala"
-                        style={{ width: "100px", padding: "4px" }}
-                        type="date"
-                        value={dataInicio}
-                        min={minDate}
-                        max={maxDateStr}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (
-                            minDate &&
-                            maxDateStr &&
-                            (value < minDate || value > maxDateStr)
-                          )
-                            return;
-                          setDataInicio(value);
-                        }}
-                      />
-                    </div>
-                    <div className="divDadosEscala">
-                      <span className="labelDadosEscala">Inicio:</span>
-                      <input
-                        className="inputDadosEscala"
-                        style={{ width: "80px", padding: "4px" }}
-                        type="time"
-                        value={horaInicio}
-                        onChange={(e) => setHoraInicio(e.target.value)}
-                      />
-                    </div>
-                    <div className="divDadosEscala">
-                      <span className="labelDadosEscala">Término:</span>
-                      <input
-                        className="inputDadosEscala"
-                        style={{ width: "80px", padding: "4px" }}
-                        type="time"
-                        value={horaFim}
-                        onChange={(e) => setHoraFim(e.target.value)}
-                      />
-                    </div>
-                    <div className="divDadosEscala" style={{ width: "100%" }}>
-                      <span className="labelDadosEscala">
-                        Local de Apresentação:
-                      </span>
-                      <input
-                        className="inputDadosEscala"
-                        style={{ width: "100%", padding: "6px" }}
-                        type="text"
-                        value={localApresentacao}
-                        onChange={(e) => setLocalApresentacao(e.target.value)}
-                      />
-                    </div>
-                  </div>
+              <div className="escala-divider" />
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "3px",
-                      width: "100%",
-                      textAlign: "center",
-                      marginTop: "10px",
-                      color: "#a8a8a8",
-                      border: "solid 1px #e2dbdb",
-                    }}
-                  >
-                    {[
-                      "POG",
-                      "CMT",
-                      "MOT",
-                      "PAT",
-                      "FISCAL",
-                      "MO",
-                      "CMT_GD",
-                      "SENT",
-                      "AUX",
-                      "OUTRO",
-                    ].map((cargo) => (
-                      <div key={cargo} className="divDadosEscala cargoItem">
-                        <label style={{ cursor: "pointer" }}>
-                          <input
-                            type="checkbox"
-                            className="ckeckboxCargo"
-                            style={{
-                              transform: "scale(1.2)",
-                              cursor: "pointer",
-                            }}
-                            checked={selectedCargo === cargo}
-                            onChange={() =>
-                              setSelectedCargo(
-                                selectedCargo === cargo ? "" : cargo,
-                              )
-                            }
-                          />
-                          <br />
-                          <span>{cargo}</span>
-                        </label>
-                      </div>
-                    ))}
-                    <div>
-                      <select
-                        style={{
-                          width: "100%",
-                          marginTop: "5px",
-                          fontSize: "11px",
-                          borderRadius: "4px",
-                          border: "solid 1px #c4c0c0",
-                        }}
-                        value={selectedViatura ?? ""}
-                        onChange={(e) =>
-                          setSelectedViatura(
-                            e.target.value ? Number(e.target.value) : null,
-                          )
+              {/* ── Linha 2: cargos + viatura ── */}
+              <div className="escala-row escala-row--gap">
+                <div className="escala-cargo-section">
+                  <p className="section-title">Função</p>
+                  <div className="cargo-grid">
+                    {CARGOS.map((cargo) => (
+                      <button
+                        key={cargo}
+                        type="button"
+                        className={`cargo-btn${selectedCargo === cargo ? " cargo-btn--active" : ""}`}
+                        onClick={() =>
+                          setSelectedCargo(selectedCargo === cargo ? "" : cargo)
                         }
-                        className="labelDadosEscala"
                       >
-                        <option value="">— Sem viatura —</option>
-                        {viaturas?.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {v.patrimonio}{" "}
-                            {v.statusVtr === "INDISPONIVEL" ? "⚠️" : ""}
-                          </option>
-                        ))}
-                      </select>
-                      <span style={{ fontSize: "14px" }}>
-                        <FaCar />
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="divDadosEscala" style={{ width: "100%" }}>
-                    <span className="labelDadosEscala">Anotações</span>
-                    <textarea
-                      className="inputDadosEscala"
-                      style={{
-                        width: "100%",
-                        padding: "6px",
-                        height: "40px",
-                        textAlign: "left",
-                        verticalAlign: "top",
-                        resize: "none",
-                        border: "1px solid #ccc",
-                        borderRadius: "6px",
-                      }}
-                      value={anotacoes}
-                      onChange={(e) => setAnotacoes(e.target.value)}
-                    />
+                        {cargo}
+                      </button>
+                    ))}
                   </div>
                 </div>
+
+                <div className="escala-viatura-section">
+                  <p className="section-title">
+                    <FaCar
+                      style={{ verticalAlign: "-2px", marginRight: "5px" }}
+                    />
+                    Viatura
+                  </p>
+                  <select
+                    className="field-input"
+                    value={selectedViatura ?? ""}
+                    onChange={(e) =>
+                      setSelectedViatura(
+                        e.target.value ? Number(e.target.value) : null,
+                      )
+                    }
+                  >
+                    <option value="">— Sem viatura —</option>
+                    {viaturas?.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.patrimonio}{" "}
+                        {v.statusVtr === "INDISPONIVEL" ? "⚠️" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="escala-divider" />
+
+              {/* ── Linha 3: anotações ── */}
+              <div className="field-group">
+                <span className="field-label">Anotações</span>
+                <textarea
+                  className="field-input field-input--textarea"
+                  value={anotacoes}
+                  onChange={(e) => setAnotacoes(e.target.value)}
+                  placeholder="Observações ou informações adicionais..."
+                />
               </div>
             </div>
           </div>
@@ -700,8 +725,8 @@ export default function PjesEscalasPage() {
 
                   <div className="operacaoRight">
                     <div className="nomeOperacao">
-                      {operacao.ome?.nomeOme} | {operacao.nome_operacao} | COP:{" "}
-                      {operacao.cod_op}
+                      {operacao.ome?.nomeOme} | {operacao.evento?.nome_evento},{" "}
+                      {operacao.nome_operacao} | COP: {operacao.cod_op}
                     </div>
 
                     <div className="cotasOperacaoBox">
@@ -728,6 +753,56 @@ export default function PjesEscalasPage() {
                           {operacao.qtd_pracas_oper} | {totalCotasPracas}
                         </strong>
                       </div>
+
+                      {operacao?.evento?.status_evento !== "CRIADO" ? (
+                        <>
+                          <div style={{ width: "100%" }}>
+                            <div
+                              style={{
+                                padding: "4px",
+                                width: "45px",
+                                height: "45px",
+                                borderRadius: "50px",
+                                alignItems: "center",
+                                marginTop: "5px",
+                                background: "#db0f0f",
+                                display: "flex",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <div>
+                                <div>
+                                  <FaLock size={22} color="white" />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ width: "100%" }}>
+                            <div
+                              style={{
+                                padding: "4px",
+                                width: "45px",
+                                height: "45px",
+                                borderRadius: "50px",
+                                alignItems: "center",
+                                marginTop: "5px",
+                                background: "#11b81e",
+                                display: "flex",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <div>
+                                <div>
+                                  <FaLockOpen size={22} color="white" />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -787,42 +862,37 @@ export default function PjesEscalasPage() {
       {/* inicio escalas */}
       <div className="divPjesEscalas">
         <div style={{ width: "100%" }}>
-          <div className="divLogoEscalas">
-            <div>
-              <img
-                src="/logo_pmpe.jpg"
-                alt="Logo da PMPE"
-                className="logoPmpeEscalas"
-              />
-            </div>
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <h4 className="tituloEscala">POLICIA MILITAR DE PERNAMBUCO</h4>
-              <h4 className="tituloEscala">QUARTEL DO COMANDO GERAL</h4>
-              <h4 className="tituloEscala">
-                DIRETORIA DE PLANEJAMENTO OPERACIONAL
-              </h4>
-            </div>
-            <div>
-              <img
-                src="/logo_pe.jpg"
-                alt="Logo da PMPE"
-                className="logoPeEscalas"
-              />
-            </div>
-          </div>
           <div className="divtitleEscalaServico">
             <div className="divCriarEscala">
               <h4>ESCALA DE SERVIÇO</h4>
             </div>
             <div className="divCriarEscala">
-              <button style={{ padding: "3px", margin: "1px" }}>
-                <FaDownload />
-              </button>
-              <button style={{ padding: "3px", margin: "1px" }}>
-                <FaEdit />
-              </button>
-              <button style={{ padding: "3px", margin: "1px" }}>
-                <FaTrash />
+              <button
+                onClick={handleDownloadPdf}
+                disabled={gerandoPdf}
+                title="Baixar PDF da escala"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 14px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  border: "1px solid #e53935",
+                  marginBottom: "3px",
+                  background: gerandoPdf ? "#f5f5f5" : "#fff",
+                  color: gerandoPdf ? "#aaa" : "#e53935",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: gerandoPdf ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                  boxShadow: gerandoPdf
+                    ? "none"
+                    : "0 1px 4px rgba(229,57,53,0.15)",
+                }}
+              >
+                <FaFilePdf style={{ fontSize: "16px" }} />
+                {gerandoPdf ? "Gerando..." : "Gerar PDF"}
               </button>
             </div>
           </div>
@@ -833,7 +903,7 @@ export default function PjesEscalasPage() {
                 <th>TELEFONE</th>
                 <th>DATA E HORA</th>
                 <th>APRESENTAÇÃO</th>
-                <th>FUNÇÃO</th>
+                <th>FUNÇÃO | COTA</th>
                 <th>VIATURA</th>
                 <th>ANOTAÇÕES</th>
                 <th>AÇÕES</th>
@@ -855,7 +925,9 @@ export default function PjesEscalasPage() {
                       {escala.horaFim}
                     </td>
                     <td>{escala.localApresentacao}</td>
-                    <td>{escala.funcao}</td>
+                    <td>
+                      {escala.funcao} | {escala.cota_escala} Ct
+                    </td>
                     <td>
                       {escala.viatura
                         ? `${escala.viatura.patrimonio} ${escala.viatura.statusVtr === "INDISPONIVEL" ? "⚠️" : ""}`

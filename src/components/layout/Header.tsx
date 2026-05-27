@@ -31,7 +31,7 @@ export default function Header() {
 
   return (
     <header className="header">
-      <img src="/logo_dpo.webp" className="logo_layout" />
+      <img src="/logo_dpo.png" className="logo_layout" />
 
       <h1 className="header-title">
         GENESIS {user?.ome?.nomeOme ? `| ${user.ome.nomeOme}` : "| ..."}

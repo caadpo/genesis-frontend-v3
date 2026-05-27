@@ -3,10 +3,10 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "GENESIS 3.0",
+  title: "GENESIS 1.1",
   description: "Sistema de Controle",
   icons: {
-    icon: "/logo_dpo.webp",
+    icon: "/logo_dpo.png",
   },
 };
 

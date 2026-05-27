@@ -31,15 +31,12 @@ export default function PublicLayout({
           <div className="card-header_login">
             <div className="logo-ring_login">
               <img
-                src="/logo_dpo.webp"
+                src="/logo_dpo.png"
                 alt="Logo DPO"
                 className="logo-img_login"
               />
             </div>
-            <h1 className="card-title_login">
-              Sistema de Gestão
-              <br />e Controle de Pagamento
-            </h1>
+            <h1 className="card-title_login">GÊNESIS 1.1</h1>
             <span className="card-badge_login">PMPE · DPO</span>
           </div>
 
