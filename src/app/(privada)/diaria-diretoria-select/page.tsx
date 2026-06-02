@@ -107,10 +107,19 @@ export default function DiariasDiretoriaSelectPage() {
   const { data: tetos } = useApi<Teto[]>(`/api/tetos?sistema=DIARIAS`, [
     tetoId,
   ]);
-  const { data: distribuicao } = useApi<Distribuicao>(
-    `/api/distribuicao/${distribuicaoId}`,
-    [distribuicaoId],
-  );
+
+  //Atualiza o saldo sem precisar atualizar a pagina
+  const [distribuicao, setDistribuicao] = useState<Distribuicao | null>(null);
+  async function carregarDistribuicao() {
+    if (!distribuicaoId) return;
+    const res = await fetch(`/api/distribuicao/${distribuicaoId}`);
+    const data = await res.json();
+    setDistribuicao(data);
+  }
+
+  useEffect(() => {
+    carregarDistribuicao();
+  }, [distribuicaoId]);
 
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loadingEventos, setLoadingEventos] = useState(false);
@@ -120,9 +129,9 @@ export default function DiariasDiretoriaSelectPage() {
 
   // ─── Recarregar eventos manualmente ─────────────────────────────────────────
   async function carregarEventos() {
-    if (!distribuicao) return;
+    if (!distribuicaoId) return;
     setLoadingEventos(true);
-    const res = await fetch(`/api/evento?distribuicaoId=${distribuicao.id}`);
+    const res = await fetch(`/api/evento?distribuicaoId=${distribuicaoId}`);
     const data = await res.json();
     setEventos(data);
     setLoadingEventos(false);
@@ -130,7 +139,7 @@ export default function DiariasDiretoriaSelectPage() {
 
   useEffect(() => {
     carregarEventos();
-  }, [distribuicao]);
+  }, [distribuicaoId]);
 
   // ─── Carregar operações do evento selecionado ────────────────────────────────
   async function carregarOperacoes(evento: Evento) {
@@ -276,6 +285,10 @@ export default function DiariasDiretoriaSelectPage() {
     if (eventoSelecionado) carregarOperacoes(eventoSelecionado);
   }
 
+  async function recarregarTudo() {
+    await Promise.all([carregarEventos(), carregarDistribuicao()]);
+  }
+
   return (
     <div className="page">
       <div style={{ display: "flex", alignItems: "center" }}>
@@ -399,22 +412,41 @@ export default function DiariasDiretoriaSelectPage() {
               />
             </div>
 
-            <div className="divIconeCadeadoCatracaDolar">
-              <div style={{ marginRight: "5px" }}>
-                <FiUnlock size={15} color="green" />
-              </div>
-              <div className="divTtEventoAberto">250</div>
+            {/* Contagens derivadas do estado eventos */}
+            {(() => {
+              const qtdCriado = eventos.filter(
+                (e) => e.status_evento === STATUS_EVENTO.CRIADO,
+              ).length;
+              const qtdHomologado = eventos.filter(
+                (e) => e.status_evento === STATUS_EVENTO.HOMOLOGADO,
+              ).length;
+              const qtdPdConcluida = eventos.filter(
+                (e) => e.status_evento === STATUS_EVENTO.PD_CONCLUIDA,
+              ).length;
 
-              <div style={{ marginLeft: "15px" }}>
-                <FiSettings size={15} color="orange" />
-              </div>
-              <div style={{ textAlign: "right", color: "orange" }}>250</div>
+              return (
+                <div className="divIconeCadeadoCatracaDolar">
+                  <div style={{ marginRight: "5px" }}>
+                    <FiUnlock size={15} color="green" />
+                  </div>
+                  <div className="divTtEventoAberto">{qtdCriado}</div>
 
-              <div style={{ marginLeft: "15px" }}>
-                <BsCurrencyDollar size={15} color="purple" />
-              </div>
-              <div style={{ textAlign: "right", color: "purple" }}>250</div>
-            </div>
+                  <div style={{ marginLeft: "15px", marginRight: "5px" }}>
+                    <FiSettings size={15} color="orange" />
+                  </div>
+                  <div style={{ textAlign: "right", color: "orange" }}>
+                    {qtdHomologado}
+                  </div>
+
+                  <div style={{ marginLeft: "15px", marginRight: "5px" }}>
+                    <BsCurrencyDollar size={15} color="purple" />
+                  </div>
+                  <div style={{ textAlign: "right", color: "purple" }}>
+                    {qtdPdConcluida}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {eventos.map((evento) => {
@@ -662,14 +694,17 @@ export default function DiariasDiretoriaSelectPage() {
           setOpenModal(false);
           setEditando(null);
         }}
-        onCreated={carregarEventos}
+        onCreated={recarregarTudo}
         evento={editando}
         distribuicao={distribuicao}
       />
 
       <ResumoEventoModal
         open={resumoEventoId !== null}
-        onClose={() => setResumoEventoId(null)}
+        onClose={() => {
+          setResumoEventoId(null);
+          recarregarTudo();
+        }}
         eventoId={resumoEventoId}
       />
 

@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaUniversity, FaUser, FaCar, FaMapMarkerAlt } from "react-icons/fa";
-import { GiSteeringWheel } from "react-icons/gi";
 import { FiLayers, FiGrid, FiCalendar } from "react-icons/fi";
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -251,6 +251,11 @@ function PagamentoItem({ escala }: { escala: Escala }) {
 
 export default function SelectSystem() {
   const router = useRouter();
+
+  const { user } = useCurrentUser();
+  const typeUser = user?.typeUser;
+  const podePjes = typeUser !== 1 && typeUser !== 5 && typeUser !== 6;
+  const podeDiarias = typeUser !== 1;
 
   const [escalas, setEscalas] = useState<Escala[]>([]);
   const [loading, setLoading] = useState(true);

@@ -78,6 +78,7 @@ export default function PjesDiretoriaSelectPage() {
   const ano = params?.get("ano") ?? "";
   const tetoId = Number(params?.get("tetoId"));
   const distribuicaoId = Number(params?.get("distribuicaoId"));
+  const omeIdParam = Number(params?.get("omeId") ?? 0); // 0 = sem filtro
   // ─── Estados ────────────────────────────────────────────────────────────────
   const [eventoSelecionado, setEventoSelecionado] = useState<Evento | null>(
     null,
@@ -121,10 +122,19 @@ export default function PjesDiretoriaSelectPage() {
     mes && ano ? `/api/tetos?sistema=PJES&mes=${mes}&ano=${ano}` : "",
     [mes, ano],
   );
-  const { data: distribuicao } = useApi<Distribuicao>(
-    `/api/distribuicao/${distribuicaoId}`,
-    [distribuicaoId],
-  );
+
+  //Atualiza o saldo sem precisar atualizar a pagina
+  const [distribuicao, setDistribuicao] = useState<Distribuicao | null>(null);
+  async function carregarDistribuicao() {
+    if (!distribuicaoId) return;
+    const res = await fetch(`/api/distribuicao/${distribuicaoId}`);
+    const data = await res.json();
+    setDistribuicao(data);
+  }
+
+  useEffect(() => {
+    carregarDistribuicao();
+  }, [distribuicaoId]);
 
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loadingEventos, setLoadingEventos] = useState(false);
@@ -134,9 +144,12 @@ export default function PjesDiretoriaSelectPage() {
 
   // ─── Recarregar eventos manualmente ─────────────────────────────────────────
   async function carregarEventos() {
-    if (!distribuicao) return;
+    if (!distribuicaoId) return;
     setLoadingEventos(true);
-    const res = await fetch(`/api/evento?distribuicaoId=${distribuicao.id}`);
+    const url = omeIdParam
+      ? `/api/evento?distribuicaoId=${distribuicaoId}&omeId=${omeIdParam}`
+      : `/api/evento?distribuicaoId=${distribuicaoId}`;
+    const res = await fetch(url);
     const data = await res.json();
     setEventos(data);
     setLoadingEventos(false);
@@ -144,7 +157,7 @@ export default function PjesDiretoriaSelectPage() {
 
   useEffect(() => {
     carregarEventos();
-  }, [distribuicao]);
+  }, [distribuicaoId]);
 
   // ─── Carregar operações do evento selecionado ────────────────────────────────
   async function carregarOperacoes(evento: Evento) {
@@ -178,8 +191,8 @@ export default function PjesDiretoriaSelectPage() {
       method: "DELETE",
     }).then(async (res) => {
       if (!res.ok) {
-        const erro = await res.text();
-        throw new Error(erro || "Erro ao excluir evento");
+        const erro = await res.json();
+        throw new Error(erro?.message ?? "Erro ao excluir evento");
       }
       return res;
     });
@@ -272,8 +285,8 @@ export default function PjesDiretoriaSelectPage() {
       method: "DELETE",
     }).then(async (res) => {
       if (!res.ok) {
-        const erro = await res.text();
-        throw new Error(erro || "Erro ao excluir operacao");
+        const erro = await res.json();
+        throw new Error(erro?.message ?? "Erro ao excluir operação");
       }
       return res;
     });
@@ -288,6 +301,10 @@ export default function PjesDiretoriaSelectPage() {
 
     // ✅ Recarrega operações do evento atual, não os eventos
     if (eventoSelecionado) carregarOperacoes(eventoSelecionado);
+  }
+
+  async function recarregarTudo() {
+    await Promise.all([carregarEventos(), carregarDistribuicao()]);
   }
 
   return (
@@ -406,22 +423,41 @@ export default function PjesDiretoriaSelectPage() {
               />
             </div>
 
-            <div className="divIconeCadeadoCatracaDolar">
-              <div style={{ marginRight: "5px" }}>
-                <FiUnlock size={15} color="green" />
-              </div>
-              <div className="divTtEventoAberto">250</div>
+            {/* Contagens derivadas do estado eventos */}
+            {(() => {
+              const qtdCriado = eventos.filter(
+                (e) => e.status_evento === STATUS_EVENTO.CRIADO,
+              ).length;
+              const qtdHomologado = eventos.filter(
+                (e) => e.status_evento === STATUS_EVENTO.HOMOLOGADO,
+              ).length;
+              const qtdPdConcluida = eventos.filter(
+                (e) => e.status_evento === STATUS_EVENTO.PD_CONCLUIDA,
+              ).length;
 
-              <div style={{ marginLeft: "15px" }}>
-                <FiSettings size={15} color="orange" />
-              </div>
-              <div style={{ textAlign: "right", color: "orange" }}>250</div>
+              return (
+                <div className="divIconeCadeadoCatracaDolar">
+                  <div style={{ marginRight: "5px" }}>
+                    <FiUnlock size={15} color="green" />
+                  </div>
+                  <div className="divTtEventoAberto">{qtdCriado}</div>
 
-              <div style={{ marginLeft: "15px" }}>
-                <BsCurrencyDollar size={15} color="purple" />
-              </div>
-              <div style={{ textAlign: "right", color: "purple" }}>250</div>
-            </div>
+                  <div style={{ marginLeft: "15px", marginRight: "5px" }}>
+                    <FiSettings size={15} color="orange" />
+                  </div>
+                  <div style={{ textAlign: "right", color: "orange" }}>
+                    {qtdHomologado}
+                  </div>
+
+                  <div style={{ marginLeft: "15px", marginRight: "5px" }}>
+                    <BsCurrencyDollar size={15} color="purple" />
+                  </div>
+                  <div style={{ textAlign: "right", color: "purple" }}>
+                    {qtdPdConcluida}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {eventos.map((evento) => {
@@ -669,14 +705,17 @@ export default function PjesDiretoriaSelectPage() {
           setOpenModal(false);
           setEditando(null);
         }}
-        onCreated={carregarEventos}
+        onCreated={recarregarTudo}
         evento={editando}
         distribuicao={distribuicao}
       />
 
       <ResumoEventoModal
         open={resumoEventoId !== null}
-        onClose={() => setResumoEventoId(null)}
+        onClose={() => {
+          setResumoEventoId(null);
+          recarregarTudo();
+        }}
         eventoId={resumoEventoId}
       />
 

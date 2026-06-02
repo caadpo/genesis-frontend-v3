@@ -67,6 +67,8 @@ export default function PerfilDrawer() {
         return "Financeiro";
       case 6:
         return "PD";
+      case 7:
+        return "Gestor";
       case 9:
         return "Técnico";
       case 10:

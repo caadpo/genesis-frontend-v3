@@ -53,10 +53,13 @@ export async function DELETE(
 
   const response = await fetch(`${API_URL}/operacao/${id}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
-  return new Response(null, { status: response.status });
+  if (!response.ok) {
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  }
+
+  return new Response(null, { status: 204 });
 }

@@ -10,6 +10,8 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/src/lib/api";
 import DiariaDistribuicaoModal from "@/src/components/ui/DiariaDistribuicaoModal";
 import TetoModal from "@/src/components/ui/TetoModal";
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
+import GraficoDistribuicao from "@/src/components/ui/GraficoDistribuicao";
 
 type Teto = {
   id: number;
@@ -47,10 +49,25 @@ type Distribuicao = {
   };
 };
 
+type OmeResumo = {
+  omeId: number;
+  nomeOme: string;
+  soma_of: number;
+  soma_prc: number;
+  cotas_of: number;
+  cotas_prc: number;
+};
+
 export default function DiariasPage() {
+  const { user } = useCurrentUser();
+  const typeUser = Number(user?.typeUser ?? 0);
   const [tetos, setTetos] = useState<Teto[]>([]);
   const [tetoSelecionado, setTetoSelecionado] = useState<Teto | null>(null);
   const [distribuicoes, setDistribuicoes] = useState<Distribuicao[]>([]);
+
+  const [distExpandida, setDistExpandida] = useState<number | null>(null);
+  const [omesMap, setOmesMap] = useState<Record<number, OmeResumo[]>>({});
+
   const [status, setStatus] = useState<"ABERTO" | "ENCERRADO">("ABERTO");
   const [openModal, setOpenModal] = useState(false);
   const [editando, setEditando] = useState<Distribuicao | null>(null);
@@ -72,6 +89,22 @@ export default function DiariasPage() {
     }).then((r) => r.json());
 
     setDistribuicoes(data);
+  }
+
+  async function carregarOmes(distId: number) {
+    if (omesMap[distId]) return; // já carregou
+    const res = await fetch(`/api/distribuicao/${distId}/omes`);
+    const data = await res.json();
+    setOmesMap((prev) => ({ ...prev, [distId]: data }));
+  }
+
+  function toggleDist(distId: number) {
+    if (distExpandida === distId) {
+      setDistExpandida(null);
+    } else {
+      setDistExpandida(distId);
+      carregarOmes(distId);
+    }
   }
 
   // 🖱️ Clique simples seleciona, duplo clique abre edição
@@ -179,10 +212,12 @@ export default function DiariasPage() {
     setOpenModal(true);
   }
 
-  const formatarData = (dataIso?: string) => {
+  const formatarData = (dataIso?: string | null) => {
     if (!dataIso) return "--/--/----";
-    const data = new Date(dataIso + "T00:00:00");
-    return data.toLocaleDateString("pt-BR");
+    const data = new Date(dataIso);
+    return data.toLocaleDateString("pt-BR", {
+      timeZone: "UTC",
+    });
   };
 
   // 💰 Valores unitários
@@ -296,7 +331,12 @@ export default function DiariasPage() {
             }`}
           >
             <img src={teto.imagemUrl} alt={teto.nome_verba} className="logo" />
-            <span className="label">{teto.nome_verba}</span>
+            <span className="label">
+              {teto.nome_verba} <br></br>
+              <span style={{ color: "#a79f9f" }}>
+                {formatarData(teto.data_inicio)} a {formatarData(teto.data_fim)}
+              </span>
+            </span>
           </button>
         ))}
       </div>
@@ -446,59 +486,133 @@ export default function DiariasPage() {
             {/* item 04 */}
           </div>
           <div className="divGraficoConsumoDiretoriaPrincipal">
-            <div className="divGraficoDiretoria">grafico da dist x consumo</div>
+            <div className="divGraficoDiretoria">
+              <GraficoDistribuicao
+                distribuicoes={distribuicoes}
+                omesMap={omesMap}
+                distExpandida={distExpandida}
+              />
+            </div>
             <div className="divConsumoDiretoria">
-              <table className="tabelaDistribuicao">
-                <thead>
-                  <tr>
-                    <th>Dir</th>
-                    <th>Distribuição</th>
-                    <th>Oficiais</th>
-                    <th>Praças</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {distribuicoes.map((dist) => (
-                    <tr key={dist.id}>
-                      <td>{dist.diretoria.nomeDiretoria}</td>
-                      <td>{dist.nome_dist}</td>
-                      <td>
-                        {dist.qtd_dist_of} | {dist.totalCotasOficiais}
-                      </td>
-                      <td>
-                        {dist.qtd_dist_prc} | {dist.totalCotasPracas}
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => handleEdit(dist)}
-                          className="btnEdit"
-                        >
-                          <FiEdit />
-                        </button>
+              <div className="divDistribuicaoPrincipal">
+                {distribuicoes.map((dist) => (
+                  <div key={dist.id} className="divDistribuicaoMap">
+                    {/* HEADER DA DISTRIBUIÇÃO */}
+                    <div
+                      onClick={() => toggleDist(dist.id)}
+                      className="divDistribuicaoToggle"
+                    >
+                      <div className="divDistNomeDiretoria">
+                        {dist.diretoria.nomeDiretoria}
 
-                        <button
-                          onClick={() => confirmarDelete(dist.id)}
-                          className="btnDelete"
-                        >
-                          <FiTrash2 />
-                        </button>
+                        <span className="divDistNomeDist">
+                          {dist.nome_dist}
+                        </span>
+                      </div>
 
-                        <button
-                          onClick={() => {
-                            router.push(
-                              `/diaria-diretoria-select?tetoId=${tetoSelecionado?.id}&distribuicaoId=${dist.id}`,
-                            );
-                          }}
-                          className="btnEntrarDist"
-                        >
-                          <FiLogIn />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      <div className="divDistTotaisHeader">
+                        {typeUser !== 2 && (
+                          <div className="divDistTotaisOf">
+                            OF:{" "}
+                            {typeUser === 2
+                              ? dist.totalCotasOficiais
+                              : `${dist.qtd_dist_of} | ${dist.totalCotasOficiais}`}
+                          </div>
+                        )}
+
+                        {typeUser !== 2 && (
+                          <div className="divDistTotaisPrc">
+                            PR:{" "}
+                            {typeUser === 2
+                              ? dist.totalCotasPracas
+                              : `${dist.qtd_dist_prc} | ${dist.totalCotasPracas}`}
+                          </div>
+                        )}
+
+                        {typeUser !== 2 && (
+                          <div className="divDistBtnEditar">
+                            {typeUser === 10 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(dist);
+                                }}
+                                className="btnDistEditar"
+                              >
+                                <FiEdit />
+                              </button>
+                            )}
+
+                            {typeUser === 10 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmarDelete(dist.id);
+                                }}
+                                className="btnDistExcluir"
+                              >
+                                <FiTrash2 />
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => {
+                                router.push(
+                                  `/diaria-diretoria-select?tetoId=${tetoSelecionado?.id}&distribuicaoId=${dist.id}`,
+                                );
+                              }}
+                              className="btnDistEntrar"
+                            >
+                              <FiLogIn />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ACCORDION */}
+                    {distExpandida === dist.id && (
+                      <div className="divAreaExpandidaPrincipal">
+                        {(omesMap[dist.id] ?? []).map((ome) => (
+                          <div
+                            key={ome.omeId}
+                            className="divAreaExpandidaSecundaria"
+                          >
+                            <div style={{ display: "flex", width: "100%" }}>
+                              <div className="divAreaExpandidaNomeOme">
+                                {ome.nomeOme}
+                              </div>
+
+                              <div className="divAreaExpandidaOfPrcPrincipal">
+                                <span className="divAreaExpandidaOf">
+                                  OF: {ome.soma_of} | {ome.cotas_of}
+                                </span>
+
+                                <span className="divAreaExpandidaPrc">
+                                  PR: {ome.soma_prc} | {ome.cotas_prc}
+                                </span>
+                              </div>
+                            </div>
+
+                            {typeUser === 2 && (
+                              <button
+                                onClick={() =>
+                                  router.push(
+                                    `/diaria-diretoria-select?tetoId=${tetoSelecionado?.id}&distribuicaoId=${dist.id}&omeId=${ome.omeId}`,
+                                  )
+                                }
+                                className="divAreaExpandidaBtnEventos"
+                              >
+                                Eventos <FiLogIn />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

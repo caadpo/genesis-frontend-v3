@@ -48,15 +48,17 @@ export async function DELETE(
 ) {
   const { id } = await context.params;
   const token = (await cookies()).get("accessToken")?.value;
-
   const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
   const response = await fetch(`${API_URL}/evento/${id}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
-  return new Response(null, { status: response.status });
+  if (!response.ok) {
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  }
+
+  return new Response(null, { status: 204 });
 }

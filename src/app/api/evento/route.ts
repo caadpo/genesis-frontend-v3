@@ -7,21 +7,21 @@ export async function GET(request: Request) {
   const token = (await cookies()).get("accessToken")?.value;
   const { searchParams } = new URL(request.url);
 
+  const params = new URLSearchParams();
   const distribuicaoId = searchParams.get("distribuicaoId");
+  const omeId = searchParams.get("omeId");
 
-  const url = distribuicaoId
-    ? `${API_URL}/evento?distribuicaoId=${distribuicaoId}`
-    : `${API_URL}/evento`;
+  if (distribuicaoId) params.set("distribuicaoId", distribuicaoId);
+  if (omeId) params.set("omeId", omeId);
+
+  const url = `${API_URL}/evento${params.size ? `?${params.toString()}` : ""}`;
 
   const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
 
   const data = await response.json();
-
   return NextResponse.json(data, { status: response.status });
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FiLayers } from "react-icons/fi";
 import { FiEdit } from "react-icons/fi";
 import { FiTrash2 } from "react-icons/fi";
@@ -9,6 +9,8 @@ import DistribuicaoModal from "../../../components/ui/DistribuicaoModal";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import TetoModal from "@/src/components/ui/TetoModal";
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
+import GraficoDistribuicao from "@/src/components/ui/GraficoDistribuicao";
 
 type Teto = {
   id: number;
@@ -46,14 +48,28 @@ type Distribuicao = {
   };
 };
 
+type OmeResumo = {
+  omeId: number;
+  nomeOme: string;
+  soma_of: number; // destinado (eventos)
+  soma_prc: number;
+  cotas_of: number; // consumido (escalas)
+  cotas_prc: number;
+};
+
 export default function PjesPage() {
   const hoje = new Date();
+  const { user } = useCurrentUser();
+  const typeUser = Number(user?.typeUser ?? 0);
 
   const [mes, setMes] = useState(hoje.getMonth() + 1);
   const [ano, setAno] = useState(hoje.getFullYear());
   const [tetos, setTetos] = useState<Teto[]>([]);
   const [tetoSelecionado, setTetoSelecionado] = useState<Teto | null>(null);
   const [distribuicoes, setDistribuicoes] = useState<Distribuicao[]>([]);
+
+  const [distExpandida, setDistExpandida] = useState<number | null>(null);
+  const [omesMap, setOmesMap] = useState<Record<number, OmeResumo[]>>({});
 
   // Modal distribuição
   const [openModal, setOpenModal] = useState(false);
@@ -82,6 +98,22 @@ export default function PjesPage() {
       cache: "no-store",
     }).then((r) => r.json());
     setDistribuicoes(data);
+  }
+
+  async function carregarOmes(distId: number) {
+    if (omesMap[distId]) return; // já carregou
+    const res = await fetch(`/api/distribuicao/${distId}/omes`);
+    const data = await res.json();
+    setOmesMap((prev) => ({ ...prev, [distId]: data }));
+  }
+
+  function toggleDist(distId: number) {
+    if (distExpandida === distId) {
+      setDistExpandida(null);
+    } else {
+      setDistExpandida(distId);
+      carregarOmes(distId);
+    }
   }
 
   // 🔎 Busca os tetos conforme mês/ano
@@ -436,59 +468,134 @@ export default function PjesPage() {
           </div>
 
           <div className="divGraficoConsumoDiretoriaPrincipal">
-            <div className="divGraficoDiretoria">grafico da dist x consumo</div>
+            <div className="divGraficoDiretoria">
+              <GraficoDistribuicao
+                distribuicoes={distribuicoes}
+                omesMap={omesMap}
+                distExpandida={distExpandida}
+              />
+            </div>
             <div className="divConsumoDiretoria">
-              <table className="tabelaDistribuicao">
-                <thead>
-                  <tr>
-                    <th>Dir</th>
-                    <th>Distribuição</th>
-                    <th>Oficiais</th>
-                    <th>Praças</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {distribuicoes.map((dist) => (
-                    <tr key={dist.id}>
-                      <td>{dist.diretoria.nomeDiretoria}</td>
-                      <td>{dist.nome_dist}</td>
-                      <td>
-                        {dist.qtd_dist_of} | {dist.totalCotasOficiais}
-                      </td>
-                      <td>
-                        {dist.qtd_dist_prc} | {dist.totalCotasPracas}
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => handleEdit(dist)}
-                          className="btnEdit"
-                        >
-                          <FiEdit />
-                        </button>
+              <div className="divDistribuicaoPrincipal">
+                {distribuicoes.map((dist) => (
+                  <div key={dist.id} className="divDistribuicaoMap">
+                    {/* HEADER DA DISTRIBUIÇÃO */}
+                    <div
+                      onClick={() => toggleDist(dist.id)}
+                      className="divDistribuicaoToggle"
+                    >
+                      <div className="divDistNomeDiretoria">
+                        {dist.diretoria.nomeDiretoria}
 
-                        <button
-                          onClick={() => confirmarDelete(dist.id)}
-                          className="btnDelete"
-                        >
-                          <FiTrash2 />
-                        </button>
+                        <span className="divDistNomeDist">
+                          {dist.nome_dist}
+                        </span>
+                      </div>
 
-                        <button
-                          onClick={() => {
-                            router.push(
-                              `/pjes-diretoria-select?mes=${mes}&ano=${ano}&tetoId=${tetoSelecionado?.id}&distribuicaoId=${dist.id}`,
-                            );
-                          }}
-                          className="btnEntrarDist"
-                        >
-                          <FiLogIn />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      <div className="divDistTotaisHeader">
+                        {typeUser !== 2 && (
+                          <div className="divDistTotaisOf">
+                            OF:{" "}
+                            {typeUser === 2
+                              ? dist.totalCotasOficiais
+                              : `${dist.qtd_dist_of} | ${dist.totalCotasOficiais}`}
+                          </div>
+                        )}
+
+                        {typeUser !== 2 && (
+                          <div className="divDistTotaisPrc">
+                            PR:{" "}
+                            {typeUser === 2
+                              ? dist.totalCotasPracas
+                              : `${dist.qtd_dist_prc} | ${dist.totalCotasPracas}`}
+                          </div>
+                        )}
+
+                        {typeUser !== 2 && (
+                          <div className="divDistBtnEditar">
+                            {typeUser === 10 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(dist);
+                                }}
+                                className="btnDistEditar"
+                              >
+                                <FiEdit />
+                              </button>
+                            )}
+
+                            {typeUser === 10 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmarDelete(dist.id);
+                                }}
+                                className="btnDistExcluir"
+                              >
+                                <FiTrash2 />
+                              </button>
+                            )}
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(
+                                  `/pjes-diretoria-select?mes=${mes}&ano=${ano}&tetoId=${tetoSelecionado?.id}&distribuicaoId=${dist.id}`,
+                                );
+                              }}
+                              className="btnDistEntrar"
+                            >
+                              <FiLogIn />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ACCORDION */}
+                    {distExpandida === dist.id && (
+                      <div className="divAreaExpandidaPrincipal">
+                        {(omesMap[dist.id] ?? []).map((ome) => (
+                          <div
+                            key={ome.omeId}
+                            className="divAreaExpandidaSecundaria"
+                          >
+                            <div style={{ display: "flex", width: "100%" }}>
+                              <div className="divAreaExpandidaNomeOme">
+                                {ome.nomeOme}
+                              </div>
+
+                              <div className="divAreaExpandidaOfPrcPrincipal">
+                                <span className="divAreaExpandidaOf">
+                                  OF: {ome.soma_of} | {ome.cotas_of}
+                                </span>
+
+                                <span className="divAreaExpandidaPrc">
+                                  PR: {ome.soma_prc} | {ome.cotas_prc}
+                                </span>
+                              </div>
+                            </div>
+
+                            {typeUser === 2 && (
+                              <button
+                                onClick={() =>
+                                  router.push(
+                                    `/pjes-diretoria-select?mes=${mes}&ano=${ano}&tetoId=${tetoSelecionado?.id}&distribuicaoId=${dist.id}&omeId=${ome.omeId}`,
+                                  )
+                                }
+                                className="divAreaExpandidaBtnEventos"
+                              >
+                                Eventos <FiLogIn />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

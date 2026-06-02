@@ -66,6 +66,7 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
   const [progressoLinha, setProgressoLinha] = useState("0%");
   const [fasesAtivas, setFasesAtivas] = useState<string[]>([]);
   const { user } = useCurrentUser();
+  const [baixandoPdf, setBaixandoPdf] = useState(false);
 
   useEffect(() => {
     if (!open || !eventoId) return;
@@ -245,6 +246,30 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
     }
   }
 
+  async function handleDownloadPdf() {
+    if (!resumo) return;
+    setBaixandoPdf(true);
+    try {
+      const response = await fetch(`/api/evento/${resumo.id}/pdf`);
+      if (!response.ok) throw new Error("Erro ao gerar PDF");
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `EVENTO_${resumo.nome_evento.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Erro ao baixar o PDF");
+    } finally {
+      setBaixandoPdf(false);
+    }
+  }
+
   return (
     <div className="modalOverlayEventoResumo" onClick={onClose}>
       <div
@@ -318,7 +343,15 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                   />
                 </div>
 
-                <div className="divIconeDonwloadEventoResumo">
+                <div
+                  className="divIconeDonwloadEventoResumo"
+                  onClick={handleDownloadPdf}
+                  style={{
+                    cursor: baixandoPdf ? "wait" : "pointer",
+                    opacity: baixandoPdf ? 0.5 : 1,
+                  }}
+                  title="Baixar PDF"
+                >
                   <FaDownload size={25} />
                 </div>
               </div>
