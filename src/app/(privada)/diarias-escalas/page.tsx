@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { useApi } from "@/src/hooks/useApi";
-import { FiArrowLeft, FiChevronUp, FiStar } from "react-icons/fi";
+import { FiArrowLeft, FiChevronUp, FiRefreshCcw, FiStar } from "react-icons/fi";
 import {
   FaBarcode,
   FaCar,
@@ -91,6 +92,8 @@ type Escala = {
   funcao: string;
   situacao: string;
   anotacoes?: string;
+  isRepasse: boolean;
+  repasseOrigemId?: number | null;
   usuarioId?: number;
   operacaoId?: number;
   viaturaId?: number | null;
@@ -107,6 +110,7 @@ type Escala = {
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function DiariasEscalasPage() {
+  const router = useRouter();
   const params = useSearchParams();
   const tetoId = Number(params?.get("tetoId"));
   const operacaoId = Number(params?.get("operacaoId"));
@@ -172,7 +176,10 @@ export default function DiariasEscalasPage() {
     [operacaoId],
   );
 
-  const { data: viaturas } = useApi<Viatura[]>("/api/viatura", []);
+  const { data: viaturas } = useApi<Viatura[]>(
+    operacaoId ? `/api/viatura?operacaoId=${operacaoId}` : "",
+    [operacaoId],
+  );
 
   const SISTEMA = "DIARIAS";
   const formatDateToInput = (date?: string) => {
@@ -510,7 +517,14 @@ export default function DiariasEscalasPage() {
           justifyContent: "space-between",
         }}
       >
-        <span style={{ display: "flex", justifyContent: "center" }}>
+        <span
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+          onClick={() => router.back()}
+        >
           <FiArrowLeft size={20} />
           <span>Voltar</span>
         </span>
@@ -965,6 +979,28 @@ export default function DiariasEscalasPage() {
                     </td>
                     <td>{escala.anotacoes || "-"}</td>
                     <td className="acoesTabelaEscalas">
+                      <FiRefreshCcw
+                        size={16}
+                        color={escala.isRepasse ? "blue" : "#ccc"}
+                        style={{
+                          cursor: escala.isRepasse ? "pointer" : "default",
+                        }}
+                        title={
+                          escala.isRepasse
+                            ? `Repasse #${escala.repasseOrigemId}`
+                            : ""
+                        }
+                        onClick={() => {
+                          if (escala.isRepasse) {
+                            toast(
+                              `🔄 Codigo do Repasse (CR): ${escala.repasseOrigemId}`,
+                              {
+                                duration: 4000,
+                              },
+                            );
+                          }
+                        }}
+                      />
                       <FaEdit
                         size={16}
                         color="orange"

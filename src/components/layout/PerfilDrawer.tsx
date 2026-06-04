@@ -130,19 +130,22 @@ export default function PerfilDrawer() {
     try {
       setLoadingPassword(true);
 
-      await fetch("/api/auth/change-password", {
-        method: "POST",
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-        }),
+      const response = await fetch("/api/user/change-password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data?.message || "Erro ao alterar senha");
+      }
 
       toast.success("Senha alterada com sucesso");
       setCurrentPassword("");
       setNewPassword("");
-    } catch {
-      toast.error("Erro ao alterar senha");
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao alterar senha");
     } finally {
       setLoadingPassword(false);
     }
@@ -223,14 +226,6 @@ export default function PerfilDrawer() {
             >
               <FiKey size={20} />
               <span>Senha</span>
-            </button>
-
-            <button
-              className={`perfilTabBtn ${aba === "escala" ? "active" : ""}`}
-              onClick={() => setAba("escala")}
-            >
-              <AiFillCalendar size={20} />
-              <span>Escala</span>
             </button>
           </div>
 
@@ -602,12 +597,6 @@ export default function PerfilDrawer() {
                 >
                   {loadingPassword ? "Atualizando..." : "Atualizar senha"}
                 </button>
-              </div>
-            )}
-
-            {aba === "escala" && (
-              <div className="perfilEscala">
-                <p>Calendário da escala aqui</p>
               </div>
             )}
           </div>

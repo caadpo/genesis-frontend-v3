@@ -188,7 +188,7 @@ function CardRepasse({
           marginBottom: "1px",
         }}
       >
-        {formatarData(repasse.dataInicioRepasse)} |{" "}
+        CR:{repasse.id} - {formatarData(repasse.dataInicioRepasse)} |{" "}
         {repasse.nome_ome ? ` ${repasse.nome_ome}` : ""}
         <BadgeStatus
           status={repasse.statusRepasse}

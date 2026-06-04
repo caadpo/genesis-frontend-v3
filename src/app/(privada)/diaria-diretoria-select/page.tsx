@@ -42,6 +42,7 @@ type Distribuicao = {
 type Evento = {
   id: number;
   nome_evento: string;
+  ne: string;
   qtd_of_evento: number;
   totalCotasOficiais: number;
   qtd_prc_evento: number;
@@ -96,12 +97,12 @@ export default function DiariasDiretoriaSelectPage() {
   );
   const [menuAberto, setMenuAberto] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [searchText, setSearchText] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<string | null>(null);
 
   // ─── Dados do usuário autenticado ────
   const { user, loading: loadingUser } = useCurrentUser();
   const router = useRouter();
-
-  console.log("O usuario logado é", { loading: loadingUser, user });
 
   // ─── API ─────────────────────────────────────────────────────────────────────
   const { data: tetos } = useApi<Teto[]>(`/api/tetos?sistema=DIARIAS`, [
@@ -289,6 +290,19 @@ export default function DiariasDiretoriaSelectPage() {
     await Promise.all([carregarEventos(), carregarDistribuicao()]);
   }
 
+  const eventosFiltrados = eventos.filter((e) => {
+    const term = searchText.toLowerCase();
+    const matchTexto =
+      !term ||
+      e.nome_evento.toLowerCase().includes(term) ||
+      e.ome.nomeOme.toLowerCase().includes(term) ||
+      (e.ne ?? "").toLowerCase().includes(term);
+
+    const matchStatus = !filtroStatus || e.status_evento === filtroStatus;
+
+    return matchTexto && matchStatus;
+  });
+
   return (
     <div className="page">
       <div style={{ display: "flex", alignItems: "center" }}>
@@ -408,11 +422,12 @@ export default function DiariasDiretoriaSelectPage() {
               <input
                 className="inputBuscarEvento"
                 type="text"
-                placeholder="Buscar"
+                placeholder="Buscar por OME, evento ou NE"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
               />
             </div>
 
-            {/* Contagens derivadas do estado eventos */}
             {(() => {
               const qtdCriado = eventos.filter(
                 (e) => e.status_evento === STATUS_EVENTO.CRIADO,
@@ -424,32 +439,79 @@ export default function DiariasDiretoriaSelectPage() {
                 (e) => e.status_evento === STATUS_EVENTO.PD_CONCLUIDA,
               ).length;
 
+              const toggle = (status: string) =>
+                setFiltroStatus((prev) => (prev === status ? null : status));
+
               return (
                 <div className="divIconeCadeadoCatracaDolar">
-                  <div style={{ marginRight: "5px" }}>
+                  <div
+                    style={{
+                      marginRight: "5px",
+                      cursor: "pointer",
+                      opacity: filtroStatus === STATUS_EVENTO.CRIADO ? 1 : 0.4,
+                    }}
+                    onClick={() => toggle(STATUS_EVENTO.CRIADO)}
+                  >
                     <FiUnlock size={15} color="green" />
                   </div>
                   <div className="divTtEventoAberto">{qtdCriado}</div>
 
-                  <div style={{ marginLeft: "15px", marginRight: "5px" }}>
+                  <div
+                    style={{
+                      marginLeft: "15px",
+                      marginRight: "5px",
+                      cursor: "pointer",
+                      opacity:
+                        filtroStatus === STATUS_EVENTO.HOMOLOGADO ? 1 : 0.4,
+                    }}
+                    onClick={() => toggle(STATUS_EVENTO.HOMOLOGADO)}
+                  >
                     <FiSettings size={15} color="orange" />
                   </div>
                   <div style={{ textAlign: "right", color: "orange" }}>
                     {qtdHomologado}
                   </div>
 
-                  <div style={{ marginLeft: "15px", marginRight: "5px" }}>
+                  <div
+                    style={{
+                      marginLeft: "15px",
+                      marginRight: "5px",
+                      cursor: "pointer",
+                      opacity:
+                        filtroStatus === STATUS_EVENTO.PD_CONCLUIDA ? 1 : 0.4,
+                    }}
+                    onClick={() => toggle(STATUS_EVENTO.PD_CONCLUIDA)}
+                  >
                     <BsCurrencyDollar size={15} color="purple" />
                   </div>
                   <div style={{ textAlign: "right", color: "purple" }}>
                     {qtdPdConcluida}
+                  </div>
+
+                  <div
+                    style={{
+                      textAlign: "right",
+                      paddingLeft: "10px",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <button
+                      className="botaoFiltrarStatusEventoPago"
+                      style={{
+                        opacity: filtroStatus === STATUS_EVENTO.PAGO ? 1 : 0.4,
+                      }}
+                      onClick={() => toggle(STATUS_EVENTO.PAGO)}
+                    >
+                      Pago
+                    </button>
                   </div>
                 </div>
               );
             })()}
           </div>
 
-          {eventos.map((evento) => {
+          {eventosFiltrados.map((evento) => {
             const cores = getCoresStatus(evento.status_evento);
             const permissoes = user
               ? getPermissoesEvento(evento.status_evento, user.typeUser)
@@ -500,13 +562,27 @@ export default function DiariasDiretoriaSelectPage() {
                             className="botaoResumoEvento"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setResumoEventoId(evento.id); // ✅ abre a modal com o id do evento
+                              setResumoEventoId(evento.id);
                             }}
                           >
                             Resumo
                           </button>
                           <FiSettings size={15} color={cores.settings} />
                           <BsCurrencyDollar size={15} color={cores.money} />
+                          {evento.status_evento === STATUS_EVENTO.PAGO && (
+                            <span
+                              style={{
+                                background: "#11b81e",
+                                color: "white",
+                                borderRadius: "4px",
+                                padding: "1px 7px",
+                                fontSize: "11px",
+                                fontWeight: 600,
+                              }}
+                            >
+                              PAGO
+                            </span>
+                          )}
 
                           <FiMoreVertical
                             size={15}
@@ -593,6 +669,19 @@ export default function DiariasDiretoriaSelectPage() {
                         {evento.totalCotasPracas}
                       </div>
                     </div>
+                    <div className="itemOficiaisPracas direita">
+                      <span style={{ fontSize: "15px" }}>
+                        NE: {evento.ne} |{" "}
+                        {(
+                          (evento.totalCotasOficiais +
+                            evento.totalCotasPracas) *
+                          180
+                        ).toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -600,7 +689,7 @@ export default function DiariasDiretoriaSelectPage() {
           })}
         </div>
         <div className="divDiretoriaOperacao">
-          {eventoSelecionado && (
+          {eventoSelecionado ? (
             <div className="operacoesMobileDentroEvento">
               <div className="divTituloOperacao">
                 <h4>OPERAÇÕES</h4>
@@ -684,6 +773,40 @@ export default function DiariasDiretoriaSelectPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          ) : (
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: 0.2,
+                  marginTop: "50px",
+                }}
+              >
+                <img
+                  src="/logo_pmpe.jpg"
+                  alt=""
+                  style={{ width: "20%", height: "20%" }}
+                />
+                <img
+                  src="/logo_dpo.png"
+                  alt=""
+                  style={{ width: "22%", height: "22%" }}
+                />
+              </div>
+
+              <div
+                style={{
+                  fontSize: "18px",
+                  color: "#b6b5b5",
+                  textAlign: "center",
+                  marginTop: "20px",
+                }}
+              >
+                DIRETORIA DE PLANEJAMENTO
+              </div>
             </div>
           )}
         </div>

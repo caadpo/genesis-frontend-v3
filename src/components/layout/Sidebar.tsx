@@ -83,7 +83,7 @@ export default function Sidebar() {
 
         <Link
           href="/diarias"
-          className={`icon-btn ${isActive("/diarias") ? "active" : ""}`}
+          className={`icon-btn ${isActive("/diaria") ? "active" : ""}`}
         >
           <FiGrid />
           {open && <span>Diárias</span>}

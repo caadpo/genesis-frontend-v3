@@ -8,7 +8,7 @@ type Props = {
   onClose: () => void;
   evento?: any;
   onCreated: () => void;
-  distribuicao: any; // 👈 NOVO
+  distribuicao: any;
 };
 
 type Ome = {
@@ -21,11 +21,12 @@ export default function EventoModal({
   onClose,
   onCreated,
   evento,
-  distribuicao, // 👈 NOVO
+  distribuicao,
 }: Props) {
   const [omes, setOmes] = useState<Ome[]>([]);
   const [omeId, setOmeId] = useState<number>();
   const [nomeEvento, setNomeEvento] = useState("");
+  const [ne, setNe] = useState("");
   const [oficiais, setOficiais] = useState(0);
   const [pracas, setPracas] = useState(0);
 
@@ -34,11 +35,13 @@ export default function EventoModal({
 
     if (evento) {
       setNomeEvento(evento.nome_evento);
+      setNe(evento.ne);
       setOmeId(evento.ome.id);
       setOficiais(evento.qtd_of_evento);
       setPracas(evento.qtd_prc_evento);
     } else {
       setNomeEvento("");
+      setNe("");
       setOmeId(undefined);
       setOficiais(0);
       setPracas(0);
@@ -64,10 +67,11 @@ export default function EventoModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         nome_evento: nomeEvento,
+        ne: ne,
         ome_id: omeId,
         qtd_of_evento: oficiais,
         qtd_prc_evento: pracas,
-        distribuicao_id: distribuicao.id, // 👈 AQUI É O SEGREDO
+        distribuicao_id: distribuicao.id,
       }),
     });
 
@@ -79,7 +83,7 @@ export default function EventoModal({
     toast.success(
       evento
         ? "Evento atualizado com sucesso ✅"
-        : "Evento criado com sucesso ✅"
+        : "Evento criado com sucesso ✅",
     );
 
     onCreated();
@@ -109,6 +113,14 @@ export default function EventoModal({
           type="text"
           value={nomeEvento}
           onChange={(e) => setNomeEvento(e.target.value)}
+        />
+
+        <label>Nota de Empenho</label>
+        <input
+          placeholder="Ignore se não souber"
+          type="text"
+          value={ne}
+          onChange={(e) => setNe(e.target.value)}
         />
 
         <label>Cotas Oficiais</label>

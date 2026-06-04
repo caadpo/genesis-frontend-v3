@@ -105,6 +105,11 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
 
   if (!open) return null;
 
+  const valorCota =
+    resumo?.teto?.sistema === "PJES"
+      ? { oficial: 300, praca: 200 }
+      : { oficial: 180, praca: 180 };
+
   const usuariosFiltrados =
     resumo?.usuarios.filter((u) => {
       if (!busca.trim()) return true;
@@ -429,8 +434,9 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
               <div style={{ fontSize: "10px", color: "#555" }}>
                 Oficiais:{" "}
                 <strong>
-                  {resumo.totalCotasOficiais} cota(s){" "}
-                  {(resumo.totalCotasOficiais * 300).toLocaleString("pt-BR", {
+                  {(
+                    resumo.totalCotasOficiais * valorCota.oficial
+                  ).toLocaleString("pt-BR", {
                     style: "currency",
                     currency: "BRL",
                   })}
@@ -439,11 +445,13 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
               <div className="divRodapePrcValor">
                 Praças:{" "}
                 <strong>
-                  {resumo.totalCotasPracas} cota(s){" "}
-                  {(resumo.totalCotasPracas * 200).toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
+                  {(resumo.totalCotasPracas * valorCota.praca).toLocaleString(
+                    "pt-BR",
+                    {
+                      style: "currency",
+                      currency: "BRL",
+                    },
+                  )}
                 </strong>
               </div>
 
@@ -451,8 +459,8 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                 Valor total da planilha:{" "}
                 <strong>
                   {(
-                    resumo.totalCotasPracas * 200 +
-                    resumo.totalCotasOficiais * 300
+                    resumo.totalCotasPracas * valorCota.praca +
+                    resumo.totalCotasOficiais * valorCota.oficial
                   ).toLocaleString("pt-BR", {
                     style: "currency",
                     currency: "BRL",

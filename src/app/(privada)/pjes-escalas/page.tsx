@@ -187,7 +187,10 @@ export default function PjesEscalasPage() {
     [operacaoId],
   );
 
-  const { data: viaturas } = useApi<Viatura[]>("/api/viatura", []);
+  const { data: viaturas } = useApi<Viatura[]>(
+    operacaoId ? `/api/viatura?operacaoId=${operacaoId}` : "",
+    [operacaoId],
+  );
 
   const SISTEMA = "PJES";
   const minDate =
