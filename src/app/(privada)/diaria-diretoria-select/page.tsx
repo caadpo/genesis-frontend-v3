@@ -303,6 +303,16 @@ export default function DiariasDiretoriaSelectPage() {
     return matchTexto && matchStatus;
   });
 
+  const isAuxiliar = Number(user?.typeUser) === 2;
+
+  // Somas dos eventos visíveis (para o AUXILIAR)
+  const somaQtdOf = eventos.reduce((acc, e) => acc + e.qtd_of_evento, 0);
+  const somaQtdPrc = eventos.reduce((acc, e) => acc + e.qtd_prc_evento, 0);
+  const somaCotasOf = eventos.reduce((acc, e) => acc + e.totalCotasOficiais, 0);
+  const somaCotasPrc = eventos.reduce((acc, e) => acc + e.totalCotasPracas, 0);
+  const saldoOf = somaQtdOf - somaCotasOf;
+  const saldoPrc = somaQtdPrc - somaCotasPrc;
+
   return (
     <div className="page">
       <div style={{ display: "flex", alignItems: "center" }}>
@@ -317,15 +327,17 @@ export default function DiariasDiretoriaSelectPage() {
             : ""}
         </h1>
 
-        <button
-          onClick={() => {
-            setEditando(null);
-            setOpenModal(true);
-          }}
-          className="botaoCriarEvento"
-        >
-          CRIAR EVENTO
-        </button>
+        {[10, 9, 7, 3].includes(Number(user?.typeUser)) && (
+          <button
+            onClick={() => {
+              setEditando(null);
+              setOpenModal(true);
+            }}
+            className="botaoCriarEvento"
+          >
+            CRIAR EVENTO
+          </button>
+        )}
       </div>
 
       <div className="divDiretoriaTeto">
@@ -356,8 +368,10 @@ export default function DiariasDiretoriaSelectPage() {
                         <div>OFICIAIS</div>
                       </div>
                       <strong>
-                        {distribuicao.qtd_dist_of} |{" "}
-                        {distribuicao.totalCotasOficiais}
+                        {isAuxiliar ? somaQtdOf : distribuicao.qtd_dist_of} |{" "}
+                        {isAuxiliar
+                          ? somaCotasOf
+                          : distribuicao.totalCotasOficiais}
                       </strong>
                     </div>
 
@@ -368,10 +382,11 @@ export default function DiariasDiretoriaSelectPage() {
                         </div>
                         <div>PRAÇAS</div>
                       </div>
-
                       <strong>
-                        {distribuicao.qtd_dist_prc} |{" "}
-                        {distribuicao.totalCotasPracas}
+                        {isAuxiliar ? somaQtdPrc : distribuicao.qtd_dist_prc} |{" "}
+                        {isAuxiliar
+                          ? somaCotasPrc
+                          : distribuicao.totalCotasPracas}
                       </strong>
                     </div>
                   </div>
@@ -385,7 +400,7 @@ export default function DiariasDiretoriaSelectPage() {
                     <FiStar />
                   </div>
                   <div className="saldoDiretoriaValor">
-                    {distribuicao.saldo_of}
+                    {isAuxiliar ? saldoOf : distribuicao.saldo_of}
                   </div>
                 </div>
                 <div className="saldoDiretoriaIconePrc">
@@ -393,7 +408,7 @@ export default function DiariasDiretoriaSelectPage() {
                     <FiChevronUp />
                   </div>
                   <div className="saldoDiretoriaValor">
-                    {distribuicao.saldo_prc}
+                    {isAuxiliar ? saldoPrc : distribuicao.saldo_prc}
                   </div>
                 </div>
               </div>

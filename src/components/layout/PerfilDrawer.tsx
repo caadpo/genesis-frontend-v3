@@ -15,7 +15,6 @@ import {
   FaChartLine,
   FaHandPointUp,
 } from "react-icons/fa";
-import { AiFillCalendar } from "react-icons/ai";
 
 type Aba = "geral" | "senha" | "escala";
 
@@ -150,6 +149,27 @@ export default function PerfilDrawer() {
       setLoadingPassword(false);
     }
   }
+
+  const handleLogout = async () => {
+    try {
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        toast.success("Deslogado com sucesso!"); // ✅ Toast de sucesso
+        setTimeout(() => {
+          window.location.href = "/login"; // redireciona após mostrar toast
+        }, 1000); // 1s de delay
+      } else {
+        toast.error("Erro ao deslogar"); // ✅ Toast de erro
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro interno");
+    }
+  };
 
   // Sincroniza quando user carrega
   async function handleImagemUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -569,6 +589,16 @@ export default function PerfilDrawer() {
                           )}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                  <div className="usuario_detalhes_texto">
+                    <div className="usuario_detalhes_titulo_item">
+                      <button
+                        className="botaoCriarEvento"
+                        onClick={handleLogout}
+                      >
+                        DESCONECTAR
+                      </button>
                     </div>
                   </div>
                 </div>

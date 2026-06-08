@@ -88,7 +88,12 @@ export default function OperacaoModal({
           type="text"
           value={nomeOperacao}
           onChange={(e) => setNomeOperacao(e.target.value)}
+          maxLength={22}
+          style={{ textTransform: "uppercase" }}
         />
+        <small style={{ color: nomeOperacao.length >= 22 ? "red" : "#999" }}>
+          {nomeOperacao.length}/22
+        </small>
 
         {/* ✅ Removido: campo Código Verba */}
 

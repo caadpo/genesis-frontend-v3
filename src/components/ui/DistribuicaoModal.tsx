@@ -82,7 +82,7 @@ export default function DistribuicaoModal({
       toast.success(
         distribuicao
           ? "Distribuição atualizada com sucesso ✅"
-          : "Distribuição criada com sucesso ✅"
+          : "Distribuição criada com sucesso ✅",
       );
 
       onCreated();
@@ -115,7 +115,14 @@ export default function DistribuicaoModal({
           type="text"
           value={nomeDistribuicao}
           onChange={(e) => setNomeDist(e.target.value)}
+          maxLength={10}
+          style={{ textTransform: "uppercase" }}
         />
+        <small
+          style={{ color: nomeDistribuicao.length >= 10 ? "red" : "#999" }}
+        >
+          {nomeDistribuicao.length}/10
+        </small>
 
         <label>Cotas Oficiais</label>
         <input

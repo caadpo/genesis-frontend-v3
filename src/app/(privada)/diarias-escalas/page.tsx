@@ -9,7 +9,6 @@ import { FiArrowLeft, FiChevronUp, FiRefreshCcw, FiStar } from "react-icons/fi";
 import {
   FaBarcode,
   FaCar,
-  FaDownload,
   FaEdit,
   FaFilePdf,
   FaLock,
@@ -141,6 +140,8 @@ export default function DiariasEscalasPage() {
   // ─── API ─────────────────────────────────────────────────────────────────────
   const { data: tetos } = useApi<Teto[]>(`/api/tetos?sistema=DIARIAS`);
 
+  console.log("TETOS DISPONÍVEIS:", tetos);
+
   const {
     data: operacao,
     loading: loadingOperacao,
@@ -197,8 +198,8 @@ export default function DiariasEscalasPage() {
     }
     return "";
   };
-  const minDate = formatDateToInput(teto?.data_inicio);
-  const maxDateStr = formatDateToInput(teto?.data_fim);
+  const minDate = formatDateToInput(tetoReferencia?.data_inicio);
+  const maxDateStr = formatDateToInput(tetoReferencia?.data_fim);
 
   const funcao = selectedCargo ? `${selectedCargo} - ${selectedViatura}` : "";
   const cotaEscala = horaInicio && horaFim && horaInicio === horaFim ? 2 : 1;
@@ -364,10 +365,10 @@ export default function DiariasEscalasPage() {
           horaInicio,
           horaFim,
           localApresentacao,
-          funcao: selectedCargo, // ✅ só a função, viatura vai separada
+          funcao: selectedCargo,
           situacao,
           anotacoes,
-          viaturaId: selectedViatura ?? null, // ✅ null remove a viatura
+          viaturaId: selectedViatura ?? null,
           ...(usuario && { usuarioId: usuario.id }),
         }
       : {
@@ -378,10 +379,10 @@ export default function DiariasEscalasPage() {
           horaInicio,
           horaFim,
           localApresentacao,
-          funcao: selectedCargo, // ✅ só a função
+          funcao: selectedCargo,
           situacao,
           anotacoes,
-          viaturaId: selectedViatura ?? undefined, // ✅ sem viatura = omite
+          viaturaId: selectedViatura ?? undefined,
         };
 
     try {

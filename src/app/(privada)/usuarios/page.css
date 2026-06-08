@@ -193,13 +193,24 @@
 }
 
 /* CONTAINER PRINCIPAL */
-.usuario_detalhes_container {
+
+.usuario_detalhes_escalas {
   width: 70%;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: auto;
+  flex-direction: column;
+  margin-bottom: 50px;
+}
+
+.usuario_detalhes_container {
+  width: 100%;
   border-radius: 10px;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   overflow: hidden;
   display: flex;
+  margin-bottom: 8px;
   flex-direction: column;
 }
 
@@ -354,7 +365,7 @@
     font-size: 12px;
   }
 
-  .usuario_detalhes_container {
+  .usuario_detalhes_escalas {
     width: 100%;
     margin-top: 0px;
   }

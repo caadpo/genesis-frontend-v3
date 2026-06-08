@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { useApi } from "@/src/hooks/useApi";
 import { FiArrowLeft, FiChevronUp, FiStar } from "react-icons/fi";
@@ -100,6 +101,7 @@ type Escala = {
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function PjesEscalasPage() {
+  const router = useRouter();
   const params = useSearchParams();
   const mes = params?.get("mes") ?? "";
   const ano = params?.get("ano") ?? "";
@@ -507,8 +509,17 @@ export default function PjesEscalasPage() {
         }}
       >
         <span style={{ display: "flex", justifyContent: "center" }}>
-          <FiArrowLeft size={20} />
-          <span>Voltar</span>
+          <span
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+            onClick={() => router.back()}
+          >
+            <FiArrowLeft size={20} />
+            <span>Voltar</span>
+          </span>
         </span>
         <h1 className="h1PjesEscalas">
           PJES | {mesAbreviado} {ano}

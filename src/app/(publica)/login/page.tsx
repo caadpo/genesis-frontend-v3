@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { FaLock, FaUser } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaLock, FaUser } from "react-icons/fa";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -20,6 +20,7 @@ export default function LoginPage() {
     username?: string;
     password?: string;
   }>({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,15 +80,32 @@ export default function LoginPage() {
           </div>
 
           {/* Senha */}
-          <div className="input-wrapper_login">
+          {/* Senha */}
+          <div className="input-wrapper_login" style={{ position: "relative" }}>
             <FaLock className="input-icon_login" />
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Senha"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="input_login"
             />
+            <span
+              onMouseDown={() => setShowPassword(true)}
+              onMouseUp={() => setShowPassword(false)}
+              onMouseLeave={() => setShowPassword(false)}
+              style={{
+                position: "absolute",
+                right: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "pointer",
+                color: "#888",
+                userSelect: "none",
+              }}
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </span>
             {errors.password && (
               <span className="error_login">{errors.password}</span>
             )}

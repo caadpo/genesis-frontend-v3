@@ -13,32 +13,12 @@ import {
   FiGrid,
   FiRefreshCcw,
 } from "react-icons/fi";
-import toast from "react-hot-toast";
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname() ?? "";
   const [perfilOpen, setPerfilOpen] = useState(false);
-  const handleLogout = async () => {
-    try {
-      const res = await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
 
-      if (res.ok) {
-        toast.success("Deslogado com sucesso!"); // ✅ Toast de sucesso
-        setTimeout(() => {
-          window.location.href = "/login"; // redireciona após mostrar toast
-        }, 1000); // 1s de delay
-      } else {
-        toast.error("Erro ao deslogar"); // ✅ Toast de erro
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Erro interno");
-    }
-  };
   const isActive = (path: string) => {
     return pathname.startsWith(path);
   };
@@ -104,11 +84,6 @@ export default function Sidebar() {
           <FiRefreshCcw />
           {open && <span>Repasse</span>}
         </Link>
-
-        <button className="icon-btn" onClick={handleLogout}>
-          <FiLogOut />
-          {open && <span>Sair</span>}
-        </button>
       </div>
 
       {/* BOTTOM (usuário separado) */}

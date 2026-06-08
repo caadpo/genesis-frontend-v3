@@ -13,7 +13,6 @@ import {
   FiMoreVertical,
 } from "react-icons/fi";
 import { FaFilePdf, FaEdit, FaTrash } from "react-icons/fa";
-import { BsCurrencyDollar } from "react-icons/bs";
 import { toast } from "react-hot-toast";
 import EventoModal from "@/src/components/ui/EventoModal";
 import ResumoEventoModal from "@/src/components/ui/ResumoEventoModal";
@@ -93,6 +92,8 @@ export default function PjesDiretoriaSelectPage() {
   );
   const [menuAberto, setMenuAberto] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [searchText, setSearchText] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<string | null>(null);
 
   // ─── Dados do usuário autenticado ────
   const { user, loading: loadingUser } = useCurrentUser();
@@ -307,6 +308,28 @@ export default function PjesDiretoriaSelectPage() {
     await Promise.all([carregarEventos(), carregarDistribuicao()]);
   }
 
+  const eventosFiltrados = eventos.filter((e) => {
+    const term = searchText.toLowerCase();
+    const matchTexto =
+      !term ||
+      e.nome_evento.toLowerCase().includes(term) ||
+      e.ome.nomeOme.toLowerCase().includes(term);
+
+    const matchStatus = !filtroStatus || e.status_evento === filtroStatus;
+
+    return matchTexto && matchStatus;
+  });
+
+  const isAuxiliar = Number(user?.typeUser) === 2;
+
+  // Somas dos eventos visíveis (para o AUXILIAR)
+  const somaQtdOf = eventos.reduce((acc, e) => acc + e.qtd_of_evento, 0);
+  const somaQtdPrc = eventos.reduce((acc, e) => acc + e.qtd_prc_evento, 0);
+  const somaCotasOf = eventos.reduce((acc, e) => acc + e.totalCotasOficiais, 0);
+  const somaCotasPrc = eventos.reduce((acc, e) => acc + e.totalCotasPracas, 0);
+  const saldoOf = somaQtdOf - somaCotasOf;
+  const saldoPrc = somaQtdPrc - somaCotasPrc;
+
   return (
     <div className="page">
       <div style={{ display: "flex", alignItems: "center" }}>
@@ -314,15 +337,17 @@ export default function PjesDiretoriaSelectPage() {
           PJES | {mesAbreviado} {ano}
         </h1>
 
-        <button
-          onClick={() => {
-            setEditando(null);
-            setOpenModal(true);
-          }}
-          className="botaoCriarEvento"
-        >
-          CRIAR EVENTO
-        </button>
+        {[10, 9, 7, 3].includes(Number(user?.typeUser)) && (
+          <button
+            onClick={() => {
+              setEditando(null);
+              setOpenModal(true);
+            }}
+            className="botaoCriarEvento"
+          >
+            CRIAR EVENTO
+          </button>
+        )}
       </div>
 
       <div className="divDiretoriaTeto">
@@ -353,8 +378,10 @@ export default function PjesDiretoriaSelectPage() {
                         <div>OFICIAIS</div>
                       </div>
                       <strong>
-                        {distribuicao.qtd_dist_of} |{" "}
-                        {distribuicao.totalCotasOficiais}
+                        {isAuxiliar ? somaQtdOf : distribuicao.qtd_dist_of} |{" "}
+                        {isAuxiliar
+                          ? somaCotasOf
+                          : distribuicao.totalCotasOficiais}
                       </strong>
                     </div>
 
@@ -365,10 +392,11 @@ export default function PjesDiretoriaSelectPage() {
                         </div>
                         <div>PRAÇAS</div>
                       </div>
-
                       <strong>
-                        {distribuicao.qtd_dist_prc} |{" "}
-                        {distribuicao.totalCotasPracas}
+                        {isAuxiliar ? somaQtdPrc : distribuicao.qtd_dist_prc} |{" "}
+                        {isAuxiliar
+                          ? somaCotasPrc
+                          : distribuicao.totalCotasPracas}
                       </strong>
                     </div>
                   </div>
@@ -382,7 +410,7 @@ export default function PjesDiretoriaSelectPage() {
                     <FiStar />
                   </div>
                   <div className="saldoDiretoriaValor">
-                    {distribuicao.saldo_of}
+                    {isAuxiliar ? saldoOf : distribuicao.saldo_of}
                   </div>
                 </div>
                 <div className="saldoDiretoriaIconePrc">
@@ -390,7 +418,7 @@ export default function PjesDiretoriaSelectPage() {
                     <FiChevronUp />
                   </div>
                   <div className="saldoDiretoriaValor">
-                    {distribuicao.saldo_prc}
+                    {isAuxiliar ? saldoPrc : distribuicao.saldo_prc}
                   </div>
                 </div>
               </div>
@@ -419,11 +447,12 @@ export default function PjesDiretoriaSelectPage() {
               <input
                 className="inputBuscarEvento"
                 type="text"
-                placeholder="Buscar"
+                placeholder="Buscar por OME ou nome do Evento"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
               />
             </div>
 
-            {/* Contagens derivadas do estado eventos */}
             {(() => {
               const qtdCriado = eventos.filter(
                 (e) => e.status_evento === STATUS_EVENTO.CRIADO,
@@ -435,32 +464,44 @@ export default function PjesDiretoriaSelectPage() {
                 (e) => e.status_evento === STATUS_EVENTO.PD_CONCLUIDA,
               ).length;
 
+              const toggle = (status: string) =>
+                setFiltroStatus((prev) => (prev === status ? null : status));
+
               return (
                 <div className="divIconeCadeadoCatracaDolar">
-                  <div style={{ marginRight: "5px" }}>
+                  <div
+                    style={{
+                      marginRight: "5px",
+                      cursor: "pointer",
+                      opacity: filtroStatus === STATUS_EVENTO.CRIADO ? 1 : 0.4,
+                    }}
+                    onClick={() => toggle(STATUS_EVENTO.CRIADO)}
+                  >
                     <FiUnlock size={15} color="green" />
                   </div>
                   <div className="divTtEventoAberto">{qtdCriado}</div>
 
-                  <div style={{ marginLeft: "15px", marginRight: "5px" }}>
+                  <div
+                    style={{
+                      marginLeft: "15px",
+                      marginRight: "5px",
+                      cursor: "pointer",
+                      opacity:
+                        filtroStatus === STATUS_EVENTO.HOMOLOGADO ? 1 : 0.4,
+                    }}
+                    onClick={() => toggle(STATUS_EVENTO.HOMOLOGADO)}
+                  >
                     <FiSettings size={15} color="orange" />
                   </div>
                   <div style={{ textAlign: "right", color: "orange" }}>
                     {qtdHomologado}
-                  </div>
-
-                  <div style={{ marginLeft: "15px", marginRight: "5px" }}>
-                    <BsCurrencyDollar size={15} color="purple" />
-                  </div>
-                  <div style={{ textAlign: "right", color: "purple" }}>
-                    {qtdPdConcluida}
                   </div>
                 </div>
               );
             })()}
           </div>
 
-          {eventos.map((evento) => {
+          {eventosFiltrados.map((evento) => {
             const cores = getCoresStatus(evento.status_evento);
             const permissoes = user
               ? getPermissoesEvento(evento.status_evento, user.typeUser)
@@ -516,8 +557,6 @@ export default function PjesDiretoriaSelectPage() {
                           >
                             Resumo
                           </button>
-                          <FiSettings size={15} color={cores.settings} />
-                          <BsCurrencyDollar size={15} color={cores.money} />
 
                           <FiMoreVertical
                             size={15}
@@ -546,19 +585,6 @@ export default function PjesDiretoriaSelectPage() {
                                 }}
                               >
                                 Des-homologar
-                              </div>
-
-                              <div
-                                className={`dropdownItem ${
-                                  !permissoes.podePago ? "disabled" : ""
-                                }`}
-                                onClick={() => {
-                                  if (!permissoes.podePago) return;
-
-                                  alterarStatus(evento.id, STATUS_EVENTO.PAGO);
-                                }}
-                              >
-                                Pago
                               </div>
 
                               <div
@@ -611,7 +637,7 @@ export default function PjesDiretoriaSelectPage() {
           })}
         </div>
         <div className="divDiretoriaOperacao">
-          {eventoSelecionado && (
+          {eventoSelecionado ? (
             <div className="operacoesMobileDentroEvento">
               <div className="divTituloOperacao">
                 <h4>OPERAÇÕES</h4>
@@ -696,6 +722,40 @@ export default function PjesDiretoriaSelectPage() {
                 </tbody>
               </table>
             </div>
+          ) : (
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: 0.2,
+                  marginTop: "50px",
+                }}
+              >
+                <img
+                  src="/logo_pmpe.jpg"
+                  alt=""
+                  style={{ width: "20%", height: "20%" }}
+                />
+                <img
+                  src="/logo_dpo.png"
+                  alt=""
+                  style={{ width: "22%", height: "22%" }}
+                />
+              </div>
+
+              <div
+                style={{
+                  fontSize: "18px",
+                  color: "#b6b5b5",
+                  textAlign: "center",
+                  marginTop: "20px",
+                }}
+              >
+                DIRETORIA DE PLANEJAMENTO
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -708,6 +768,7 @@ export default function PjesDiretoriaSelectPage() {
         onCreated={recarregarTudo}
         evento={editando}
         distribuicao={distribuicao}
+        sistema="PJES"
       />
 
       <ResumoEventoModal

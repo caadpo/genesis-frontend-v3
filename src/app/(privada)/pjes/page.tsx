@@ -330,142 +330,144 @@ export default function PjesPage() {
       {/* 📊 Painel do teto selecionado */}
       {tetoSelecionado && (
         <div>
-          <div className="divItemPrincipal">
-            {/* item 01 */}
-            <div className="divItem">
-              <div className="divItensConsumo">
-                <div style={{ fontSize: "12px", color: "#949090" }}>
-                  Valor total da Folha
-                </div>
+          {[10, 9].includes(Number(user?.typeUser)) && (
+            <div className="divItemPrincipal">
+              {/* item 01 */}
+              <div className="divItem">
+                <div className="divItensConsumo">
+                  <div style={{ fontSize: "12px", color: "#949090" }}>
+                    Valor total da Folha
+                  </div>
 
-                <div style={{ fontSize: "16px", color: "#494848" }}>
-                  <strong>
-                    R${" "}
-                    {valor_total.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </strong>
-                </div>
+                  <div style={{ fontSize: "16px", color: "#494848" }}>
+                    <strong>
+                      R${" "}
+                      {valor_total.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </strong>
+                  </div>
 
-                <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">Oficiais:</label>
-                  <span className="spamItensConsumo">
-                    {Number(tetoSelecionado.ttctof)} Cota(s)
-                  </span>
-                </div>
+                  <div style={{ display: "flex" }}>
+                    <label className="labelItensConsumo">Oficiais:</label>
+                    <span className="spamItensConsumo">
+                      {Number(tetoSelecionado.ttctof)} Cota(s)
+                    </span>
+                  </div>
 
-                <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">Praças:</label>
-                  <span className="spamItensConsumo">
-                    {Number(tetoSelecionado.ttctprc)} Cota(s)
-                  </span>
+                  <div style={{ display: "flex" }}>
+                    <label className="labelItensConsumo">Praças:</label>
+                    <span className="spamItensConsumo">
+                      {Number(tetoSelecionado.ttctprc)} Cota(s)
+                    </span>
+                  </div>
+                </div>
+                <div className="divIconeConsumo">
+                  <FiLayers className="icon" />
                 </div>
               </div>
-              <div className="divIconeConsumo">
-                <FiLayers className="icon" />
+
+              {/* item 02 */}
+              <div className="divItem">
+                <div className="divItensConsumo">
+                  <div style={{ fontSize: "12px", color: "#949090" }}>
+                    Saldo de Cotas
+                  </div>
+
+                  <div style={{ fontSize: "16px", color: "#494848" }}>
+                    <strong>
+                      R${" "}
+                      {valor_total_saldo.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </strong>
+                  </div>
+
+                  <div style={{ display: "flex" }}>
+                    <label className="labelItensConsumo">Oficiais:</label>
+                    <span className="spamItensConsumo">
+                      {tetoSelecionado.saldo_of} Cota(s)
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex" }}>
+                    <label className="labelItensConsumo">Praças:</label>
+                    <span className="spamItensConsumo">
+                      {tetoSelecionado.saldo_prc} Cota(s)
+                    </span>
+                  </div>
+                </div>
+                <div className="divIconeConsumo">
+                  <FiLayers className="icon" />
+                </div>
+              </div>
+
+              {/* item 03 */}
+              <div className="divItem">
+                <div className="divItensConsumo">
+                  <div style={{ fontSize: "12px", color: "#949090" }}>
+                    Consumo Real da Folha
+                  </div>
+
+                  <div style={{ fontSize: "16px", color: "#494848" }}>
+                    <strong>
+                      R${" "}
+                      {valor_total_executado.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </strong>
+                  </div>
+
+                  <div style={{ display: "flex" }}>
+                    <label className="labelItensConsumo">Oficiais:</label>
+                    <span className="spamItensConsumo">
+                      {Number(tetoSelecionado.totalCotasOficiais)} Cota(s)
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex" }}>
+                    <label className="labelItensConsumo">Praças:</label>
+                    <span className="spamItensConsumo">
+                      {Number(tetoSelecionado.totalCotasPracas)} Cota(s)
+                    </span>
+                  </div>
+                </div>
+                <div className="divIconeConsumo">
+                  <FiLayers className="icon" />
+                </div>
+              </div>
+
+              {/* item 04 */}
+              <div className="divItem">
+                <div className="divItensConsumo">
+                  <div style={{ fontSize: "12px", color: "#949090" }}>
+                    Eventos Homologados
+                  </div>
+
+                  <div style={{ fontSize: "16px", color: "#494848" }}>
+                    <strong>Homologação: {percentualTotal}%</strong>
+                  </div>
+
+                  <div style={{ display: "flex" }}>
+                    <label className="labelItensConsumo">Oficiais:</label>
+                    <span className="spamItensConsumo">
+                      {percentualOficiais}% Concluído
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex" }}>
+                    <label className="labelItensConsumo">Praças:</label>
+                    <span className="spamItensConsumo">
+                      {percentualPracas}% Concluído
+                    </span>
+                  </div>
+                </div>
+                <div className="divIconeConsumo">
+                  <FiLayers className="icon" />
+                </div>
               </div>
             </div>
-
-            {/* item 02 */}
-            <div className="divItem">
-              <div className="divItensConsumo">
-                <div style={{ fontSize: "12px", color: "#949090" }}>
-                  Saldo de Cotas
-                </div>
-
-                <div style={{ fontSize: "16px", color: "#494848" }}>
-                  <strong>
-                    R${" "}
-                    {valor_total_saldo.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </strong>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">Oficiais:</label>
-                  <span className="spamItensConsumo">
-                    {tetoSelecionado.saldo_of} Cota(s)
-                  </span>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">Praças:</label>
-                  <span className="spamItensConsumo">
-                    {tetoSelecionado.saldo_prc} Cota(s)
-                  </span>
-                </div>
-              </div>
-              <div className="divIconeConsumo">
-                <FiLayers className="icon" />
-              </div>
-            </div>
-
-            {/* item 03 */}
-            <div className="divItem">
-              <div className="divItensConsumo">
-                <div style={{ fontSize: "12px", color: "#949090" }}>
-                  Consumo Real da Folha
-                </div>
-
-                <div style={{ fontSize: "16px", color: "#494848" }}>
-                  <strong>
-                    R${" "}
-                    {valor_total_executado.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </strong>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">Oficiais:</label>
-                  <span className="spamItensConsumo">
-                    {Number(tetoSelecionado.totalCotasOficiais)} Cota(s)
-                  </span>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">Praças:</label>
-                  <span className="spamItensConsumo">
-                    {Number(tetoSelecionado.totalCotasPracas)} Cota(s)
-                  </span>
-                </div>
-              </div>
-              <div className="divIconeConsumo">
-                <FiLayers className="icon" />
-              </div>
-            </div>
-
-            {/* item 04 */}
-            <div className="divItem">
-              <div className="divItensConsumo">
-                <div style={{ fontSize: "12px", color: "#949090" }}>
-                  Eventos Homologados
-                </div>
-
-                <div style={{ fontSize: "16px", color: "#494848" }}>
-                  <strong>Homologação: {percentualTotal}%</strong>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">Oficiais:</label>
-                  <span className="spamItensConsumo">
-                    {percentualOficiais}% Concluído
-                  </span>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <label className="labelItensConsumo">Praças:</label>
-                  <span className="spamItensConsumo">
-                    {percentualPracas}% Concluído
-                  </span>
-                </div>
-              </div>
-              <div className="divIconeConsumo">
-                <FiLayers className="icon" />
-              </div>
-            </div>
-          </div>
+          )}
 
           <div className="divGraficoConsumoDiretoriaPrincipal">
             <div className="divGraficoDiretoria">

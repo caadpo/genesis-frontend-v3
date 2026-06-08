@@ -216,6 +216,35 @@ export default function TetoModal({
     ));
   }
 
+  const [baixandoXls, setBaixandoXls] = useState(false);
+
+  async function handlePrestarContas() {
+    if (!teto) return;
+    setBaixandoXls(true);
+    try {
+      const res = await fetch(`/api/tetos/${teto.id}/xls-escalas`);
+      if (!res.ok) throw new Error("Erro ao gerar planilha");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${teto.nome_verba}_${teto.cod_verba}.xlsx`.replace(
+        /[^a-zA-Z0-9_\-\.]/g,
+        "_",
+      );
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Planilha gerada ✅");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao baixar planilha");
+    } finally {
+      setBaixandoXls(false);
+    }
+  }
+
   if (!open) return null;
 
   return (
@@ -453,6 +482,23 @@ export default function TetoModal({
                     🔒 Encerrar
                   </button>
                 )}
+
+                <button
+                  onClick={handlePrestarContas}
+                  disabled={loading || baixandoXls}
+                  style={{
+                    fontSize: 12,
+                    borderRadius: 8,
+                    padding: "5px 10px",
+                    border: "solid 1px #46af0a",
+                    color: "#46af0a",
+                    background: "transparent",
+                    cursor: baixandoXls ? "wait" : "pointer",
+                    opacity: baixandoXls ? 0.6 : 1,
+                  }}
+                >
+                  {baixandoXls ? "Gerando..." : "Prestar Contas"}
+                </button>
               </>
             )}
           </div>

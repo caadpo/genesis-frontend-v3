@@ -1,5 +1,6 @@
 "use client";
 
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
@@ -9,6 +10,7 @@ type Props = {
   evento?: any;
   onCreated: () => void;
   distribuicao: any;
+  sistema?: string;
 };
 
 type Ome = {
@@ -22,7 +24,9 @@ export default function EventoModal({
   onCreated,
   evento,
   distribuicao,
+  sistema,
 }: Props) {
+  const { user } = useCurrentUser();
   const [omes, setOmes] = useState<Ome[]>([]);
   const [omeId, setOmeId] = useState<number>();
   const [nomeEvento, setNomeEvento] = useState("");
@@ -49,12 +53,20 @@ export default function EventoModal({
   }, [evento, open]);
 
   useEffect(() => {
-    if (open) {
-      fetch("/api/ome")
-        .then((r) => r.json())
-        .then(setOmes);
-    }
-  }, [open]);
+    if (!open) return;
+
+    const isDiretor = Number(user?.typeUser) === 3;
+    const diretoriaId = user?.diretoriaId; // veja nota abaixo
+
+    const url =
+      isDiretor && diretoriaId
+        ? `/api/ome?diretoriaId=${diretoriaId}`
+        : `/api/ome`;
+
+    fetch(url)
+      .then((r) => r.json())
+      .then(setOmes);
+  }, [open, user]);
 
   if (!open) return null;
 
@@ -113,15 +125,24 @@ export default function EventoModal({
           type="text"
           value={nomeEvento}
           onChange={(e) => setNomeEvento(e.target.value)}
+          maxLength={22}
+          style={{ textTransform: "uppercase" }}
         />
+        <small style={{ color: nomeEvento.length >= 22 ? "red" : "#999" }}>
+          {nomeEvento.length}/22
+        </small>
 
-        <label>Nota de Empenho</label>
-        <input
-          placeholder="Ignore se não souber"
-          type="text"
-          value={ne}
-          onChange={(e) => setNe(e.target.value)}
-        />
+        {sistema !== "PJES" && ( // 👈 esconde se for PJES
+          <>
+            <label>Nota de Empenho</label>
+            <input
+              placeholder="Ignore se não souber"
+              type="text"
+              value={ne}
+              onChange={(e) => setNe(e.target.value)}
+            />
+          </>
+        )}
 
         <label>Cotas Oficiais</label>
         <input

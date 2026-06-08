@@ -60,6 +60,20 @@ export default function UsuariosPage() {
   const [contaEdit, setContaEdit] = useState<Conta | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
+  const [verEscalaAberto, setVerEscalaAberto] = useState(false);
+  const [sistemaSelecionado, setSistemaSelecionado] = useState<
+    "PJES" | "DIARIAS" | null
+  >(null);
+  const [escalasUsuario, setEscalasUsuario] = useState<any[]>([]);
+  const [loadingEscalas, setLoadingEscalas] = useState(false);
+  const [erroEscalas, setErroEscalas] = useState<string | null>(null);
+  const [dataSelecionada, setDataSelecionada] = useState<string | null>(null);
+
+  const [mesAtual, setMesAtual] = useState(() => {
+    const hoje = new Date();
+    return { mes: hoje.getMonth(), ano: hoje.getFullYear() };
+  });
+
   // ─── Resetar senha do usuário ──────────────────────────────────────────────
   async function resetarSenha(usuario: Usuario) {
     const confirmar = confirm(
@@ -183,6 +197,11 @@ export default function UsuariosPage() {
 
         const data = await res.json();
         setUsuarioResumo(data);
+        setSistemaSelecionado(null);
+        setEscalasUsuario([]);
+        setDataSelecionada(null);
+        setErroEscalas(null);
+        setVerEscalaAberto(false);
         setUsuarioDetalhe(null);
         setUsuarioAberto(null);
       } catch {}
@@ -204,6 +223,45 @@ export default function UsuariosPage() {
       10: "Master",
     };
     return tipoMap[type] ?? "Usuário";
+  }
+
+  async function buscarEscalas(sistema: "PJES" | "DIARIAS") {
+    if (!usuarioResumo) return;
+
+    // toggle: clicou no mesmo sistema, fecha
+    if (sistemaSelecionado === sistema) {
+      setSistemaSelecionado(null);
+      setEscalasUsuario([]);
+      setDataSelecionada(null);
+      return;
+    }
+
+    setSistemaSelecionado(sistema);
+    const hoje = new Date();
+    setMesAtual({ mes: hoje.getMonth(), ano: hoje.getFullYear() });
+    setDataSelecionada(null);
+    setDataSelecionada(null);
+    setLoadingEscalas(true);
+    setErroEscalas(null);
+
+    try {
+      const res = await fetch(
+        `/api/escala/usuario/${usuarioResumo.id}?sistema=${sistema}`,
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErroEscalas(data?.message ?? "Erro ao buscar escalas");
+        setEscalasUsuario([]);
+        return;
+      }
+
+      setEscalasUsuario(data);
+    } catch {
+      setErroEscalas("Erro de conexão");
+    } finally {
+      setLoadingEscalas(false);
+    }
   }
 
   return (
@@ -327,126 +385,475 @@ export default function UsuariosPage() {
           </div>
         </div>
 
-        {usuarioAberto === usuarioDetalhe?.id && (
+        <div className="usuario_detalhes_escalas">
+          {usuarioAberto === usuarioDetalhe?.id && (
+            <div className="usuario_detalhes_container">
+              <div className="usuario_detalhes_header">
+                <h3>DADOS COMPLEMENTARES</h3>
+              </div>
+
+              <div
+                className="usuario_detalhes_item"
+                style={{ cursor: "pointer" }}
+                onClick={() => {
+                  setContaEdit(usuarioDetalhe?.conta ?? null);
+                  setContaModalOpen(true);
+                }}
+              >
+                <div className="usuario_detalhes_icon">
+                  <FaDollarSign />
+                  <div>Conta</div>
+                </div>
+
+                <div className="usuario_detalhes_texto">
+                  {usuarioDetalhe?.conta ? (
+                    <>
+                      <div className="usuario_detalhes_titulo_item">
+                        <div className="divUsuarioDetalhesRight">
+                          {usuarioDetalhe.conta.banco} | Ag:
+                          {usuarioDetalhe.conta.agencia} | Conta:
+                          {usuarioDetalhe.conta.conta}
+                        </div>
+                      </div>
+                      Cadastro:{" "}
+                      {usuarioDetalhe.conta.createdByUser?.mat ?? "Sistema"} em{" "}
+                      {new Date(
+                        usuarioDetalhe.conta.createdAt,
+                      ).toLocaleString()}
+                      <br />
+                      Atualização:{" "}
+                      {usuarioDetalhe.conta.updatedByUser?.mat ?? "—"} em{" "}
+                      {new Date(
+                        usuarioDetalhe.conta.updatedAt,
+                      ).toLocaleString()}
+                    </>
+                  ) : (
+                    <div style={{ color: "#1e88e5", fontWeight: 600 }}>
+                      Clique aqui para cadastrar uma conta
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {usuarioDetalhe?.ome && (
+                <div>
+                  <div className="usuario_detalhes_item">
+                    <div className="usuario_detalhes_icon">
+                      <FaUniversity />
+                      <div style={{ marginLeft: "5px" }}>Unidade</div>
+                    </div>
+                    <div className="usuario_detalhes_texto">
+                      <div className="usuario_detalhes_titulo_item">
+                        <div className="divUsuarioDetalhesRight">
+                          {usuarioDetalhe?.ome?.nomeOme}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {usuarioResumo && (
+                <div>
+                  <div className="usuario_detalhes_item">
+                    <div className="usuario_detalhes_icon">
+                      <FaBarcode />{" "}
+                      <div style={{ marginLeft: "5px" }}> Cpf</div>
+                    </div>
+                    <div className="usuario_detalhes_texto">
+                      <div className="usuario_detalhes_titulo_item">
+                        <div className="divUsuarioDetalhesRight">
+                          {usuarioResumo.cpf}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="usuario_detalhes_item">
+                    <div className="usuario_detalhes_icon">
+                      <FaAddressCard />
+                      <div style={{ marginLeft: "5px" }}>Of/Prç</div>
+                    </div>
+                    <div className="usuario_detalhes_texto">
+                      <div className="usuario_detalhes_titulo_item">
+                        <div className="divUsuarioDetalhesRight">
+                          {usuarioResumo.tipo}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="usuario_detalhes_item">
+                    <div className="usuario_detalhes_icon">
+                      <FaMale />
+                      <div style={{ marginLeft: "5px" }}>Func/Vinc</div>
+                    </div>
+                    <div className="usuario_detalhes_texto">
+                      <div className="usuario_detalhes_titulo_item">
+                        <div className="divUsuarioDetalhesRight">
+                          {usuarioResumo.nunfunc} | {usuarioResumo.nunvinc}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="usuario_detalhes_item">
+                    <div className="usuario_detalhes_icon">
+                      <FiAlertTriangle />
+                      <div style={{ marginLeft: "5px" }}>Situação</div>
+                    </div>
+                    <div className="usuario_detalhes_texto">
+                      <div className="usuario_detalhes_titulo_item">
+                        <div className="divUsuarioDetalhesRight">
+                          {usuarioResumo.situacao}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="usuario_detalhes_container">
             <div className="usuario_detalhes_header">
-              <h3>DADOS COMPLEMENTARES</h3>
+              <button
+                style={{
+                  width: "100%",
+                  borderRadius: "10px",
+                  height: "30px",
+                  backgroundColor: "#1e88e5",
+                  color: "#fff",
+                  border: "none",
+                  fontWeight: 600,
+                  cursor: usuarioResumo ? "pointer" : "not-allowed",
+                  opacity: usuarioResumo ? 1 : 0.5,
+                }}
+                disabled={!usuarioResumo}
+                onClick={() => {
+                  setVerEscalaAberto((prev) => !prev);
+                  setSistemaSelecionado(null);
+                  setEscalasUsuario([]);
+                  setDataSelecionada(null);
+                  setErroEscalas(null);
+                }}
+              >
+                {verEscalaAberto ? "▲ FECHAR ESCALAS" : "▼ VER ESCALAS"}
+              </button>
             </div>
 
-            <div
-              className="usuario_detalhes_item"
-              style={{ cursor: "pointer" }}
-              onClick={() => {
-                setContaEdit(usuarioDetalhe?.conta ?? null); // se não existir, vai null
-                setContaModalOpen(true);
-              }}
-            >
-              <div className="usuario_detalhes_icon">
-                <FaDollarSign />
-                <div>Conta</div>
-              </div>
+            {verEscalaAberto && (
+              <div
+                style={{
+                  padding: "12px 0",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                {/* Botões PJES / DIÁRIAS */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["PJES", "DIARIAS"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => buscarEscalas(s)}
+                      style={{
+                        flex: 1,
+                        padding: "6px 0",
+                        borderRadius: 6,
+                        border: "1px solid #ccc",
+                        marginLeft: 10,
+                        marginRight: 10,
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        background:
+                          sistemaSelecionado === s ? "#1e88e5" : "#f3f4f6",
+                        color: sistemaSelecionado === s ? "#fff" : "#333",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {s === "DIARIAS" ? "DIÁRIAS" : s}
+                    </button>
+                  ))}
+                </div>
 
-              <div className="usuario_detalhes_texto">
-                {usuarioDetalhe?.conta ? (
-                  <>
-                    <div className="usuario_detalhes_titulo_item">
-                      <div className="divUsuarioDetalhesRight">
-                        {usuarioDetalhe.conta.banco} | Ag:
-                        {usuarioDetalhe.conta.agencia} | Conta:
-                        {usuarioDetalhe.conta.conta}
-                      </div>
-                    </div>
-                    Cadastro:{" "}
-                    {usuarioDetalhe.conta.createdByUser?.mat ?? "Sistema"} em{" "}
-                    {new Date(usuarioDetalhe.conta.createdAt).toLocaleString()}
-                    <br />
-                    Atualização:{" "}
-                    {usuarioDetalhe.conta.updatedByUser?.mat ?? "—"} em{" "}
-                    {new Date(usuarioDetalhe.conta.updatedAt).toLocaleString()}
-                  </>
-                ) : (
-                  <div style={{ color: "#1e88e5", fontWeight: 600 }}>
-                    Clique aqui para cadastrar uma conta
-                  </div>
+                {/* Erro */}
+                {erroEscalas && (
+                  <p style={{ color: "red", fontSize: 13, margin: 0 }}>
+                    {erroEscalas}
+                  </p>
                 )}
-              </div>
-            </div>
 
-            {usuarioDetalhe?.ome && (
-              <div>
-                <div className="usuario_detalhes_item">
-                  <div className="usuario_detalhes_icon">
-                    <FaUniversity />
-                    <div style={{ marginLeft: "5px" }}>Unidade</div>
-                  </div>
-                  <div className="usuario_detalhes_texto">
-                    <div className="usuario_detalhes_titulo_item">
-                      <div className="divUsuarioDetalhesRight">
-                        {usuarioDetalhe?.ome?.nomeOme}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+                {/* Loading */}
+                {loadingEscalas && (
+                  <p style={{ color: "#666", fontSize: 13, margin: 0 }}>
+                    Carregando...
+                  </p>
+                )}
 
-            {usuarioResumo && (
-              <div>
-                <div className="usuario_detalhes_item">
-                  <div className="usuario_detalhes_icon">
-                    <FaBarcode /> <div style={{ marginLeft: "5px" }}> Cpf</div>
-                  </div>
-                  <div className="usuario_detalhes_texto">
-                    <div className="usuario_detalhes_titulo_item">
-                      <div className="divUsuarioDetalhesRight">
-                        {usuarioResumo.cpf}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="usuario_detalhes_item">
-                  <div className="usuario_detalhes_icon">
-                    <FaAddressCard />
-                    <div style={{ marginLeft: "5px" }}>Of/Prç</div>
-                  </div>
-                  <div className="usuario_detalhes_texto">
-                    <div className="usuario_detalhes_titulo_item">
-                      <div className="divUsuarioDetalhesRight">
-                        {usuarioResumo.tipo}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="usuario_detalhes_item">
-                  <div className="usuario_detalhes_icon">
-                    <FaMale />
-                    <div style={{ marginLeft: "5px" }}>Func/Vinc</div>
-                  </div>
-                  <div className="usuario_detalhes_texto">
-                    <div className="usuario_detalhes_titulo_item">
-                      <div className="divUsuarioDetalhesRight">
-                        {usuarioResumo.nunfunc} | {usuarioResumo.nunvinc}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="usuario_detalhes_item">
-                  <div className="usuario_detalhes_icon">
-                    <FiAlertTriangle />
-                    <div style={{ marginLeft: "5px" }}>Situação</div>
-                  </div>
-                  <div className="usuario_detalhes_texto">
-                    <div className="usuario_detalhes_titulo_item">
-                      <div className="divUsuarioDetalhesRight">
-                        {usuarioResumo.situacao}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {/* Calendário de datas */}
+                {!loadingEscalas && !erroEscalas && sistemaSelecionado && (
+                  <>
+                    {escalasUsuario.length === 0 ? (
+                      <p style={{ color: "#999", fontSize: 13, margin: 0 }}>
+                        Nenhuma escala encontrada
+                      </p>
+                    ) : (
+                      <>
+                        {/* Navegação do mês */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginTop: 8,
+                          }}
+                        >
+                          <button
+                            onClick={() =>
+                              setMesAtual((prev) => {
+                                const d = new Date(prev.ano, prev.mes - 1);
+                                return {
+                                  mes: d.getMonth(),
+                                  ano: d.getFullYear(),
+                                };
+                              })
+                            }
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: 16,
+                              padding: "0 8px",
+                            }}
+                          >
+                            ‹
+                          </button>
+
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>
+                            {new Date(mesAtual.ano, mesAtual.mes)
+                              .toLocaleString("pt-BR", {
+                                month: "long",
+                                year: "numeric",
+                              })
+                              .toUpperCase()}
+                          </span>
+
+                          <button
+                            onClick={() =>
+                              setMesAtual((prev) => {
+                                const d = new Date(prev.ano, prev.mes + 1);
+                                return {
+                                  mes: d.getMonth(),
+                                  ano: d.getFullYear(),
+                                };
+                              })
+                            }
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: 16,
+                              padding: "0 8px",
+                            }}
+                          >
+                            ›
+                          </button>
+                        </div>
+
+                        {/* Grade do calendário */}
+                        {(() => {
+                          const diasSemana = [
+                            "D",
+                            "S",
+                            "T",
+                            "Q",
+                            "Q",
+                            "S",
+                            "S",
+                          ];
+                          const primeiroDia = new Date(
+                            mesAtual.ano,
+                            mesAtual.mes,
+                            1,
+                          ).getDay();
+                          const totalDias = new Date(
+                            mesAtual.ano,
+                            mesAtual.mes + 1,
+                            0,
+                          ).getDate();
+
+                          // Datas com escala nesse mês
+                          const datasComEscala = new Set(
+                            escalasUsuario
+                              .filter((e) => {
+                                const [ano, mes] = e.dataInicio
+                                  .split("-")
+                                  .map(Number);
+                                return (
+                                  ano === mesAtual.ano &&
+                                  mes - 1 === mesAtual.mes
+                                );
+                              })
+                              .map((e) => e.dataInicio),
+                          );
+
+                          const celulas = [
+                            ...Array(primeiroDia).fill(null),
+                            ...Array.from({ length: totalDias }, (_, i) => {
+                              const dia = i + 1;
+                              const dateStr = `${mesAtual.ano}-${String(mesAtual.mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+                              return { dia, dateStr };
+                            }),
+                          ];
+
+                          return (
+                            <div style={{ marginTop: 6 }}>
+                              {/* Cabeçalho dias da semana */}
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "repeat(7, 1fr)",
+                                  gap: 2,
+                                  marginBottom: 4,
+                                }}
+                              >
+                                {diasSemana.map((d, i) => (
+                                  <div
+                                    key={i}
+                                    style={{
+                                      textAlign: "center",
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      color: "#999",
+                                    }}
+                                  >
+                                    {d}
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Dias */}
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "repeat(7, 1fr)",
+                                  gap: 2,
+                                }}
+                              >
+                                {celulas.map((celula, i) => {
+                                  if (!celula) return <div key={i} />;
+
+                                  const { dia, dateStr } = celula;
+                                  const temEscala = datasComEscala.has(dateStr);
+                                  const selecionado =
+                                    dataSelecionada === dateStr;
+
+                                  return (
+                                    <button
+                                      key={dateStr}
+                                      disabled={!temEscala}
+                                      onClick={() =>
+                                        setDataSelecionada((prev) =>
+                                          prev === dateStr ? null : dateStr,
+                                        )
+                                      }
+                                      style={{
+                                        padding: "5px 0",
+                                        borderRadius: 6,
+                                        border: selecionado
+                                          ? "2px solid #1e88e5"
+                                          : temEscala
+                                            ? "1px solid #1e88e5"
+                                            : "1px solid transparent",
+                                        background: selecionado
+                                          ? "#1e88e5"
+                                          : temEscala
+                                            ? "#e3f2fd"
+                                            : "transparent",
+                                        color: selecionado
+                                          ? "#fff"
+                                          : temEscala
+                                            ? "#1e88e5"
+                                            : "#ccc",
+                                        fontWeight: temEscala ? 700 : 400,
+                                        fontSize: 12,
+                                        cursor: temEscala
+                                          ? "pointer"
+                                          : "default",
+                                      }}
+                                    >
+                                      {dia}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Detalhes do dia selecionado */}
+                        {dataSelecionada &&
+                          escalasUsuario
+                            .filter((e) => e.dataInicio === dataSelecionada)
+                            .map((e) => (
+                              <div
+                                key={e.id}
+                                style={{
+                                  border: "1px solid #e5e7eb",
+                                  borderRadius: 8,
+                                  padding: 12,
+                                  fontSize: 12,
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  marginLeft: 10,
+                                  marginRight: 10,
+                                  gap: 3,
+                                  background: "#fafafa",
+                                  marginTop: 8,
+                                }}
+                              >
+                                <div>
+                                  <strong>Evento:</strong> {e.nomeEvento}
+                                </div>
+                                <div>
+                                  <strong>Operação:</strong> {e.nomeOperacao} —{" "}
+                                  {e.cod_op}
+                                </div>
+                                <div>
+                                  <strong>OME:</strong> {e.nomeOme}
+                                </div>
+                                <div>
+                                  <strong>Horário:</strong> {e.horaInicio} –{" "}
+                                  {e.horaFim}
+                                </div>
+                                <div>
+                                  <strong>Local:</strong> {e.localApresentacao}
+                                </div>
+                                <div>
+                                  <strong>Função:</strong> {e.funcao}
+                                </div>
+                                <div>
+                                  <strong>Situação:</strong> {e.situacao}
+                                </div>
+                                {e.viatura && (
+                                  <div>
+                                    <strong>Viatura:</strong>{" "}
+                                    {e.viatura.patrimonio}
+                                  </div>
+                                )}
+                                {e.anotacoes && (
+                                  <div>
+                                    <strong>Anotações:</strong> {e.anotacoes}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
       <UsuariosModal
         open={modalOpen}

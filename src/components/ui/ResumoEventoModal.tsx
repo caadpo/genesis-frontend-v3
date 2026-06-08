@@ -393,7 +393,14 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                 {usuariosFiltrados.map((u) => (
                   <tr
                     key={u.usuarioId}
-                    style={{ borderBottom: "1px solid #eee" }}
+                    style={{
+                      borderBottom: "1px solid #eee",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(u.cpf);
+                      toast.success(`CPF de ${u.nomeCompleto} copiado!`);
+                    }}
                   >
                     <td className="hide-mobile" style={td}>
                       {resumo.teto.sistema} | {resumo.teto.nome_verba}
