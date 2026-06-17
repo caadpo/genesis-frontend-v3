@@ -5,7 +5,6 @@ export async function GET() {
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
-  // ✅ NEXT 15 — cookies é async
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("accessToken")?.value;
 

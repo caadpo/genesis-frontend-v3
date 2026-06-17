@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
 export async function PATCH(
   _request: Request,
   context: { params: Promise<{ id: string }> },
@@ -11,7 +13,7 @@ export async function PATCH(
     const cookieStore = await cookies();
     const token = cookieStore.get("accessToken")?.value;
 
-    const response = await fetch(`http://localhost:3001/tetos/${id}/encerrar`, {
+    const response = await fetch(`${API_URL}/tetos/${id}/encerrar`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}` },
     });

@@ -83,6 +83,7 @@ export default function DiariasDiretoriaSelectPage() {
   const params = useSearchParams();
   const tetoId = Number(params?.get("tetoId"));
   const distribuicaoId = Number(params?.get("distribuicaoId"));
+  const omeIdParam = Number(params?.get("omeId") ?? 0);
   // ─── Estados ────────────────────────────────────────────────────────────────
   const [eventoSelecionado, setEventoSelecionado] = useState<Evento | null>(
     null,
@@ -132,7 +133,10 @@ export default function DiariasDiretoriaSelectPage() {
   async function carregarEventos() {
     if (!distribuicaoId) return;
     setLoadingEventos(true);
-    const res = await fetch(`/api/evento?distribuicaoId=${distribuicaoId}`);
+    const url = omeIdParam
+      ? `/api/evento?distribuicaoId=${distribuicaoId}&omeId=${omeIdParam}`
+      : `/api/evento?distribuicaoId=${distribuicaoId}`;
+    const res = await fetch(url);
     const data = await res.json();
     setEventos(data);
     setLoadingEventos(false);

@@ -17,6 +17,7 @@ const ROTAS_PERMITIDAS_DIARIAS = [
   "/diarias",
   "/diaria-diretoria-select",
   "/diarias-escalas",
+  "/minhas-escalas",
 ];
 
 function decodeJwtPayload(token: string): { typeUser?: number } {
@@ -29,7 +30,7 @@ function decodeJwtPayload(token: string): { typeUser?: number } {
   }
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (

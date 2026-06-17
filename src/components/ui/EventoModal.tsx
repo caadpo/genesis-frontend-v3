@@ -3,6 +3,7 @@
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
+import { apiFetch } from "@/src/lib/api"; // se já usa em outros lugares
 
 type Props = {
   open: boolean;
@@ -33,6 +34,9 @@ export default function EventoModal({
   const [ne, setNe] = useState("");
   const [oficiais, setOficiais] = useState(0);
   const [pracas, setPracas] = useState(0);
+  const [bloqueado, setBloqueado] = useState(false); // 👈
+
+  const isAdmin = [9, 10].includes(Number(user?.typeUser));
 
   useEffect(() => {
     if (!open) return;
@@ -43,12 +47,14 @@ export default function EventoModal({
       setOmeId(evento.ome.id);
       setOficiais(evento.qtd_of_evento);
       setPracas(evento.qtd_prc_evento);
+      setBloqueado(evento.bloqueado ?? false); // 👈
     } else {
       setNomeEvento("");
       setNe("");
       setOmeId(undefined);
       setOficiais(0);
       setPracas(0);
+      setBloqueado(false); // 👈
     }
   }, [evento, open]);
 
@@ -56,7 +62,7 @@ export default function EventoModal({
     if (!open) return;
 
     const isDiretor = Number(user?.typeUser) === 3;
-    const diretoriaId = user?.diretoriaId; // veja nota abaixo
+    const diretoriaId = user?.diretoriaId;
 
     const url =
       isDiretor && diretoriaId
@@ -102,15 +108,73 @@ export default function EventoModal({
     onClose();
   }
 
+  // ✅ toggle de bloqueio — chama endpoint dedicado
+  async function handleToggleBloqueio() {
+    if (!evento) return;
+
+    const res = await apiFetch(`/api/evento/${evento.id}/bloqueio`, {
+      method: "PATCH",
+    });
+
+    if (!res.ok) {
+      toast.error("Erro ao alterar bloqueio");
+      return;
+    }
+
+    const data = await res.json();
+    setBloqueado(data.bloqueado);
+    toast.success(
+      data.bloqueado ? "Evento bloqueado 🔒" : "Evento desbloqueado 🔓",
+    );
+    onCreated();
+  }
+
   return (
     <div className="modalOverlay">
       <div className="modalCard">
         <h2>{evento ? "Editar Evento" : "Novo Evento"}</h2>
 
+        {/* ✅ Toggle de bloqueio — só na edição e para Técnico/Master */}
+        {evento && isAdmin && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 12,
+              padding: "8px 12px",
+              borderRadius: 8,
+              background: bloqueado ? "#fdecea" : "#eafaf1",
+            }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 600 }}>
+              {bloqueado
+                ? "🔒 Evento bloqueado para edição"
+                : "🔓 Evento liberado para edição"}
+            </span>
+
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={bloqueado}
+                onChange={handleToggleBloqueio}
+                style={{ width: 18, height: 18, cursor: "pointer" }}
+              />
+            </label>
+          </div>
+        )}
+
         <label>OME</label>
         <select
           value={omeId ?? ""}
           onChange={(e) => setOmeId(Number(e.target.value))}
+          disabled={bloqueado && !isAdmin}
         >
           <option>Selecione</option>
           {omes.map((o) => (
@@ -124,15 +188,15 @@ export default function EventoModal({
         <input
           type="text"
           value={nomeEvento}
-          onChange={(e) => setNomeEvento(e.target.value)}
+          onChange={(e) => setNomeEvento(e.target.value.toUpperCase())}
           maxLength={22}
-          style={{ textTransform: "uppercase" }}
+          disabled={bloqueado && !isAdmin}
         />
         <small style={{ color: nomeEvento.length >= 22 ? "red" : "#999" }}>
           {nomeEvento.length}/22
         </small>
 
-        {sistema !== "PJES" && ( // 👈 esconde se for PJES
+        {sistema !== "PJES" && (
           <>
             <label>Nota de Empenho</label>
             <input
@@ -140,6 +204,7 @@ export default function EventoModal({
               type="text"
               value={ne}
               onChange={(e) => setNe(e.target.value)}
+              disabled={bloqueado && !isAdmin}
             />
           </>
         )}
@@ -149,6 +214,7 @@ export default function EventoModal({
           type="number"
           value={oficiais}
           onChange={(e) => setOficiais(Number(e.target.value))}
+          disabled={bloqueado && !isAdmin}
         />
 
         <label>Cotas Praças</label>
@@ -156,13 +222,18 @@ export default function EventoModal({
           type="number"
           value={pracas}
           onChange={(e) => setPracas(Number(e.target.value))}
+          disabled={bloqueado && !isAdmin}
         />
 
         <div className="modalActions">
           <button onClick={onClose} className="btnCancel">
             Cancelar
           </button>
-          <button onClick={handleSubmit} className="btnSave">
+          <button
+            onClick={handleSubmit}
+            className="btnSave"
+            disabled={bloqueado && !isAdmin}
+          >
             Salvar
           </button>
         </div>

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
 const loginSchema = z.object({
   mat: z.string().min(1),
   password: z.string().min(1),
@@ -13,7 +15,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const nestRes = await fetch("http://localhost:3001/auth", {
+  const nestRes = await fetch(`${API_URL}/auth`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(parsed.data),

@@ -11,6 +11,12 @@
   align-items: flex-start;
 }
 
+.div-itens-sistema {
+  width: 100%;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
 .div-itens {
   width: 100%;
   margin-top: 10px;

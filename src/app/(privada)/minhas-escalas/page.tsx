@@ -42,6 +42,7 @@ type Escala = {
   viatura?: Viatura | null;
   operacaoId?: number;
   nomeOperacao?: string;
+  cod_op?: string;
   nomeEvento?: string;
   nomeOme?: string;
   status_teto?: string;
@@ -384,7 +385,8 @@ export default function MinhasEscalasPage() {
               <FaCalendarAlt
                 style={{ marginLeft: "5px", marginRight: "5px" }}
               />
-              {formatarData(escala.dataInicio)} | {escala.nomeOme}
+              {formatarData(escala.dataInicio)} | {escala.nomeOme} - COP{" "}
+              {escala.cod_op}
             </span>
 
             <button

@@ -1,26 +1,27 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
 export async function GET(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
 
   const token = (await cookies()).get("accessToken")?.value;
 
-  const response = await fetch(`http://localhost:3001/user/${id}`, {
+  const response = await fetch(`${API_URL}/user/${id}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
     cache: "no-store",
   });
 
-  // 🔥 TRATAMENTO QUE FALTAVA
   if (!response.ok) {
     return NextResponse.json(
       { error: "Erro ao buscar usuário" },
-      { status: response.status }
+      { status: response.status },
     );
   }
 
@@ -30,13 +31,13 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
   const token = (await cookies()).get("accessToken")?.value;
   const body = await request.json();
 
-  const response = await fetch(`http://localhost:3001/user/${id}`, {
+  const response = await fetch(`${API_URL}/user/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -51,12 +52,12 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
   const token = (await cookies()).get("accessToken")?.value;
 
-  const response = await fetch(`http://localhost:3001/user/${id}`, {
+  const response = await fetch(`${API_URL}/user/${id}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,

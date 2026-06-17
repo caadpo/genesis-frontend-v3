@@ -2,8 +2,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaUniversity, FaUser, FaCar, FaMapMarkerAlt } from "react-icons/fa";
-import { FiLayers, FiGrid, FiCalendar } from "react-icons/fi";
+import { FiLayers, FiGrid, FiSearch } from "react-icons/fi";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
+import BuscaCopModal from "@/src/components/ui/BuscaCopModal";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -139,6 +140,12 @@ function Avatares({ membros }: { membros: Escala[] }) {
   );
 }
 
+function totalEscalasFuturas(escalas: Escala[]): number {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  return escalas.filter((e) => new Date(e.dataInicio) >= hoje).length;
+}
+
 // ─── Sub-componente: Card de Escala ──────────────────────────────────────────
 
 function CardEscala({ escala }: { escala: Escala }) {
@@ -261,6 +268,37 @@ export default function SelectSystem() {
   const [loading, setLoading] = useState(true);
   const [errorEscalas, setErrorEscalas] = useState<string | null>(null);
 
+  const [codOpBusca, setCodOpBusca] = useState("");
+  const [modalCopAberto, setModalCopAberto] = useState(false);
+  const [escalasCop, setEscalasCop] = useState<any[]>([]);
+  const [loadingCop, setLoadingCop] = useState(false);
+  const [erroCop, setErroCop] = useState<string | null>(null);
+
+  async function buscarPorCodOp() {
+    if (!codOpBusca.trim()) return;
+
+    setModalCopAberto(true);
+    setLoadingCop(true);
+    setErroCop(null);
+    setEscalasCop([]);
+
+    try {
+      const res = await fetch(`/api/escala/cod-op/${codOpBusca.trim()}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErroCop(data?.message ?? "Erro ao buscar escalas");
+        return;
+      }
+
+      setEscalasCop(data);
+    } catch {
+      setErroCop("Erro de conexão");
+    } finally {
+      setLoadingCop(false);
+    }
+  }
+
   // Busca escalas do usuário logado
   useEffect(() => {
     async function fetchEscalas() {
@@ -278,12 +316,31 @@ export default function SelectSystem() {
   }, []);
 
   const proximas = proximasEscalas(escalas);
+  const totalFuturas = totalEscalasFuturas(escalas);
   const pagas = escalasPagas(escalas);
 
   return (
     <div className="container">
       {/* ── Escolha do sistema ───────────────────────────────────────────── */}
-      <div className="div-itens">
+      <div className="div-itens-sistema">
+        <div className="divInputBuscarUsuarioEIcones">
+          <input
+            className="inputBuscarUsuario"
+            type="text"
+            placeholder="Digite o COP da Operação"
+            value={codOpBusca}
+            onChange={(e) => setCodOpBusca(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") buscarPorCodOp();
+            }}
+          />
+          <FiSearch
+            size={25}
+            color="green"
+            style={{ cursor: "pointer" }}
+            onClick={buscarPorCodOp}
+          />
+        </div>
         <div className="titulo">
           <span>SISTEMAS</span>
           <div className="badge">2</div>
@@ -313,12 +370,12 @@ export default function SelectSystem() {
       </div>
 
       {/* ── Minhas Escalas ───────────────────────────────────────────────── */}
-      <div className="div-itens">
+      <div className="div-itens-sistema">
         <div>
           <div className="header-escalas">
             <div className="titulo">
               <span>MINHAS ESCALAS</span>
-              <div className="badge">{proximas.length}</div>
+              <div className="badge">{totalFuturas}</div>
             </div>
             <span
               className="ver-todas"
@@ -382,6 +439,15 @@ export default function SelectSystem() {
           ))}
         </div>
       </div>
+
+      <BuscaCopModal
+        open={modalCopAberto}
+        onClose={() => setModalCopAberto(false)}
+        escalas={escalasCop}
+        codOp={codOpBusca}
+        loading={loadingCop}
+        erro={erroCop}
+      />
     </div>
   );
 }

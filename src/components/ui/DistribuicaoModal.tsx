@@ -114,9 +114,8 @@ export default function DistribuicaoModal({
         <input
           type="text"
           value={nomeDistribuicao}
-          onChange={(e) => setNomeDist(e.target.value)}
+          onChange={(e) => setNomeDist(e.target.value.toUpperCase())}
           maxLength={10}
-          style={{ textTransform: "uppercase" }}
         />
         <small
           style={{ color: nomeDistribuicao.length >= 10 ? "red" : "#999" }}

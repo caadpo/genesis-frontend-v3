@@ -15,7 +15,7 @@
 /* COLUNA USUÁRIOS */
 
 .divUsuario {
-  width: 30%;
+  width: 40%;
   padding: 8px;
   height: 130px;
   border-radius: 8px;
@@ -195,7 +195,7 @@
 /* CONTAINER PRINCIPAL */
 
 .usuario_detalhes_escalas {
-  width: 70%;
+  width: 60%;
   border-radius: 10px;
   background: #ffffff;
   overflow: auto;

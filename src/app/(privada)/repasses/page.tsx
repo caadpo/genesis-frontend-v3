@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { FaUser, FaMapMarkerAlt, FaInfo, FaPhone } from "react-icons/fa";
+import { FaUser, FaMapMarkerAlt, FaInfo, FaUniversity } from "react-icons/fa";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FiGrid, FiLayers } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -135,7 +136,9 @@ function ModalConfirmacao({
             {formatarHora(repasse.horaInicioRepasse)} às{" "}
             {formatarHora(repasse.horaFimRepasse)}
           </strong>{" "}
-          no sistema <strong>{repasse.sistemaRepasse}</strong>?
+          no sistema <strong>{repasse.sistemaRepasse} </strong>
+          com a função
+          <strong> {repasse.funcao}</strong>?
         </p>
 
         {repasse.motivo && (
@@ -223,8 +226,14 @@ function CardRepasse({
                       {repasse.ofertante_pg && `${repasse.ofertante_pg} `}
                       {repasse.matOfertante}{" "}
                       {repasse.ofertante_nome_guerra ?? ""}
-                      {repasse.nome_ome ? ` - ${repasse.nome_ome}` : ""}
                     </span>
+
+                    <div style={{ display: "flex" }}>
+                      <div style={{ paddingRight: "3px" }}>
+                        <FaUniversity size={12} color="gray" />
+                      </div>
+                      <span className="repasse-sub">{repasse.nome_ome}</span>
+                    </div>
 
                     <div style={{ display: "flex" }}>
                       <div style={{ paddingRight: "3px" }}>
@@ -329,10 +338,6 @@ export default function RepassesPage() {
     null,
   );
   const [aceitando, setAceitando] = useState(false);
-  const [feedbackMsg, setFeedbackMsg] = useState<{
-    texto: string;
-    tipo: "sucesso" | "erro";
-  } | null>(null);
 
   // ─── Buscar todas as listas em paralelo ──────────────────────────────────────
   const buscarRepasses = useCallback(async () => {
@@ -395,11 +400,11 @@ export default function RepassesPage() {
       if (!res.ok) {
         throw new Error(data?.message ?? "Erro ao aceitar repasse");
       }
-      setFeedbackMsg({ texto: "Serviço aceito com sucesso!", tipo: "sucesso" });
+      toast.success("Serviço aceito com sucesso!");
       setRepasseSelecionado(null);
-      buscarRepasses(); // atualiza a lista
+      buscarRepasses();
     } catch (e: any) {
-      setFeedbackMsg({ texto: e.message, tipo: "erro" });
+      toast.error(e.message);
       setRepasseSelecionado(null);
     } finally {
       setAceitando(false);
@@ -432,16 +437,6 @@ export default function RepassesPage() {
   return (
     <div className="page">
       <h1 className="h1RepasseTitle">SERVIÇOS</h1>
-
-      {/* Feedback de sucesso/erro */}
-      {feedbackMsg && (
-        <div
-          className={`feedbackBanner ${feedbackMsg.tipo}`}
-          onClick={() => setFeedbackMsg(null)}
-        >
-          {feedbackMsg.texto}
-        </div>
-      )}
 
       <div className="divInputBuscarRepasses">
         <input

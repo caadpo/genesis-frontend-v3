@@ -87,9 +87,8 @@ export default function OperacaoModal({
         <input
           type="text"
           value={nomeOperacao}
-          onChange={(e) => setNomeOperacao(e.target.value)}
+          onChange={(e) => setNomeOperacao(e.target.value.toUpperCase())}
           maxLength={22}
-          style={{ textTransform: "uppercase" }}
         />
         <small style={{ color: nomeOperacao.length >= 22 ? "red" : "#999" }}>
           {nomeOperacao.length}/22

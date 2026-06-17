@@ -26,7 +26,7 @@ type ResumoEvento = {
   qtd_prc_evento: number;
   status_evento: string;
 
-  ome: { id: number; nomeOme: string };
+  ome: { id: number; nomeOme: string; efisco: string };
   teto: { id: number; nome_verba: string; sistema: string };
   totalCotasOficiais: number;
   totalCotasPracas: number;
@@ -323,6 +323,8 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
               <div>
                 <div className="divOmeNomeEventoResumo">
                   {resumo.ome.nomeOme} | {resumo.nome_evento}
+                  <br></br>
+                  E-FISCO: <strong>{resumo.ome.efisco}</strong>
                 </div>
 
                 <div className="divStatusEventoResumo">
@@ -372,6 +374,7 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                   <th style={th}>UNIDADE</th>
                   <th style={th}>IDENTIFICAÇÃO DO POLICIAL</th>
                   <th style={th}>CPF</th>
+                  <th style={th}>E-FISCO</th>
 
                   <th className="hide-mobile" style={th}>
                     NUFUNC
@@ -411,6 +414,8 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                     <td style={td}>{u.nomeCompleto}</td>
 
                     <td style={td}>{formatarCPF(u.cpf)}</td>
+
+                    <td style={td}>{resumo.ome.efisco}</td>
 
                     <td className="hide-mobile" style={td}>
                       {u.nunfunc} | {u.nunvinc}
@@ -629,3 +634,4 @@ const td: React.CSSProperties = {
   padding: "5px 8px",
   verticalAlign: "middle",
 };
+126300;

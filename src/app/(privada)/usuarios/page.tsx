@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FiPlusCircle, FiMoreVertical, FiAlertTriangle } from "react-icons/fi";
+import {
+  FiPlusCircle,
+  FiMoreVertical,
+  FiAlertTriangle,
+  FiUpload,
+} from "react-icons/fi";
 import {
   FaUser,
   FaPhone,
@@ -10,6 +15,7 @@ import {
   FaAddressCard,
   FaMale,
   FaBarcode,
+  FaLock,
 } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import UsuariosModal from "@/src/components/ui/UsuariosModal";
@@ -25,6 +31,7 @@ type Usuario = {
   pg: string;
   tipo: string;
   typeUser: number;
+  ativo: boolean;
   phone: string;
   cpf: string;
   nunfunc: string;
@@ -60,6 +67,9 @@ export default function UsuariosPage() {
   const [contaEdit, setContaEdit] = useState<Conta | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importandoSgp, setImportandoSgp] = useState(false);
+
   const [verEscalaAberto, setVerEscalaAberto] = useState(false);
   const [sistemaSelecionado, setSistemaSelecionado] = useState<
     "PJES" | "DIARIAS" | null
@@ -73,6 +83,27 @@ export default function UsuariosPage() {
     const hoje = new Date();
     return { mes: hoje.getMonth(), ano: hoje.getFullYear() };
   });
+
+  // ─── Ativa o primeiro acesso do usuario ──────────────────────────────────────────────
+  async function toggleAtivo(usuario: Usuario) {
+    const promise = fetch(`/api/user/${usuario.id}/ativo`, {
+      method: "PATCH",
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "Erro ao alterar status");
+      return data;
+    });
+
+    toast.promise(promise, {
+      loading: "Alterando status...",
+      success: (data) =>
+        data.ativo ? "Usuário ativado ✅" : "Usuário inativado 🔒",
+      error: (err) => err.message,
+    });
+
+    const data = await promise;
+    setUsuarioResumo((prev) => (prev ? { ...prev, ativo: data.ativo } : prev));
+  }
 
   // ─── Resetar senha do usuário ──────────────────────────────────────────────
   async function resetarSenha(usuario: Usuario) {
@@ -264,6 +295,45 @@ export default function UsuariosPage() {
     }
   }
 
+  async function handleUploadCsv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setImportandoSgp(true);
+
+    const promise = fetch("/api/dados-sgp/importar", {
+      method: "POST",
+      body: formData,
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : data?.message || "Erro ao importar arquivo",
+        );
+      }
+      return data;
+    });
+
+    toast.promise(promise, {
+      loading: "Importando dados do SGP...",
+      success: (data) => `${data.total} registros importados com sucesso ✅`,
+      error: (err) => err.message,
+    });
+
+    try {
+      await promise;
+    } finally {
+      setImportandoSgp(false);
+      // limpa o input para permitir selecionar o mesmo arquivo de novo
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   return (
     <div className="page">
       <h1 className="h1UsuariosTitle">USUARIOS</h1>
@@ -285,6 +355,24 @@ export default function UsuariosPage() {
               onClick={() => {
                 setUsuarioEdit(null);
                 setModalOpen(true);
+              }}
+            />
+
+            {/* input oculto para upload */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.txt"
+              style={{ display: "none" }}
+              onChange={handleUploadCsv}
+            />
+
+            <FiUpload
+              size={25}
+              color={importandoSgp ? "#999" : "black"}
+              style={{ cursor: importandoSgp ? "wait" : "pointer" }}
+              onClick={() => {
+                if (!importandoSgp) fileInputRef.current?.click();
               }}
             />
           </div>
@@ -378,6 +466,33 @@ export default function UsuariosPage() {
                     <span>
                       <FaPhone /> {usuarioResumo.phone}
                     </span>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        marginTop: 2,
+                        cursor: "pointer",
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (usuarioResumo) toggleAtivo(usuarioResumo);
+                      }}
+                    >
+                      <FaLock
+                        size={12}
+                        color={usuarioResumo.ativo ? "green" : "red"}
+                      />
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: usuarioResumo.ativo ? "green" : "red",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {usuarioResumo.ativo ? "Ativo" : "Inativo"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </>

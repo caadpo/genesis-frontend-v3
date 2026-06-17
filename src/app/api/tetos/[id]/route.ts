@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
@@ -11,7 +13,7 @@ export async function GET(
     const cookieStore = await cookies();
     const token = cookieStore.get("accessToken")?.value;
 
-    const response = await fetch(`http://localhost:3001/tetos/${id}`, {
+    const response = await fetch(`${API_URL}/tetos/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
@@ -37,7 +39,7 @@ export async function PATCH(
 
     const body = await request.json();
 
-    const response = await fetch(`http://localhost:3001/tetos/${id}`, {
+    const response = await fetch(`${API_URL}/tetos/${id}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -70,7 +72,7 @@ export async function DELETE(
     const cookieStore = await cookies();
     const token = cookieStore.get("accessToken")?.value;
 
-    const response = await fetch(`http://localhost:3001/tetos/${id}`, {
+    const response = await fetch(`${API_URL}/tetos/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });

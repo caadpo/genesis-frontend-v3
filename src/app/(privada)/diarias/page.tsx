@@ -345,7 +345,7 @@ export default function DiariasPage() {
       {/* 📊 Painel do teto selecionado */}
       {tetoSelecionado && (
         <div>
-          {[10, 9].includes(Number(user?.typeUser)) && (
+          {[10, 9, 5].includes(Number(user?.typeUser)) && (
             <div className="divItemPrincipal">
               {/* item 01 */}
               <div className="divItem">

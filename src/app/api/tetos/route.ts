@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -15,12 +17,12 @@ export async function GET(request: Request) {
     let url = "";
 
     if (sistema === "PJES") {
-      url = `http://localhost:3001/tetos/pjes?mes=${mes}&ano=${ano}`;
+      url = `${API_URL}/tetos/pjes?mes=${mes}&ano=${ano}`;
     }
 
     if (sistema === "DIARIAS") {
       const status = searchParams.get("status");
-      url = `http://localhost:3001/tetos/diarias${status ? `?status=${status}` : ""}`;
+      url = `${API_URL}/tetos/diarias${status ? `?status=${status}` : ""}`;
     }
 
     const response = await fetch(url, {
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    const response = await fetch("http://localhost:3001/tetos", {
+    const response = await fetch(`${API_URL}/tetos`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

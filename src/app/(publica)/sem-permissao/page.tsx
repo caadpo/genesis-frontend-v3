@@ -12,7 +12,7 @@ export default function SemPermissao() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        height: "100vh",
+        height: "40vh",
         gap: "16px",
         textAlign: "center",
         padding: "24px",

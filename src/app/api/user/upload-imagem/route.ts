@@ -4,6 +4,8 @@ import { writeFile } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
@@ -24,7 +26,6 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Redimensiona para 200x200 com sharp
     const resized = await sharp(buffer)
       .resize(200, 200, { fit: "cover", position: "centre" })
       .jpeg({ quality: 80 })
@@ -37,8 +38,7 @@ export async function POST(request: Request) {
 
     const imagemUrl = `/avatares/${fileName}`;
 
-    // Atualiza imagemUrl no backend
-    const response = await fetch("http://localhost:3001/user/me/imagem", {
+    const response = await fetch(`${API_URL}/user/me/imagem`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",

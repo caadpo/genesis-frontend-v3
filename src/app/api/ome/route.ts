@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const diretoriaId = searchParams.get("diretoriaId");
@@ -8,8 +10,8 @@ export async function GET(request: Request) {
   const token = (await cookies()).get("accessToken")?.value;
 
   const url = diretoriaId
-    ? `http://localhost:3001/ome?diretoriaId=${diretoriaId}`
-    : `http://localhost:3001/ome`;
+    ? `${API_URL}/ome?diretoriaId=${diretoriaId}`
+    : `${API_URL}/ome`;
 
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
