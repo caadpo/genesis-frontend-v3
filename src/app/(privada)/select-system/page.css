@@ -173,6 +173,19 @@
   margin-left: -10px;
 }
 
+.avatar-fallback {
+  border-radius: 20px;
+  width: 32px;
+  height: 32px;
+  border: solid 2px #5b6063;
+  background-color: #ffffff;
+  color: #5b6063;
+  align-items: center;
+  display: flex;
+  padding: 4px;
+  justify-content: center;
+}
+
 .avatares img:first-child {
   margin-left: 0;
 }

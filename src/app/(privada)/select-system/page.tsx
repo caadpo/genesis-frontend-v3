@@ -41,6 +41,17 @@ interface Escala {
   pagamento: string;
 }
 
+type EventoPago = {
+  eventoId: number;
+  nome_evento: string;
+  nome_ome: string;
+  sistema: string;
+  nome_verba: string;
+  total_policiais: number;
+  valor_total_evento: number;
+  createdAt: string;
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function proximasEscalas(escalas: Escala[]): Escala[] {
@@ -96,7 +107,7 @@ function AvatarItem({ mat, nome }: { mat: string; nome: string }) {
   if (imgError) {
     return (
       <div className="avatar-fallback" title={nome}>
-        <FaUser />
+        <FaUser size={23} />
       </div>
     );
   }
@@ -317,7 +328,17 @@ export default function SelectSystem() {
 
   const proximas = proximasEscalas(escalas);
   const totalFuturas = totalEscalasFuturas(escalas);
-  const pagas = escalasPagas(escalas);
+
+  const [eventosPagos, setEventosPagos] = useState<EventoPago[]>([]);
+  const [loadingPagamentos, setLoadingPagamentos] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/pagamento/evento?limit=10", { cache: "no-store" })
+      .then((r) => r.json())
+      .then(setEventosPagos)
+      .catch(() => {})
+      .finally(() => setLoadingPagamentos(false));
+  }, []);
 
   return (
     <div className="container">
@@ -415,28 +436,84 @@ export default function SelectSystem() {
           borderRadius: "5px",
           padding: "5px",
           maxHeight: "400px",
-          overflow: "auto",
+          marginBottom: "40px",
         }}
       >
         <div className="div-itens">
-          <div className="titulo">
-            <span>PAGAMENTOS</span>
-            {pagas.length > 0 && <div className="badge">{pagas.length}</div>}
+          <div className="header-escalas">
+            <div className="titulo">
+              <span>ULTIMOS PAGAMENTOS</span>
+              {eventosPagos.length > 0 && (
+                <div className="badge">{eventosPagos.length}</div>
+              )}
+            </div>
+            <span
+              className="ver-todas"
+              onClick={() => router.push("/pagamentos")}
+            >
+              Ver todas &gt;
+            </span>
           </div>
 
-          {loading && (
-            <p style={{ color: "#888", fontSize: 14 }}>
-              Carregando pagamentos...
-            </p>
-          )}
-          {!loading && pagas.length === 0 && (
-            <p style={{ color: "#888", fontSize: 14 }}>
-              Nenhum pagamento confirmado.
-            </p>
-          )}
-          {pagas.map((escala) => (
-            <PagamentoItem key={escala.id} escala={escala} />
-          ))}
+          <div style={{ overflow: "auto" }}>
+            {loadingPagamentos && (
+              <p style={{ color: "#888", fontSize: 14 }}>
+                Carregando pagamentos...
+              </p>
+            )}
+
+            {!loadingPagamentos && eventosPagos.length === 0 && (
+              <p style={{ color: "#888", fontSize: 14 }}>
+                Nenhum pagamento confirmado.
+              </p>
+            )}
+
+            {eventosPagos.map((ev) => {
+              const isPjes = ev.sistema === "PJES";
+              return (
+                <div
+                  key={ev.eventoId}
+                  className="pagamentos"
+                  onClick={() => router.push("/pagamentos")}
+                  style={{ cursor: "pointer" }}
+                >
+                  <div className="pay-item">
+                    <div className="pay-left">
+                      <div
+                        className={isPjes ? "pay-icon-pjes" : "pay-icon-diaria"}
+                      >
+                        {isPjes ? <FiLayers /> : <FiGrid />}
+                      </div>
+                      <div className="pay-texts">
+                        <span className="pay-title">{ev.nome_ome}</span>
+                        <span className="pay-sub">
+                          {ev.sistema} | {ev.nome_evento}
+                        </span>
+                        <span
+                          className="pay-sub"
+                          style={{ fontSize: 10, color: "#999" }}
+                        >
+                          {ev.total_policiais} policial(is) —{" "}
+                          {Number(ev.valor_total_evento).toLocaleString(
+                            "pt-BR",
+                            {
+                              style: "currency",
+                              currency: "BRL",
+                            },
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="pay-right">
+                      <span className="pay-badge">
+                        {new Date(ev.createdAt).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

@@ -44,6 +44,7 @@ type Usuario = {
 type Conta = {
   id: number;
   banco: string;
+  cod_banco: string;
   agencia: string;
   conta: string;
   createdAt: string;
@@ -525,7 +526,8 @@ export default function UsuariosPage() {
                     <>
                       <div className="usuario_detalhes_titulo_item">
                         <div className="divUsuarioDetalhesRight">
-                          {usuarioDetalhe.conta.banco} | Ag:
+                          {usuarioDetalhe.conta.banco}{" "}
+                          {usuarioDetalhe.conta.cod_banco} | Ag:
                           {usuarioDetalhe.conta.agencia} | Conta:
                           {usuarioDetalhe.conta.conta}
                         </div>

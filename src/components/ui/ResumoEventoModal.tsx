@@ -14,8 +14,10 @@ type UsuarioResumo = {
   nunfunc: string;
   nunvinc: string;
   banco: string;
+  cod_banco: string;
   agencia: string;
   conta: string;
+  dig_conta: string;
   totalCotas: number;
 };
 
@@ -374,7 +376,6 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                   <th style={th}>UNIDADE</th>
                   <th style={th}>IDENTIFICAÇÃO DO POLICIAL</th>
                   <th style={th}>CPF</th>
-                  <th style={th}>E-FISCO</th>
 
                   <th className="hide-mobile" style={th}>
                     NUFUNC
@@ -415,15 +416,13 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
 
                     <td style={td}>{formatarCPF(u.cpf)}</td>
 
-                    <td style={td}>{resumo.ome.efisco}</td>
-
                     <td className="hide-mobile" style={td}>
                       {u.nunfunc} | {u.nunvinc}
                     </td>
 
                     <td className="hide-mobile" style={td}>
                       {u.banco
-                        ? `${u.banco} | Ag: ${u.agencia} | Ct: ${u.conta}`
+                        ? `${u.banco} | ${u.cod_banco} | Ag: ${u.agencia} | Ct: ${u.conta} - ${u.dig_conta}`
                         : "-"}
                     </td>
 

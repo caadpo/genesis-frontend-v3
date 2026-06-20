@@ -7,7 +7,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   conta: any;
-  userId?: number; // 👈 torna opcional
+  userId?: number;
   onSuccess: () => void;
 };
 
@@ -19,19 +19,25 @@ export default function ContaModal({
   onSuccess,
 }: Props) {
   const [banco, setBanco] = useState("");
+  const [cod_banco, setcod_Banco] = useState("");
   const [agencia, setAgencia] = useState("");
   const [numeroConta, setNumeroConta] = useState("");
+  const [dig_conta, setdigConta] = useState("");
 
   useEffect(() => {
     if (conta) {
       setBanco(conta.banco ?? "");
+      setcod_Banco(conta.cod_banco ?? "");
       setAgencia(conta.agencia ?? "");
       setNumeroConta(conta.conta ?? "");
+      setdigConta(conta.dig_conta ?? "");
     } else {
       // 👇 modo criação
       setBanco("");
+      setcod_Banco("");
       setAgencia("");
       setNumeroConta("");
+      setdigConta("");
     }
   }, [conta]);
 
@@ -47,14 +53,18 @@ export default function ContaModal({
     const body = isEdicao
       ? {
           banco,
+          cod_banco,
           agencia,
           conta: numeroConta,
+          dig_conta,
         }
       : {
           usuarioId: userId,
           banco,
+          cod_banco,
           agencia,
           conta: numeroConta,
+          dig_conta,
         };
 
     const promise = fetch(url, {
@@ -113,13 +123,29 @@ export default function ContaModal({
           <option value="Safra">Safra</option>
         </select>
 
+        <label>Cod banco</label>
+        <input
+          value={cod_banco}
+          onChange={(e) => setcod_Banco(e.target.value)}
+        />
+
         <label>Agência</label>
-        <input value={agencia} onChange={(e) => setAgencia(e.target.value)} />
+        <input
+          value={agencia}
+          type="number"
+          onChange={(e) => setAgencia(e.target.value)}
+        />
 
         <label>Conta</label>
         <input
           value={numeroConta}
           onChange={(e) => setNumeroConta(e.target.value)}
+        />
+
+        <label>Digito da Conta</label>
+        <input
+          value={dig_conta}
+          onChange={(e) => setdigConta(e.target.value)}
         />
 
         <div className="modalUsuarioActions">

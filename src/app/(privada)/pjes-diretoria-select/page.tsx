@@ -95,6 +95,10 @@ export default function PjesDiretoriaSelectPage() {
   const [searchText, setSearchText] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<string | null>(null);
 
+  const [dhDialogEventoId, setDhDialogEventoId] = useState<number | null>(null);
+  const [dhValor, setDhValor] = useState("");
+  const [gerandoXls, setGerandoXls] = useState(false);
+
   // ─── Dados do usuário autenticado ────
   const { user, loading: loadingUser } = useCurrentUser();
   const router = useRouter();
@@ -329,6 +333,40 @@ export default function PjesDiretoriaSelectPage() {
   const somaCotasPrc = eventos.reduce((acc, e) => acc + e.totalCotasPracas, 0);
   const saldoOf = somaQtdOf - somaCotasOf;
   const saldoPrc = somaQtdPrc - somaCotasPrc;
+
+  async function handleDownloadXlsPd() {
+    if (!dhDialogEventoId || !dhValor.trim()) {
+      toast.error("Informe o número do DH");
+      return;
+    }
+
+    setGerandoXls(true);
+    try {
+      const res = await fetch(
+        `/api/evento/${dhDialogEventoId}/xls-pd?dh=${encodeURIComponent(dhValor.trim())}`,
+      );
+
+      if (!res.ok) throw new Error("Erro ao gerar planilha");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `PD_${dhValor.trim()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      toast.success("Planilha gerada ✅");
+      setDhDialogEventoId(null);
+      setDhValor("");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar planilha");
+    } finally {
+      setGerandoXls(false);
+    }
+  }
 
   return (
     <div className="page">
@@ -609,6 +647,20 @@ export default function PjesDiretoriaSelectPage() {
                               >
                                 Excluir
                               </div>
+
+                              {[10, 9, 5].includes(Number(user?.typeUser)) && (
+                                <div
+                                  className="dropdownItem"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuAberto(null);
+                                    setDhValor("");
+                                    setDhDialogEventoId(evento.id);
+                                  }}
+                                >
+                                  Gerar Planilha
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -793,6 +845,49 @@ export default function PjesDiretoriaSelectPage() {
         operacao={editandoOperacao}
         evento={eventoSelecionado}
       />
+
+      {dhDialogEventoId !== null && (
+        <div className="modalOverlay" onClick={() => setDhDialogEventoId(null)}>
+          <div
+            className="modalCard"
+            style={{ maxWidth: 380 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginBottom: 16 }}>Número do DH</h2>
+
+            <label style={{ fontSize: 13 }}>
+              Informe o número do documento de habilitação:
+            </label>
+            <input
+              type="text"
+              value={dhValor}
+              onChange={(e) => setDhValor(e.target.value.toUpperCase())}
+              placeholder="Ex: 2026DH000123"
+              style={{ marginTop: 8, marginBottom: 16 }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleDownloadXlsPd();
+              }}
+              autoFocus
+            />
+
+            <div className="modalActions">
+              <button
+                className="btnCancel"
+                onClick={() => setDhDialogEventoId(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btnSave"
+                onClick={handleDownloadXlsPd}
+                disabled={gerandoXls || !dhValor.trim()}
+              >
+                {gerandoXls ? "Gerando..." : "Baixar Planilha"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
