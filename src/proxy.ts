@@ -49,7 +49,11 @@ export async function proxy(request: NextRequest) {
   }
 
   if (authToken && !(await validateToken(authToken))) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const response = NextResponse.redirect(new URL("/login", request.url));
+
+    response.cookies.delete("accessToken");
+
+    return response;
   }
 
   if (authToken && isPublicRoute) {

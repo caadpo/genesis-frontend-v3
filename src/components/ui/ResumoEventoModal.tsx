@@ -380,9 +380,11 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                   <th className="hide-mobile" style={th}>
                     NUFUNC
                   </th>
-                  <th className="hide-mobile" style={th}>
-                    DADOS BANCÁRIOS
-                  </th>
+                  {resumo.teto.sistema === "DIARIAS" && (
+                    <th className="hide-mobile" style={th}>
+                      DADOS BANCÁRIOS
+                    </th>
+                  )}
                   <th style={th}>TOTAL COTAS</th>
                 </tr>
               </thead>
@@ -420,11 +422,13 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                       {u.nunfunc} | {u.nunvinc}
                     </td>
 
-                    <td className="hide-mobile" style={td}>
-                      {u.banco
-                        ? `${u.banco} | ${u.cod_banco} | Ag: ${u.agencia} | Ct: ${u.conta} - ${u.dig_conta}`
-                        : "-"}
-                    </td>
+                    {resumo.teto.sistema === "DIARIAS" && (
+                      <td className="hide-mobile" style={td}>
+                        {u.banco
+                          ? `${u.banco} | ${u.cod_banco} | Ag: ${u.agencia} | Ct: ${u.conta} - ${u.dig_conta}`
+                          : "-"}
+                      </td>
+                    )}
 
                     <td
                       style={{ ...td, textAlign: "center", fontWeight: "bold" }}
@@ -521,20 +525,25 @@ export default function ResumoEventoModal({ open, onClose, eventoId }: Props) {
                       data: resumo.homologado_em,
                       usuario: resumo.homologado_por,
                     },
-                    {
-                      key: "PD_CONCLUIDA",
-                      label: "Prev. Desembolso",
-                      icon: "ti-cash",
-                      data: resumo.pd_concluida_em,
-                      usuario: resumo.pd_concluida_por,
-                    },
-                    {
-                      key: "PAGO",
-                      label: "Pago",
-                      icon: "ti-rosette-discount-check",
-                      data: resumo.pago_em,
-                      usuario: resumo.pago_por,
-                    },
+
+                    ...(resumo.teto.sistema === "DIARIAS"
+                      ? [
+                          {
+                            key: "PD_CONCLUIDA",
+                            label: "Prev. Desembolso",
+                            icon: "ti-cash",
+                            data: resumo.pd_concluida_em,
+                            usuario: resumo.pd_concluida_por,
+                          },
+                          {
+                            key: "PAGO",
+                            label: "Pago",
+                            icon: "ti-rosette-discount-check",
+                            data: resumo.pago_em,
+                            usuario: resumo.pago_por,
+                          },
+                        ]
+                      : []),
                   ].map(({ key, label, icon, data, usuario }) => {
                     const fases = [
                       "CRIADO",

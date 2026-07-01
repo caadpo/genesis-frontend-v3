@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { buildApiResponse } from "@/src/lib/apiResponse";
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
@@ -25,6 +26,5 @@ export async function GET(request: Request) {
     );
   }
 
-  const data = await response.json();
-  return NextResponse.json(data);
+  return buildApiResponse(response);
 }

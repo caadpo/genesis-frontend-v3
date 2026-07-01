@@ -5,10 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 
 import { useApi } from "@/src/hooks/useApi";
-import { FiArrowLeft, FiChevronUp, FiStar } from "react-icons/fi";
+import { FiArrowLeft, FiChevronUp, FiRefreshCcw, FiStar } from "react-icons/fi";
 import {
   FaBarcode,
   FaCar,
+  FaCheckSquare,
   FaEdit,
   FaFilePdf,
   FaLock,
@@ -85,11 +86,17 @@ type Escala = {
   funcao: string;
   situacao: string;
   anotacoes?: string;
+  isRepasse: boolean;
+  repasseOrigemId?: number | null;
   usuarioId?: number;
   operacaoId?: number;
   viaturaId?: number | null;
   viatura?: Viatura | null;
   phone?: string | null;
+  presencaConfirmada?: boolean;
+  presencaObservacao?: string | null;
+  presencaConfirmadaEm?: string | null;
+  presencaConfirmadaPorNome?: string | null;
 
   conta?: {
     banco: string;
@@ -920,6 +927,11 @@ export default function PjesEscalasPage() {
                 <th>FUNÇÃO | COTA</th>
                 <th>VIATURA</th>
                 <th>ANOTAÇÕES</th>
+                <th>
+                  <FaCheckSquare size={16} />
+                </th>
+                <th style={{ textAlign: "right" }}>ALTERAÇÃO</th>
+                <th></th>
                 <th>AÇÕES</th>
               </tr>
             </thead>
@@ -948,7 +960,64 @@ export default function PjesEscalasPage() {
                         : "-"}
                     </td>
                     <td>{escala.anotacoes || "-"}</td>
+                    <td>
+                      <input
+                        style={{
+                          width: "10px",
+                          height: "10px",
+                          cursor: "pointer",
+                        }}
+                        type="checkbox"
+                        checked={escala.presencaConfirmada ?? false}
+                        readOnly
+                      />
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {escala.presencaConfirmadaPorNome}
+                    </td>
+                    <td style={{ textAlign: "left" }}>
+                      {escala.presencaConfirmadaPorNome ? (
+                        <>
+                          {escala.presencaConfirmadaEm && (
+                            <div style={{ color: "#666", fontSize: 10 }}>
+                              {new Date(
+                                escala.presencaConfirmadaEm,
+                              ).toLocaleString("pt-BR")}
+                            </div>
+                          )}
+                          {escala.presencaObservacao && (
+                            <div style={{ color: "#888", fontStyle: "italic" }}>
+                              {escala.presencaObservacao}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ color: "#bbb" }}>—</span>
+                      )}
+                    </td>
                     <td className="acoesTabelaEscalas">
+                      <FiRefreshCcw
+                        size={16}
+                        color={escala.isRepasse ? "blue" : "#ccc"}
+                        style={{
+                          cursor: escala.isRepasse ? "pointer" : "default",
+                        }}
+                        title={
+                          escala.isRepasse
+                            ? `Repasse #${escala.repasseOrigemId}`
+                            : ""
+                        }
+                        onClick={() => {
+                          if (escala.isRepasse) {
+                            toast(
+                              `🔄 Codigo do Repasse (CR): ${escala.repasseOrigemId}`,
+                              {
+                                duration: 4000,
+                              },
+                            );
+                          }
+                        }}
+                      />
                       <FaEdit
                         size={16}
                         color="orange"

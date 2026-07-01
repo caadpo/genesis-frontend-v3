@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { buildApiResponse } from "@/src/lib/apiResponse";
 
 export async function GET(
   _req: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
   const token = (await cookies()).get("accessToken")?.value;
@@ -17,14 +18,12 @@ export async function GET(
     cache: "no-store",
   });
 
-  const data = await response.json();
-
-  return NextResponse.json(data, { status: response.status });
+  return buildApiResponse(response);
 }
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
   const body = await request.json();
@@ -41,14 +40,12 @@ export async function PATCH(
     body: JSON.stringify(body),
   });
 
-  const data = await response.json();
-
-  return NextResponse.json(data, { status: response.status });
+  return buildApiResponse(response);
 }
 
 export async function DELETE(
   _request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
   const token = (await cookies()).get("accessToken")?.value;

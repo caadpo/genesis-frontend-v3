@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { buildApiResponse } from "@/src/lib/apiResponse";
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
@@ -21,8 +22,7 @@ export async function GET(request: Request) {
     cache: "no-store",
   });
 
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+  return buildApiResponse(response);
 }
 
 export async function POST(request: Request) {
@@ -38,7 +38,5 @@ export async function POST(request: Request) {
     body: JSON.stringify(body),
   });
 
-  const data = await response.json();
-
-  return NextResponse.json(data, { status: response.status });
+  return buildApiResponse(response);
 }

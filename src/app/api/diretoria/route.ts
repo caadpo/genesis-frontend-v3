@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { buildApiResponse } from "@/src/lib/apiResponse";
 import { cookies } from "next/headers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
@@ -13,6 +13,5 @@ export async function GET() {
     cache: "no-store",
   });
 
-  const data = await response.json();
-  return NextResponse.json(data);
+  return buildApiResponse(response);
 }

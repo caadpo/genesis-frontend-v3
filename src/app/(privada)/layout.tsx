@@ -9,6 +9,7 @@ import "./pjes-escalas/page.css";
 import "./usuarios/page.css";
 import "./repasses/page.css";
 import "./minhas-escalas/page.css";
+import "./operacoes/page.css";
 
 import Header from "../../components/layout/Header";
 import Sidebar from "../../components/layout/Sidebar";

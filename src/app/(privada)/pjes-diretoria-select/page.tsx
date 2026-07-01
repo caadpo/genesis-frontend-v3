@@ -132,8 +132,16 @@ export default function PjesDiretoriaSelectPage() {
   const [distribuicao, setDistribuicao] = useState<Distribuicao | null>(null);
   async function carregarDistribuicao() {
     if (!distribuicaoId) return;
+
     const res = await fetch(`/api/distribuicao/${distribuicaoId}`);
+
+    if (res.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
     const data = await res.json();
+
     setDistribuicao(data);
   }
 
@@ -150,14 +158,27 @@ export default function PjesDiretoriaSelectPage() {
   // ─── Recarregar eventos manualmente ─────────────────────────────────────────
   async function carregarEventos() {
     if (!distribuicaoId) return;
+
     setLoadingEventos(true);
-    const url = omeIdParam
-      ? `/api/evento?distribuicaoId=${distribuicaoId}&omeId=${omeIdParam}`
-      : `/api/evento?distribuicaoId=${distribuicaoId}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    setEventos(data);
-    setLoadingEventos(false);
+
+    try {
+      const url = omeIdParam
+        ? `/api/evento?distribuicaoId=${distribuicaoId}&omeId=${omeIdParam}`
+        : `/api/evento?distribuicaoId=${distribuicaoId}`;
+
+      const res = await fetch(url);
+
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await res.json();
+
+      setEventos(Array.isArray(data) ? data : []);
+    } finally {
+      setLoadingEventos(false);
+    }
   }
 
   useEffect(() => {
@@ -312,17 +333,19 @@ export default function PjesDiretoriaSelectPage() {
     await Promise.all([carregarEventos(), carregarDistribuicao()]);
   }
 
-  const eventosFiltrados = eventos.filter((e) => {
-    const term = searchText.toLowerCase();
-    const matchTexto =
-      !term ||
-      e.nome_evento.toLowerCase().includes(term) ||
-      e.ome.nomeOme.toLowerCase().includes(term);
+  const eventosFiltrados = Array.isArray(eventos)
+    ? eventos.filter((e) => {
+        const term = searchText.toLowerCase();
+        const matchTexto =
+          !term ||
+          e.nome_evento.toLowerCase().includes(term) ||
+          e.ome.nomeOme.toLowerCase().includes(term);
 
-    const matchStatus = !filtroStatus || e.status_evento === filtroStatus;
+        const matchStatus = !filtroStatus || e.status_evento === filtroStatus;
 
-    return matchTexto && matchStatus;
-  });
+        return matchTexto && matchStatus;
+      })
+    : [];
 
   const isAuxiliar = Number(user?.typeUser) === 2;
 

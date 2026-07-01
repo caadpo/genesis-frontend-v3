@@ -12,7 +12,9 @@ import {
   FiLayers,
   FiGrid,
   FiRefreshCcw,
+  FiDollarSign,
 } from "react-icons/fi";
+import { FaUniversity } from "react-icons/fa";
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
@@ -78,6 +80,14 @@ export default function Sidebar() {
         </Link>
 
         <Link
+          href="/operacoes"
+          className={`icon-btn ${isActive("/operacoes") ? "active" : ""}`}
+        >
+          <FaUniversity />
+          {open && <span>Escalas</span>}
+        </Link>
+
+        <Link
           href="/repasses"
           className={`icon-btn ${isActive("/repasses") ? "active" : ""}`}
         >
@@ -88,6 +98,13 @@ export default function Sidebar() {
 
       {/* BOTTOM (usuário separado) */}
       <div className="sidebar-bottom user-btn">
+        <Link
+          href="/pagamentos"
+          className={`icon-btn ${isActive("/pagamentos") ? "active" : ""}`}
+        >
+          <FiDollarSign />
+          {open && <span>Pagamentos</span>}
+        </Link>
         <button
           className={`icon-btn ${perfilOpen ? "active" : ""}`}
           onClick={() => window.dispatchEvent(new Event("openPerfilDrawer"))}

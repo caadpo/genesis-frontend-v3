@@ -9,6 +9,7 @@ import { FiArrowLeft, FiChevronUp, FiRefreshCcw, FiStar } from "react-icons/fi";
 import {
   FaBarcode,
   FaCar,
+  FaCheckSquare,
   FaEdit,
   FaFilePdf,
   FaLock,
@@ -98,6 +99,10 @@ type Escala = {
   viaturaId?: number | null;
   viatura?: Viatura | null;
   phone?: string;
+  presencaConfirmada?: boolean;
+  presencaObservacao?: string | null;
+  presencaConfirmadaEm?: string | null;
+  presencaConfirmadaPorNome?: string | null;
 
   conta?: {
     banco: string;
@@ -951,6 +956,11 @@ export default function DiariasEscalasPage() {
                 <th>FUNÇÃO | COTA</th>
                 <th>VIATURA</th>
                 <th>ANOTAÇÕES</th>
+                <th>
+                  <FaCheckSquare size={16} />
+                </th>
+                <th style={{ textAlign: "right" }}>ALTERAÇÃO</th>
+                <th></th>
                 <th>AÇÕES</th>
               </tr>
             </thead>
@@ -979,6 +989,41 @@ export default function DiariasEscalasPage() {
                         : "-"}
                     </td>
                     <td>{escala.anotacoes || "-"}</td>
+                    <td>
+                      <input
+                        style={{
+                          width: "10px",
+                          height: "10px",
+                          cursor: "pointer",
+                        }}
+                        type="checkbox"
+                        checked={escala.presencaConfirmada ?? false}
+                        readOnly
+                      />
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {escala.presencaConfirmadaPorNome}
+                    </td>
+                    <td style={{ textAlign: "left" }}>
+                      {escala.presencaConfirmadaPorNome ? (
+                        <>
+                          {escala.presencaConfirmadaEm && (
+                            <div style={{ color: "#666", fontSize: 10 }}>
+                              {new Date(
+                                escala.presencaConfirmadaEm,
+                              ).toLocaleString("pt-BR")}
+                            </div>
+                          )}
+                          {escala.presencaObservacao && (
+                            <div style={{ color: "#888", fontStyle: "italic" }}>
+                              {escala.presencaObservacao}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ color: "#bbb" }}>—</span>
+                      )}
+                    </td>
                     <td className="acoesTabelaEscalas">
                       <FiRefreshCcw
                         size={16}

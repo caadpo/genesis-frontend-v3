@@ -1,4 +1,7 @@
 "use client";
+
+// ─── Imports ─────────────────────────────────────────────────────────────────
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaUniversity, FaUser, FaCar, FaMapMarkerAlt } from "react-icons/fa";
@@ -6,7 +9,7 @@ import { FiLayers, FiGrid, FiSearch } from "react-icons/fi";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 import BuscaCopModal from "@/src/components/ui/BuscaCopModal";
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
+// ─── Interfaces & Types ───────────────────────────────────────────────────────
 
 interface Viatura {
   id: number;
@@ -66,6 +69,12 @@ function proximasEscalas(escalas: Escala[]): Escala[] {
     .slice(0, 2);
 }
 
+function totalEscalasFuturas(escalas: Escala[]): number {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  return escalas.filter((e) => new Date(e.dataInicio) >= hoje).length;
+}
+
 function formatarData(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
   return date.toLocaleDateString("pt-BR", {
@@ -85,21 +94,13 @@ function emojiTurno(hora: string): string {
   return "🌙";
 }
 
-/** Escalas com pagamento confirmado (do próprio usuário) */
-function escalasPagas(escalas: Escala[]): Escala[] {
-  return escalas.filter((e) =>
-    e.pagamento.trim().toLowerCase().startsWith("pago"),
-  );
-}
-
-/** Extrai timestamp do campo pagamento quando disponível */
 function extrairDataPagamento(pagamento: string): string {
   const match = pagamento.match(/(\d{2}\/\d{2}\/\d{4}),?\s*(\d{2}:\d{2})/);
   if (match) return `${match[1]} ${match[2]}`;
   return "Pago";
 }
 
-// ─── Sub-componente: Avatar individual ───────────────────────────────────────
+// ─── Sub-componentes ─────────────────────────────────────────────────────────
 
 function AvatarItem({ mat, nome }: { mat: string; nome: string }) {
   const [imgError, setImgError] = useState(false);
@@ -111,6 +112,7 @@ function AvatarItem({ mat, nome }: { mat: string; nome: string }) {
       </div>
     );
   }
+
   return (
     <img
       src={`/avatares/${mat}.jpg`}
@@ -121,20 +123,15 @@ function AvatarItem({ mat, nome }: { mat: string; nome: string }) {
   );
 }
 
-// ─── Sub-componente: Grupo de avatares ───────────────────────────────────────
-// Recebe a lista real de colegas (inclui o próprio usuário logado).
-// Até 4 → mostra avatar de cada um. Acima de 4 → 3 avatares + badge "+N".
-
 function Avatares({ membros }: { membros: Escala[] }) {
   if (membros.length === 0) return null;
 
-  const visiveis = membros.slice(0, 4);
   const extras = membros.length - 3;
 
   if (membros.length <= 4) {
     return (
       <div className="avatares">
-        {visiveis.map((m) => (
+        {membros.slice(0, 4).map((m) => (
           <AvatarItem key={m.id} mat={m.mat_escala} nome={m.ng_escala} />
         ))}
       </div>
@@ -151,18 +148,8 @@ function Avatares({ membros }: { membros: Escala[] }) {
   );
 }
 
-function totalEscalasFuturas(escalas: Escala[]): number {
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  return escalas.filter((e) => new Date(e.dataInicio) >= hoje).length;
-}
-
-// ─── Sub-componente: Card de Escala ──────────────────────────────────────────
-
 function CardEscala({ escala }: { escala: Escala }) {
   const router = useRouter();
-
-  // Busca os colegas desta escala via operacaoId (igual à página minhas-escalas)
   const [membros, setMembros] = useState<Escala[]>([]);
 
   useEffect(() => {
@@ -171,12 +158,13 @@ function CardEscala({ escala }: { escala: Escala }) {
     fetch(`/api/escala?operacaoId=${escala.operacaoId}`)
       .then((r) => r.json())
       .then((data) => {
-        const todas: Escala[] = data.escalas ?? data; // ← extrai o array
+        const todas: Escala[] = data.escalas ?? data;
         const grupo = todas.filter(
           (e) =>
             e.dataInicio === escala.dataInicio &&
             e.horaInicio === escala.horaInicio &&
-            e.horaFim === escala.horaFim,
+            e.horaFim === escala.horaFim &&
+            e.viaturaId === escala.viaturaId, // ← agrupa pela mesma viatura
         );
         setMembros(grupo);
       })
@@ -231,8 +219,6 @@ function CardEscala({ escala }: { escala: Escala }) {
   );
 }
 
-// ─── Sub-componente: Item de Pagamento ───────────────────────────────────────
-
 function PagamentoItem({ escala }: { escala: Escala }) {
   const router = useRouter();
   const isPjes = escala.sistema === "PJES";
@@ -269,48 +255,27 @@ function PagamentoItem({ escala }: { escala: Escala }) {
 
 export default function SelectSystem() {
   const router = useRouter();
-
   const { user } = useCurrentUser();
-  const typeUser = user?.typeUser;
-  const podePjes = typeUser !== 1 && typeUser !== 5 && typeUser !== 6;
-  const podeDiarias = typeUser !== 1;
+
+  // ─── State ─────────────────────────────────────────────────────────────
 
   const [escalas, setEscalas] = useState<Escala[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorEscalas, setErrorEscalas] = useState<string | null>(null);
 
-  const [codOpBusca, setCodOpBusca] = useState("");
-  const [modalCopAberto, setModalCopAberto] = useState(false);
-  const [escalasCop, setEscalasCop] = useState<any[]>([]);
-  const [loadingCop, setLoadingCop] = useState(false);
-  const [erroCop, setErroCop] = useState<string | null>(null);
+  const [eventosPagos, setEventosPagos] = useState<EventoPago[]>([]);
+  const [loadingPagamentos, setLoadingPagamentos] = useState(true);
 
-  async function buscarPorCodOp() {
-    if (!codOpBusca.trim()) return;
+  // ─── Derivados ─────────────────────────────────────────────────────────
 
-    setModalCopAberto(true);
-    setLoadingCop(true);
-    setErroCop(null);
-    setEscalasCop([]);
+  const typeUser = user?.typeUser;
+  const podePjes = typeUser !== 1 && typeUser !== 5 && typeUser !== 6;
+  const podeDiarias = typeUser !== 1;
+  const proximas = proximasEscalas(escalas);
+  const totalFuturas = totalEscalasFuturas(escalas);
 
-    try {
-      const res = await fetch(`/api/escala/cod-op/${codOpBusca.trim()}`);
-      const data = await res.json();
+  // ─── Effects ───────────────────────────────────────────────────────────
 
-      if (!res.ok) {
-        setErroCop(data?.message ?? "Erro ao buscar escalas");
-        return;
-      }
-
-      setEscalasCop(data);
-    } catch {
-      setErroCop("Erro de conexão");
-    } finally {
-      setLoadingCop(false);
-    }
-  }
-
-  // Busca escalas do usuário logado
   useEffect(() => {
     async function fetchEscalas() {
       try {
@@ -326,12 +291,6 @@ export default function SelectSystem() {
     fetchEscalas();
   }, []);
 
-  const proximas = proximasEscalas(escalas);
-  const totalFuturas = totalEscalasFuturas(escalas);
-
-  const [eventosPagos, setEventosPagos] = useState<EventoPago[]>([]);
-  const [loadingPagamentos, setLoadingPagamentos] = useState(true);
-
   useEffect(() => {
     fetch("/api/pagamento/evento?limit=10", { cache: "no-store" })
       .then((r) => r.json())
@@ -340,32 +299,17 @@ export default function SelectSystem() {
       .finally(() => setLoadingPagamentos(false));
   }, []);
 
+  // ─── Render ────────────────────────────────────────────────────────────
+
   return (
     <div className="container">
       {/* ── Escolha do sistema ───────────────────────────────────────────── */}
       <div className="div-itens-sistema">
-        <div className="divInputBuscarUsuarioEIcones">
-          <input
-            className="inputBuscarUsuario"
-            type="text"
-            placeholder="Digite o COP da Operação"
-            value={codOpBusca}
-            onChange={(e) => setCodOpBusca(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") buscarPorCodOp();
-            }}
-          />
-          <FiSearch
-            size={25}
-            color="green"
-            style={{ cursor: "pointer" }}
-            onClick={buscarPorCodOp}
-          />
-        </div>
         <div className="titulo">
           <span>SISTEMAS</span>
           <div className="badge">2</div>
         </div>
+
         <div className="topArea">
           <button
             className="select-card select-card-blue"
@@ -390,6 +334,39 @@ export default function SelectSystem() {
         </div>
       </div>
 
+      {/* ── Avisos ───────────────────────────────────────────────── */}
+      <div className="div-itens-sistema">
+        <div>
+          <div className="header-escalas">
+            <div className="titulo">
+              <span>AVISOS</span>
+              <div className="badge">{totalFuturas}</div>
+            </div>
+            <span
+              className="ver-todas"
+              onClick={() => router.push("/minhas-escalas")}
+            >
+              Ver todos &gt;
+            </span>
+          </div>
+          <span className="tituloProximas">Em destaque</span>
+        </div>
+
+        <div
+          style={{
+            color: "#888",
+            fontSize: 14,
+            backgroundColor: "#dad4d4",
+            borderRadius: "6px",
+            padding: "12px",
+            marginTop: "5px",
+            marginBottom: "10px",
+          }}
+        >
+          Lista Vazia.
+        </div>
+      </div>
+
       {/* ── Minhas Escalas ───────────────────────────────────────────────── */}
       <div className="div-itens-sistema">
         <div>
@@ -405,7 +382,6 @@ export default function SelectSystem() {
               Ver todas &gt;
             </span>
           </div>
-
           <span className="tituloProximas">Proximas</span>
         </div>
 
@@ -416,9 +392,19 @@ export default function SelectSystem() {
           <p style={{ color: "#e53e3e", fontSize: 14 }}>{errorEscalas}</p>
         )}
         {!loading && !errorEscalas && proximas.length === 0 && (
-          <p style={{ color: "#888", fontSize: 14 }}>
+          <div
+            style={{
+              color: "#888",
+              fontSize: 14,
+              backgroundColor: "#dad4d4",
+              borderRadius: "6px",
+              padding: "12px",
+              marginTop: "5px",
+              marginBottom: "10px",
+            }}
+          >
             Nenhuma escala próxima encontrada.
-          </p>
+          </div>
         )}
 
         <div style={{ display: "flex", gap: "1px" }}>
@@ -428,7 +414,7 @@ export default function SelectSystem() {
         </div>
       </div>
 
-      {/* ── Pagamentos (todos os eventos pagos do sistema) ───────────────── */}
+      {/* ── Últimos Pagamentos ───────────────────────────────────────────── */}
       <div
         style={{
           width: "100%",
@@ -472,7 +458,7 @@ export default function SelectSystem() {
               const isPjes = ev.sistema === "PJES";
               return (
                 <div
-                  key={ev.eventoId}
+                  key={`${ev.sistema}-${ev.eventoId}`}
                   className="pagamentos"
                   onClick={() => router.push("/pagamentos")}
                   style={{ cursor: "pointer" }}
@@ -482,25 +468,14 @@ export default function SelectSystem() {
                       <div
                         className={isPjes ? "pay-icon-pjes" : "pay-icon-diaria"}
                       >
-                        {isPjes ? <FiLayers /> : <FiGrid />}
+                        {isPjes ? <FiLayers size={18} /> : <FiGrid size={18} />}
                       </div>
                       <div className="pay-texts">
-                        <span className="pay-title">{ev.nome_ome}</span>
+                        {!isPjes && (
+                          <span className="pay-title">{ev.nome_ome}</span>
+                        )}
                         <span className="pay-sub">
                           {ev.sistema} | {ev.nome_evento}
-                        </span>
-                        <span
-                          className="pay-sub"
-                          style={{ fontSize: 10, color: "#999" }}
-                        >
-                          {ev.total_policiais} policial(is) —{" "}
-                          {Number(ev.valor_total_evento).toLocaleString(
-                            "pt-BR",
-                            {
-                              style: "currency",
-                              currency: "BRL",
-                            },
-                          )}
                         </span>
                       </div>
                     </div>
@@ -516,15 +491,6 @@ export default function SelectSystem() {
           </div>
         </div>
       </div>
-
-      <BuscaCopModal
-        open={modalCopAberto}
-        onClose={() => setModalCopAberto(false)}
-        escalas={escalasCop}
-        codOp={codOpBusca}
-        loading={loadingCop}
-        erro={erroCop}
-      />
     </div>
   );
 }

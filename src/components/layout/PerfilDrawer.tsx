@@ -14,12 +14,25 @@ import {
   FaBarcode,
   FaChartLine,
   FaHandPointUp,
+  FaEdit,
+  FaSave,
+  FaTimes,
+  FaExclamationTriangle,
+  FaCheckCircle,
 } from "react-icons/fa";
 
-type Aba = "geral" | "senha" | "escala";
+type Aba = "geral" | "senha" | "conta";
+
+type ContaForm = {
+  banco: string;
+  cod_banco: string;
+  agencia: string;
+  conta: string;
+  dig_conta: string;
+};
 
 export default function PerfilDrawer() {
-  const { user } = useCurrentUser(); // ✅ HOOK NO TOPO
+  const { user } = useCurrentUser();
 
   const [open, setOpen] = useState(false);
   const [aba, setAba] = useState<Aba>("geral");
@@ -33,6 +46,17 @@ export default function PerfilDrawer() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagemUrl, setImagemUrl] = useState(user?.imagemUrl || "");
 
+  // ─── Estado da conta bancária ────────────────────────────────────────────
+  const [editingConta, setEditingConta] = useState(false);
+  const [loadingConta, setLoadingConta] = useState(false);
+  const [contaForm, setContaForm] = useState<ContaForm>({
+    banco: "",
+    cod_banco: "",
+    agencia: "",
+    conta: "",
+    dig_conta: "",
+  });
+
   useEffect(() => {
     const openDrawer = () => {
       setOpen(true);
@@ -43,13 +67,24 @@ export default function PerfilDrawer() {
   }, []);
 
   useEffect(() => {
-    if (user?.phone) {
-      setPhone(user.phone);
-    }
+    if (user?.phone) setPhone(user.phone);
   }, [user]);
 
   useEffect(() => {
     if (user?.imagemUrl) setImagemUrl(user.imagemUrl);
+  }, [user]);
+
+  // Preenche o form de conta quando o user carrega
+  useEffect(() => {
+    if (user?.conta) {
+      setContaForm({
+        banco: user.conta.banco ?? "",
+        cod_banco: user.conta.cod_banco ?? "",
+        agencia: user.conta.agencia ?? "",
+        conta: user.conta.conta ?? "",
+        dig_conta: user.conta.dig_conta ?? "",
+      });
+    }
   }, [user]);
 
   function getUserTypeLabel(type?: number) {
@@ -80,21 +115,12 @@ export default function PerfilDrawer() {
   async function handleUpdatePhone() {
     try {
       setLoadingPhone(true);
-
       const response = await fetch("/api/user", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phone,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
       });
-
-      if (!response.ok) {
-        throw new Error();
-      }
-
+      if (!response.ok) throw new Error();
       toast.success("Telefone atualizado com sucesso");
       setEditingPhone(false);
     } catch {
@@ -106,14 +132,12 @@ export default function PerfilDrawer() {
 
   function formatPhone(value: string) {
     const numbers = value.replace(/\D/g, "");
-
     if (numbers.length <= 10) {
       return numbers
         .replace(/^(\d{2})(\d)/g, "($1) $2")
         .replace(/(\d{4})(\d)/, "$1-$2")
         .slice(0, 14);
     }
-
     return numbers
       .replace(/^(\d{2})(\d)/g, "($1) $2")
       .replace(/(\d{5})(\d)/, "$1-$2")
@@ -125,21 +149,17 @@ export default function PerfilDrawer() {
       toast.error("Preencha as duas senhas");
       return;
     }
-
     try {
       setLoadingPassword(true);
-
       const response = await fetch("/api/user/change-password", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
-
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data?.message || "Erro ao alterar senha");
       }
-
       toast.success("Senha alterada com sucesso");
       setCurrentPassword("");
       setNewPassword("");
@@ -156,14 +176,13 @@ export default function PerfilDrawer() {
         method: "POST",
         credentials: "include",
       });
-
       if (res.ok) {
-        toast.success("Deslogado com sucesso!"); // ✅ Toast de sucesso
+        toast.success("Deslogado com sucesso!");
         setTimeout(() => {
-          window.location.href = "/login"; // redireciona após mostrar toast
-        }, 1000); // 1s de delay
+          window.location.href = "/login";
+        }, 1000);
       } else {
-        toast.error("Erro ao deslogar"); // ✅ Toast de erro
+        toast.error("Erro ao deslogar");
       }
     } catch (err) {
       console.error(err);
@@ -171,33 +190,57 @@ export default function PerfilDrawer() {
     }
   };
 
-  // Sincroniza quando user carrega
   async function handleImagemUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !user?.mat) return;
-
     try {
       setLoadingImagem(true);
       const formData = new FormData();
       formData.append("imagem", file);
       formData.append("mat", user.mat);
-
       const response = await fetch("/api/user/upload-imagem", {
         method: "POST",
         body: formData,
       });
-
       if (!response.ok) throw new Error();
-
       const { imagemUrl: novaUrl } = await response.json();
-      // Força recarregar quebrando o cache do browser
       setImagemUrl(`${novaUrl}?t=${Date.now()}`);
       toast.success("Foto atualizada!");
     } catch {
       toast.error("Erro ao atualizar foto");
     } finally {
       setLoadingImagem(false);
-      e.target.value = ""; // limpa o input para permitir reenvio da mesma imagem
+      e.target.value = "";
+    }
+  }
+
+  // ─── Salvar conta bancária própria ───────────────────────────────────────
+  async function handleSalvarConta() {
+    const { banco, cod_banco, agencia, conta, dig_conta } = contaForm;
+    if (!banco || !agencia || !conta || !dig_conta) {
+      toast.error("Preencha todos os campos da conta");
+      return;
+    }
+    try {
+      setLoadingConta(true);
+      const response = await fetch("/api/conta/me/propria", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ banco, cod_banco, agencia, conta, dig_conta }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data?.message || "Erro ao atualizar conta");
+      }
+      toast.success(
+        "Conta atualizada! Aguarde a confirmação do Financeiro no e-Fisco.",
+        { duration: 4000 },
+      );
+      setEditingConta(false);
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao atualizar conta");
+    } finally {
+      setLoadingConta(false);
     }
   }
 
@@ -241,6 +284,14 @@ export default function PerfilDrawer() {
             </button>
 
             <button
+              className={`perfilTabBtn ${aba === "conta" ? "active" : ""}`}
+              onClick={() => setAba("conta")}
+            >
+              <FaDollarSign size={20} />
+              <span>Conta</span>
+            </button>
+
+            <button
               className={`perfilTabBtn ${aba === "senha" ? "active" : ""}`}
               onClick={() => setAba("senha")}
             >
@@ -250,9 +301,11 @@ export default function PerfilDrawer() {
           </div>
 
           <div className="perfilTabContent">
+            {/* ─── ABA GERAL ────────────────────────────────────────────── */}
             {aba === "geral" && (
               <div className="perfilGeral">
                 <div>
+                  {/* Foto */}
                   <div className="usuario_detalhes_item">
                     <div className="usuario_detalhes_icon">
                       <div
@@ -272,7 +325,6 @@ export default function PerfilDrawer() {
                           style={{ display: "none" }}
                           onChange={handleImagemUpload}
                         />
-
                         {loadingImagem ? (
                           <div
                             style={{
@@ -295,8 +347,6 @@ export default function PerfilDrawer() {
                         ) : (
                           <FaUser className="usuarioIcon" />
                         )}
-
-                        {/* Ícone de câmera sobreposto */}
                         <div
                           style={{
                             position: "absolute",
@@ -316,10 +366,12 @@ export default function PerfilDrawer() {
                     </div>
                     <div className="usuario_detalhes_texto">
                       <div className="usuario_detalhes_titulo_item">
-                        <div className="divUsuarioDetalhesRight"></div>
+                        <div className="divUsuarioDetalhesRight" />
                       </div>
                     </div>
                   </div>
+
+                  {/* Perfil */}
                   <div className="usuario_detalhes_item">
                     <div className="usuario_detalhes_icon">
                       <FaUser color="orange" />
@@ -335,6 +387,8 @@ export default function PerfilDrawer() {
                       </div>
                     </div>
                   </div>
+
+                  {/* PG */}
                   <div className="usuario_detalhes_item">
                     <div className="usuario_detalhes_icon">
                       <FaChartLine color="red" />
@@ -350,6 +404,8 @@ export default function PerfilDrawer() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Matrícula */}
                   <div className="usuario_detalhes_item">
                     <div className="usuario_detalhes_icon">
                       <FaBarcode color="purple" />
@@ -365,6 +421,8 @@ export default function PerfilDrawer() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Tipo */}
                   <div className="usuario_detalhes_item">
                     <div className="usuario_detalhes_icon">
                       <FaMale color="green" />
@@ -380,6 +438,8 @@ export default function PerfilDrawer() {
                       </div>
                     </div>
                   </div>
+
+                  {/* CPF */}
                   <div className="usuario_detalhes_item">
                     <div className="usuario_detalhes_icon">
                       <FaBarcode color="purple" />
@@ -395,6 +455,8 @@ export default function PerfilDrawer() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Nunfunc/Nunvinc */}
                   <div className="usuario_detalhes_item">
                     <div className="usuario_detalhes_icon">
                       <FaBarcode color="purple" />
@@ -410,6 +472,8 @@ export default function PerfilDrawer() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Telefone */}
                   <div className="usuario_detalhes_item">
                     <div className="usuario_detalhes_icon">
                       <FaPhone color="orange" />
@@ -443,7 +507,6 @@ export default function PerfilDrawer() {
                                 outline: "none",
                               }}
                             />
-
                             <button
                               onClick={handleUpdatePhone}
                               disabled={loadingPhone}
@@ -458,7 +521,6 @@ export default function PerfilDrawer() {
                             >
                               {loadingPhone ? "..." : "Salvar"}
                             </button>
-
                             <button
                               onClick={() => {
                                 setEditingPhone(false);
@@ -489,7 +551,6 @@ export default function PerfilDrawer() {
                             }}
                           >
                             {phone}
-
                             <span style={{ marginLeft: "5px" }}>
                               <FaHandPointUp />
                             </span>
@@ -498,6 +559,8 @@ export default function PerfilDrawer() {
                       </div>
                     </div>
                   </div>
+
+                  {/* OME */}
                   <div className="usuario_detalhes_item">
                     <div className="usuario_detalhes_icon">
                       <FaUniversity color="brown" />
@@ -513,84 +576,8 @@ export default function PerfilDrawer() {
                       </div>
                     </div>
                   </div>
-                  <div className="usuario_detalhes_item">
-                    <div className="usuario_detalhes_icon">
-                      <FaDollarSign color="gray" />
-                      <div style={{ marginLeft: "5px", color: "gray" }}>
-                        Conta
-                      </div>
-                    </div>
-                    <div className="usuario_detalhes_texto">
-                      <div className="usuario_detalhes_titulo_item">
-                        <div className="divUsuarioDetalhesRight">
-                          {user?.conta ? (
-                            <>
-                              <div>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "flex-end",
-                                  }}
-                                >
-                                  <div>
-                                    {user.conta.banco} | Ag:{" "}
-                                    {user.conta.agencia} | Conta:{" "}
-                                    {user.conta.conta}
-                                  </div>
-                                </div>
 
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    color: "#9c9c9c",
-                                    fontSize: "9px",
-                                    justifyContent: "flex-end",
-                                  }}
-                                >
-                                  <div style={{ marginRight: "5px" }}>
-                                    {user?.conta?.createdByUser?.mat ?? "—"} em
-                                  </div>
-
-                                  <div>
-                                    {user?.conta?.createdAt
-                                      ? new Date(
-                                          user.conta.createdAt,
-                                        ).toLocaleString()
-                                      : "—"}
-                                  </div>
-                                </div>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    color: "#9c9c9c",
-                                    fontSize: "9px",
-                                    justifyContent: "flex-end",
-                                  }}
-                                >
-                                  <div style={{ marginRight: "5px" }}>
-                                    {user?.conta?.updatedByUser?.mat ?? "—"} em
-                                  </div>
-
-                                  <div>
-                                    {user?.conta?.updatedAt
-                                      ? new Date(
-                                          user.conta.updatedAt,
-                                        ).toLocaleString()
-                                      : "—"}{" "}
-                                    (Atualizada)
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            <span style={{ opacity: 0.6 }}>
-                              Conta não cadastrada
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Desconectar */}
                   <div className="usuario_detalhes_texto">
                     <div className="usuario_detalhes_titulo_item">
                       <button
@@ -605,6 +592,258 @@ export default function PerfilDrawer() {
               </div>
             )}
 
+            {/* ─── ABA CONTA BANCÁRIA ───────────────────────────────────── */}
+            {aba === "conta" && (
+              <div className="perfilGeral">
+                {/* Status e-Fisco */}
+                {user?.conta && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      marginBottom: 14,
+                      background:
+                        user.conta.isEfisco === false ? "#fff3cd" : "#d4edda",
+                      border: `1px solid ${user.conta.isEfisco === false ? "#ffc107" : "#28a745"}`,
+                      fontSize: 12,
+                    }}
+                  >
+                    {user.conta.isEfisco === false ? (
+                      <>
+                        <FaExclamationTriangle color="#e6a800" />
+                        <span style={{ color: "#856404" }}>
+                          Atualização pendente de confirmação pelo Financeiro no
+                          e-Fisco
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <FaCheckCircle color="#28a745" />
+                        <span style={{ color: "#155724" }}>
+                          Conta confirmada no e-Fisco
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {!user?.conta && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "#888",
+                      marginBottom: 12,
+                      padding: "8px 12px",
+                      background: "#f8f9fa",
+                      borderRadius: 8,
+                    }}
+                  >
+                    Você ainda não possui conta cadastrada. Solicite o cadastro
+                    a um Auxiliar ou ao Financeiro.
+                  </div>
+                )}
+
+                {/* Dados atuais da conta */}
+                {user?.conta && !editingConta && (
+                  <div>
+                    {[
+                      { label: "Banco", value: user.conta.banco },
+                      { label: "Cód. Banco", value: user.conta.cod_banco },
+                      { label: "Agência", value: user.conta.agencia },
+                      {
+                        label: "Conta",
+                        value: `${user.conta.conta}-${user.conta.dig_conta}`,
+                      },
+                    ].map(({ label, value }) => (
+                      <div className="usuario_detalhes_item" key={label}>
+                        <div className="usuario_detalhes_icon">
+                          <FaDollarSign color="gray" />
+                          <div style={{ marginLeft: "5px", color: "gray" }}>
+                            {label}
+                          </div>
+                        </div>
+                        <div className="usuario_detalhes_texto">
+                          <div className="usuario_detalhes_titulo_item">
+                            <div className="divUsuarioDetalhesRight">
+                              {value}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div style={{ marginTop: 16 }}>
+                      <button
+                        onClick={() => setEditingConta(true)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "#f7b80d",
+                          border: "none",
+                          borderRadius: 10,
+                          padding: "8px 16px",
+                          cursor: "pointer",
+                          color: "#fff",
+                          fontWeight: 600,
+                          fontSize: 13,
+                        }}
+                      >
+                        <FaEdit /> Atualizar minha conta
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Formulário de edição */}
+                {user?.conta && editingConta && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    <p style={{ fontSize: 12, color: "#666", margin: 0 }}>
+                      Ao salvar, o Financeiro será notificado para atualizar no
+                      e-Fisco.
+                    </p>
+
+                    {(
+                      [
+                        {
+                          key: "banco",
+                          label: "Nome do Banco",
+                          placeholder: "Ex: Banco do Brasil",
+                        },
+                        {
+                          key: "cod_banco",
+                          label: "Código do Banco",
+                          placeholder: "Ex: 001",
+                        },
+                        {
+                          key: "agencia",
+                          label: "Agência",
+                          placeholder: "Ex: 1234",
+                        },
+                        {
+                          key: "conta",
+                          label: "Conta",
+                          placeholder: "Ex: 12345",
+                        },
+                        {
+                          key: "dig_conta",
+                          label: "Dígito",
+                          placeholder: "Ex: 6",
+                        },
+                      ] as {
+                        key: keyof ContaForm;
+                        label: string;
+                        placeholder: string;
+                      }[]
+                    ).map(({ key, label, placeholder }) => (
+                      <div key={key}>
+                        <label
+                          style={{
+                            fontSize: 11,
+                            color: "#888",
+                            display: "block",
+                            marginBottom: 3,
+                          }}
+                        >
+                          {label}
+                        </label>
+                        <input
+                          type="text"
+                          value={contaForm[key]}
+                          placeholder={placeholder}
+                          onChange={(e) =>
+                            setContaForm((prev) => ({
+                              ...prev,
+                              [key]: e.target.value,
+                            }))
+                          }
+                          style={{
+                            width: "100%",
+                            borderRadius: 8,
+                            border: "1px solid #ddd",
+                            padding: "7px 10px",
+                            outline: "none",
+                            fontSize: 13,
+                            boxSizing: "border-box",
+                          }}
+                        />
+                      </div>
+                    ))}
+
+                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                      <button
+                        onClick={handleSalvarConta}
+                        disabled={loadingConta}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "#28a745",
+                          border: "none",
+                          borderRadius: 10,
+                          padding: "8px 16px",
+                          cursor: "pointer",
+                          color: "#fff",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          flex: 1,
+                          justifyContent: "center",
+                        }}
+                      >
+                        {loadingConta ? (
+                          "Salvando..."
+                        ) : (
+                          <>
+                            <FaSave /> Salvar
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingConta(false);
+                          // restaura valores originais
+                          if (user?.conta) {
+                            setContaForm({
+                              banco: user.conta.banco ?? "",
+                              cod_banco: user.conta.cod_banco ?? "",
+                              agencia: user.conta.agencia ?? "",
+                              conta: user.conta.conta ?? "",
+                              dig_conta: user.conta.dig_conta ?? "",
+                            });
+                          }
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "#ddd",
+                          border: "none",
+                          borderRadius: 10,
+                          padding: "8px 16px",
+                          cursor: "pointer",
+                          color: "#444",
+                          fontWeight: 600,
+                          fontSize: 13,
+                        }}
+                      >
+                        <FaTimes /> Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ─── ABA SENHA ───────────────────────────────────────────── */}
             {aba === "senha" && (
               <div className="perfilSenha">
                 <input
@@ -613,14 +852,12 @@ export default function PerfilDrawer() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                 />
-
                 <input
                   type="text"
                   placeholder="Nova senha"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                 />
-
                 <button
                   onClick={handleChangePassword}
                   disabled={loadingPassword}

@@ -10,6 +10,7 @@ import {
   FaExchangeAlt,
   FaBan,
   FaUser,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import { FiGrid, FiLayers } from "react-icons/fi";
 
@@ -24,10 +25,10 @@ type Viatura = {
 type Escala = {
   id: number;
   sistema: string;
-  mat_escala: string; // ← adicione
-  pg_escala: string; // ← adicione
-  ng_escala: string; // ← adicione
-  cpf_escala: string; // ← adicione
+  mat_escala: string;
+  pg_escala: string;
+  ng_escala: string;
+  cpf_escala: string;
   tipo_escala: string;
   nomeome_escala: string;
   dataInicio: string;
@@ -50,6 +51,11 @@ type Escala = {
   somaCotaFinal: number;
   pagamento: string;
   phone?: string | null;
+  presencaConfirmada?: boolean;
+  presencaObservacao?: string | null;
+  presencaConfirmadaEm?: string | null;
+  presencaConfirmadaPorNome?: string | null;
+  comentario_pagamento: string | null;
 
   conta?: {
     banco: string;
@@ -516,6 +522,66 @@ export default function MinhasEscalasPage() {
                     {escala.anotacoes && <div>{escala.anotacoes}</div>}
                   </div>
                 </div>
+                <div style={{ display: "flex" }}>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                      VERIFICADOR:{" "}
+                    </div>
+                    {escala.presencaConfirmadaPorNome}
+                  </div>
+                  <div style={{ width: "50%", display: "flex" }}>
+                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
+                      DETALHES:{" "}
+                    </div>
+                    {escala.presencaConfirmadaPorNome ? (
+                      <>
+                        {escala.presencaConfirmadaEm && (
+                          <div style={{ color: "#666", fontSize: 10 }}>
+                            {new Date(
+                              escala.presencaConfirmadaEm,
+                            ).toLocaleString("pt-BR")}
+                          </div>
+                        )}
+                        {escala.presencaObservacao && (
+                          <div style={{ color: "#888", fontStyle: "italic" }}>
+                            {escala.presencaObservacao}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span style={{ color: "#bbb" }}>—</span>
+                    )}
+                  </div>
+                </div>
+                {escala.comentario_pagamento && (
+                  <div
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      textAlign: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "90%",
+                        display: "flex",
+                        textAlign: "center",
+                        borderRadius: "5px",
+                        backgroundColor: "#b90f09",
+                        color: "#fff",
+                        padding: "5px",
+                        marginTop: "10px",
+                        marginBottom: "10px",
+                      }}
+                    >
+                      <FaExclamationTriangle />
+                      <span style={{ marginLeft: "5px" }}>
+                        {escala.comentario_pagamento}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Equipe de serviço */}
                 {(carregandoColegas || colegasEscala.length > 0) && (

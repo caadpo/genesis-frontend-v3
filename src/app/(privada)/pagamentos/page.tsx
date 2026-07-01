@@ -3,8 +3,20 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
-import { FiLayers, FiGrid, FiX, FiSearch } from "react-icons/fi";
-import { FaCheckSquare, FaInfo } from "react-icons/fa";
+import {
+  FiLayers,
+  FiGrid,
+  FiX,
+  FiSearch,
+  FiUser,
+  FiCheck,
+} from "react-icons/fi";
+import {
+  FaCheckCircle,
+  FaCheckSquare,
+  FaExclamationTriangle,
+  FaInfo,
+} from "react-icons/fa";
 import toast from "react-hot-toast";
 
 type EventoPago = {
@@ -32,6 +44,24 @@ type Pagamento = {
   valor_total: number;
   pgtrue: boolean;
   comentario_pagamento: string;
+};
+
+type ContaPendente = {
+  id: number;
+  banco: string;
+  cod_banco: string;
+  agencia: string;
+  conta: string;
+  dig_conta: string;
+  updatedAt: string;
+  usuarioId: number;
+  usuario: {
+    id: number;
+    mat: string;
+    omeId: number;
+    ome: { id: number; nomeOme: string } | null;
+  } | null;
+  atualizadoPor: { id: number; mat: string } | null;
 };
 
 export default function PagamentosPage() {
@@ -63,11 +93,19 @@ export default function PagamentosPage() {
 
   const eventosFiltrados = eventos.filter((ev) => {
     const termo = buscaEventos.toLowerCase();
-    return (
+    const matchBusca =
       ev.nome_ome.toLowerCase().includes(termo) ||
-      ev.nome_evento.toLowerCase().includes(termo)
-    );
+      ev.nome_evento.toLowerCase().includes(termo);
+
+    return matchBusca && ev.sistema === "DIARIAS"; // ← adiciona esse filtro
   });
+
+  // ─── Contas pendentes e-Fisco ───────────────────────────────────────────
+  const [contasPendentes, setContasPendentes] = useState<ContaPendente[]>([]);
+  const [loadingPendentes, setLoadingPendentes] = useState(false);
+  const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
+
+  const isFinanceiro = [5, 9, 10].includes(Number(user?.typeUser));
 
   // ─── Proteção de acesso ──────────────────────────────────────────────────
   useEffect(() => {
@@ -85,6 +123,17 @@ export default function PagamentosPage() {
       .catch(() => {})
       .finally(() => setLoadingEventos(false));
   }, []);
+
+  // ─── Buscar contas pendentes e-Fisco ────────────────────────────────────
+  useEffect(() => {
+    if (!isFinanceiro) return;
+    setLoadingPendentes(true);
+    fetch("/api/conta/pendentes-efisco", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => setContasPendentes(Array.isArray(data) ? data : []))
+      .catch(() => setContasPendentes([]))
+      .finally(() => setLoadingPendentes(false));
+  }, [isFinanceiro]);
 
   // ─── Buscar pagamentos do evento selecionado ─────────────────────────────
   useEffect(() => {
@@ -182,6 +231,26 @@ export default function PagamentosPage() {
     }
   }
 
+  // ─── Confirmar conta no e-Fisco ──────────────────────────────────────────
+  async function handleConfirmarEfisco(conta: ContaPendente) {
+    setConfirmandoId(conta.id);
+    try {
+      const res = await fetch(`/api/conta/${conta.id}/efisco`, {
+        method: "PATCH",
+      });
+      if (!res.ok) throw new Error();
+      // Remove da lista de pendentes
+      setContasPendentes((prev) => prev.filter((c) => c.id !== conta.id));
+      toast.success(
+        `Conta de ${conta.usuario?.mat ?? "usuário"} confirmada no e-Fisco ✅`,
+      );
+    } catch {
+      toast.error("Erro ao confirmar conta no e-Fisco");
+    } finally {
+      setConfirmandoId(null);
+    }
+  }
+
   const totalPaginas = Math.ceil(total / 50);
 
   const formatarCpf = (cpf: string) => {
@@ -198,59 +267,190 @@ export default function PagamentosPage() {
         PAGAMENTOS
       </h1>
 
-      {/* Busca de eventos */}
-      <input
-        type="text"
-        placeholder="Buscar por OME ou nome do evento"
-        value={buscaEventos}
-        onChange={(e) => setBuscaEventos(e.target.value)}
-        style={{
-          width: "100%",
-          padding: "8px 12px",
-          borderRadius: 6,
-          border: "1px solid #ccc",
-          fontSize: 13,
-          marginBottom: 16,
-        }}
-      />
+      {/* ─── SEÇÃO: CONTAS PENDENTES E-FISCO ──────────────────────────────── */}
+      {isFinanceiro && (
+        <div style={{ marginBottom: 24 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 10,
+            }}
+          >
+            <FaExclamationTriangle color="#e6a800" size={15} />
+            <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>
+              CONTAS AGUARDANDO ATUALIZAÇÃO NO E-FISCO
+            </h2>
+            {contasPendentes.length > 0 && (
+              <span
+                style={{
+                  background: "#dc3545",
+                  color: "#fff",
+                  borderRadius: "50%",
+                  width: 20,
+                  height: 20,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >
+                {contasPendentes.length}
+              </span>
+            )}
+          </div>
 
-      {loadingEventos && <p style={{ color: "#888" }}>Carregando...</p>}
-
-      {!loadingEventos && eventosFiltrados.length === 0 && (
-        <p style={{ color: "#888" }}>
-          {buscaEventos
-            ? "Nenhum evento encontrado."
-            : "Nenhum pagamento encontrado."}
-        </p>
-      )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {eventosFiltrados.map((ev) => {
-          const isPjes = ev.sistema === "PJES";
-          return (
+          {loadingPendentes ? (
+            <div style={{ fontSize: 13, color: "#888" }}>Carregando...</div>
+          ) : contasPendentes.length === 0 ? (
             <div
-              key={ev.eventoId}
-              onClick={() => abrirEvento(ev)}
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
+                gap: 8,
                 padding: "10px 14px",
-                border: "1px solid #e5e7eb",
-                borderRadius: 8,
-                cursor: "pointer",
-                background: "#fafafa",
+                background: "#d4edda",
+                borderRadius: 10,
+                border: "1px solid #28a745",
+                fontSize: 13,
+                color: "#155724",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <FaCheckCircle color="#28a745" />
+              Nenhuma conta pendente de atualização no e-Fisco
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {contasPendentes.map((c) => (
                 <div
+                  key={c.id}
                   style={{
-                    color: isPjes ? "#3a60c8" : "#0db988",
-                    fontSize: 20,
+                    background: "#fff",
+                    border: "1px solid #ffc107",
+                    borderLeft: "4px solid #ffc107",
+                    borderRadius: 10,
+                    padding: "10px 14px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    flexWrap: "wrap",
                   }}
                 >
-                  {isPjes ? <FiLayers /> : <FiGrid />}
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    {/* Usuário */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        marginBottom: 4,
+                      }}
+                    >
+                      <FiUser size={13} color="#888" />
+                      <span style={{ fontWeight: 700, fontSize: 13 }}>
+                        {c.usuario?.mat ?? "—"}
+                      </span>
+                      <span style={{ fontSize: 11, color: "#888" }}>
+                        {c.usuario?.ome?.nomeOme ?? ""}
+                      </span>
+                    </div>
+
+                    {/* Dados bancários */}
+                    <div style={{ fontSize: 12, color: "#444" }}>
+                      <strong>{c.banco}</strong>
+                      {c.cod_banco ? ` (${c.cod_banco})` : ""} &nbsp;|&nbsp; Ag:{" "}
+                      <strong>{c.agencia}</strong> &nbsp;|&nbsp; Conta:{" "}
+                      <strong>
+                        {c.conta}-{c.dig_conta}
+                      </strong>
+                    </div>
+
+                    {/* Atualizado por */}
+                    {c.atualizadoPor && (
+                      <div
+                        style={{ fontSize: 11, color: "#aaa", marginTop: 3 }}
+                      >
+                        Solicitado por: {c.atualizadoPor.mat}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Botão confirmar */}
+                  <button
+                    onClick={() => handleConfirmarEfisco(c)}
+                    disabled={confirmandoId === c.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: confirmandoId === c.id ? "#ccc" : "#28a745",
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "7px 14px",
+                      cursor:
+                        confirmandoId === c.id ? "not-allowed" : "pointer",
+                      color: "#fff",
+                      fontWeight: 600,
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {confirmandoId === c.id ? (
+                      "Confirmando..."
+                    ) : (
+                      <>
+                        <FiCheck /> Confirmar e-Fisco
+                      </>
+                    )}
+                  </button>
                 </div>
-                <div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <h1 style={{ fontSize: 12, fontWeight: 700 }}>PAGAMENTOS</h1>
+        {/* Busca de eventos */}
+        <input
+          type="text"
+          placeholder="Buscar por OME ou nome do evento"
+          value={buscaEventos}
+          onChange={(e) => setBuscaEventos(e.target.value)}
+          className="inputBuscaUserPg"
+        />
+
+        {loadingEventos && <p style={{ color: "#888" }}>Carregando...</p>}
+
+        {!loadingEventos && eventosFiltrados.length === 0 && (
+          <p style={{ color: "#888" }}>
+            {buscaEventos
+              ? "Nenhum evento encontrado."
+              : "Nenhum pagamento encontrado."}
+          </p>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {eventosFiltrados.map((ev) => {
+            const isPjes = ev.sistema === "PJES";
+            return (
+              <div
+                key={ev.eventoId}
+                onClick={() => abrirEvento(ev)}
+                className="divClickAbrirEvento"
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div
+                    style={{
+                      color: isPjes ? "#3a60c8" : "#0db988",
+                      fontSize: 20,
+                    }}
+                  >
+                    {isPjes ? <FiLayers /> : <FiGrid />}
+                  </div>
+
                   <div style={{ fontWeight: 600, fontSize: 13 }}>
                     {ev.nome_ome} — {ev.nome_evento}
                   </div>
@@ -259,21 +459,21 @@ export default function PagamentosPage() {
                     policial(is)
                   </div>
                 </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>
-                  {Number(ev.valor_total_evento).toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>
+                    {Number(ev.valor_total_evento).toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#aaa" }}>
+                    {new Date(ev.createdAt).toLocaleDateString("pt-BR")}
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, color: "#aaa" }}>
-                  {new Date(ev.createdAt).toLocaleDateString("pt-BR")}
-                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* ─── Modal do evento ────────────────────────────────────────────── */}
@@ -293,14 +493,7 @@ export default function PagamentosPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
+            <div className="divModalPrinciapal">
               <div>
                 <h2 style={{ margin: 0, fontSize: 15 }}>
                   {eventoSelecionado.nome_evento}
@@ -334,27 +527,14 @@ export default function PagamentosPage() {
                     setPage(1);
                   }
                 }}
-                style={{
-                  flex: 1,
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #ccc",
-                  fontSize: 13,
-                }}
+                className="inputBuscaCpf"
               />
               <button
                 onClick={() => {
                   setBusca(buscaInput);
                   setPage(1);
                 }}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 6,
-                  background: "#1e88e5",
-                  color: "#fff",
-                  border: "none",
-                  cursor: "pointer",
-                }}
+                className="btnBuscaCpf"
               >
                 <FiSearch />
               </button>
@@ -365,13 +545,7 @@ export default function PagamentosPage() {
                     setBuscaInput("");
                     setPage(1);
                   }}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 6,
-                    background: "#eee",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
+                  className="btnLimpar"
                 >
                   Limpar
                 </button>
@@ -384,21 +558,9 @@ export default function PagamentosPage() {
             ) : (
               <>
                 <div style={{ overflowX: "auto" }}>
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      fontSize: 12,
-                      textAlign: "center",
-                    }}
-                  >
+                  <table className="tablePg">
                     <thead>
-                      <tr
-                        style={{
-                          background: "#0a756c",
-                          color: "#fff",
-                        }}
-                      >
+                      <tr className="trbackground">
                         <th style={th}>NOME</th>
                         <th style={th}>OME</th>
                         <th style={th}>CPF</th>
@@ -418,14 +580,7 @@ export default function PagamentosPage() {
                     <tbody>
                       {pagamentos.length === 0 && (
                         <tr>
-                          <td
-                            colSpan={9}
-                            style={{
-                              textAlign: "center",
-                              padding: 16,
-                              color: "#999",
-                            }}
-                          >
+                          <td colSpan={9} className="tdNome">
                             Nenhum registro encontrado
                           </td>
                         </tr>
@@ -465,11 +620,7 @@ export default function PagamentosPage() {
                           </td>
                           <td style={{ textAlign: "center" }}>
                             <input
-                              style={{
-                                width: "16px",
-                                height: "16px",
-                                cursor: "pointer",
-                              }}
+                              className="inputCheckBox"
                               type="checkbox"
                               checked={p.pgtrue}
                               onChange={() => handleTogglePgtrue(p)}
@@ -496,14 +647,7 @@ export default function PagamentosPage() {
                                   comentario: p.comentario_pagamento ?? "",
                                 })
                               }
-                              style={{
-                                padding: "4px 6px",
-                                borderRadius: 6,
-                                border: "1px solid #0bec7b",
-                                backgroundColor: "#4f7a33",
-                                color: "#ffffff",
-                                cursor: "pointer",
-                              }}
+                              className="tdInfo"
                             >
                               <FaInfo />
                             </button>
@@ -516,14 +660,7 @@ export default function PagamentosPage() {
 
                 {/* Paginação */}
                 {totalPaginas > 1 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "center",
-                      gap: 8,
-                      marginTop: 12,
-                    }}
-                  >
+                  <div className="paginacao">
                     <button
                       disabled={page === 1}
                       onClick={() => setPage((p) => p - 1)}

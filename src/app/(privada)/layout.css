@@ -3,6 +3,7 @@
   padding: 5px;
   background-color: #fcfffa;
   display: flex;
+  overflow: auto;
   min-height: 0;
 }
 
@@ -856,7 +857,7 @@
   }
 }
 
-/* ===== TABELA DISTRIBUIÇÃO MODERNA ===== */
+/* ===== TABELA DISTRIBUIÇÃO ===== */
 
 .tabelaDistribuicao {
   width: 100%;
@@ -1359,4 +1360,98 @@
   .hide-mobile {
     display: none;
   }
+}
+
+/* ===== TELA PAGAMENTOS ===== */
+
+.inputBuscaUserPg {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.divClickAbrirEvento {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #fafafa;
+}
+
+.divModalPrinciapal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.inputBuscaCpf {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 13px;
+}
+
+.btnBuscaCpf {
+  padding: 6px 14px;
+  border-radius: 6;
+  background: #1e88e5;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.btnLimpar {
+  padding: 6px 10px;
+  border-radius: 6;
+  background: #eee;
+  border: none;
+  cursor: pointer;
+}
+
+.tablePg {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: center;
+}
+
+.trbackground {
+  background: #0a756c;
+  color: #fff;
+}
+
+.tdNome {
+  text-align: center;
+  padding: 16px;
+  color: #999;
+}
+
+.inputCheckBox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.tdInfo {
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #0bec7b;
+  background-color: #4f7a33;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.paginacao {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
 }
