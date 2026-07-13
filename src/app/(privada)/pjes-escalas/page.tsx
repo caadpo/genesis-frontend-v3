@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 
@@ -107,7 +107,7 @@ type Escala = {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function PjesEscalasPage() {
+function PjesEscalasContent() {
   const router = useRouter();
   const params = useSearchParams();
   const mes = params?.get("mes") ?? "";
@@ -1049,5 +1049,13 @@ export default function PjesEscalasPage() {
       </div>
       {/* fim escalas */}
     </div>
+  );
+}
+
+export default function PjesEscalasPage() {
+  return (
+    <Suspense fallback={<div className="page">Carregando...</div>}>
+      <PjesEscalasContent />
+    </Suspense>
   );
 }

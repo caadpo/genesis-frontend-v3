@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useApi } from "@/src/hooks/useApi";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 import { apiFetch } from "@/src/lib/api";
@@ -71,7 +71,7 @@ enum STATUS_EVENTO {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function PjesDiretoriaSelectPage() {
+function PjesDiretoriaSelectContent() {
   const params = useSearchParams();
   const mes = params?.get("mes") ?? "";
   const ano = params?.get("ano") ?? "";
@@ -912,5 +912,13 @@ export default function PjesDiretoriaSelectPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PjesDiretoriaSelectPage() {
+  return (
+    <Suspense fallback={<div className="page">Carregando...</div>}>
+      <PjesDiretoriaSelectContent />
+    </Suspense>
   );
 }

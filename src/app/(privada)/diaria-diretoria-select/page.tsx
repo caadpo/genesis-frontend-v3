@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useApi } from "@/src/hooks/useApi";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 import { apiFetch } from "@/src/lib/api";
@@ -79,7 +79,7 @@ enum STATUS_EVENTO {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function DiariasDiretoriaSelectPage() {
+function DiariasDiretoriaSelectContent() {
   const params = useSearchParams();
   const tetoId = Number(params?.get("tetoId"));
   const distribuicaoId = Number(params?.get("distribuicaoId"));
@@ -959,5 +959,12 @@ export default function DiariasDiretoriaSelectPage() {
         </div>
       )}
     </div>
+  );
+}
+export default function DiariasDiretoriaSelectPage() {
+  return (
+    <Suspense fallback={<div className="page">Carregando...</div>}>
+      <DiariasDiretoriaSelectContent />
+    </Suspense>
   );
 }

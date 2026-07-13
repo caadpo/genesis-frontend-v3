@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 
@@ -113,7 +113,7 @@ type Escala = {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function DiariasEscalasPage() {
+function DiariasEscalasContent() {
   const router = useRouter();
   const params = useSearchParams();
   const tetoId = Number(params?.get("tetoId"));
@@ -1078,5 +1078,13 @@ export default function DiariasEscalasPage() {
       </div>
       {/* fim escalas */}
     </div>
+  );
+}
+
+export default function DiariasEscalasPage() {
+  return (
+    <Suspense fallback={<div className="page">Carregando...</div>}>
+      <DiariasEscalasContent />
+    </Suspense>
   );
 }
