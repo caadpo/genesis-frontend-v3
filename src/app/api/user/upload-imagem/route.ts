@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     const fileName = `${mat}.jpg`;
-    const filePath = path.join(process.cwd(), "public", "avatares", fileName);
+    const filePath = path.join(process.cwd(), "storage", "avatares", fileName);
 
     await writeFile(filePath, resized);
 

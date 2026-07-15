@@ -4,8 +4,8 @@
 !.env.example
 
 # avatares (gerados em runtime, não versionar)
-public/avatares/*
-!public/avatares/.gitkeep
+storage/avatares/*
+!storage/avatares/.gitkeep
 
 # dependencies
 /node_modules
