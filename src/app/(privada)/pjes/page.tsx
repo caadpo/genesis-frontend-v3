@@ -515,7 +515,7 @@ export default function PjesPage() {
 
                         {typeUser !== 2 && (
                           <div className="divDistBtnEditar">
-                            {typeUser === 10 && (
+                            {(typeUser === 10 || typeUser === 9) && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -527,7 +527,7 @@ export default function PjesPage() {
                               </button>
                             )}
 
-                            {typeUser === 10 && (
+                            {(typeUser === 10 || typeUser === 9) && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

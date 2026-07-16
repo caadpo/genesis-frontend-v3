@@ -22,6 +22,7 @@ const USER_TYPES = [
   { value: 4, label: "Estratégico" },
   { value: 5, label: "Financeiro" },
   { value: 6, label: "PD" },
+  { value: 7, label: "Gestor" },
   { value: 9, label: "Técnico" },
   { value: 10, label: "Master" },
 ];

@@ -251,6 +251,7 @@ export default function UsuariosPage() {
       4: "Estrategico",
       5: "Financeiro",
       6: "PD",
+      7: "Gestor",
       9: "Técnico",
       10: "Master",
     };

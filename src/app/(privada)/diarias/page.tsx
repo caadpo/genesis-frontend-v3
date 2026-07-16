@@ -533,7 +533,7 @@ export default function DiariasPage() {
 
                         {typeUser !== 2 && (
                           <div className="divDistBtnEditar">
-                            {typeUser === 10 && (
+                            {(typeUser === 10 || typeUser === 9) && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -545,7 +545,7 @@ export default function DiariasPage() {
                               </button>
                             )}
 
-                            {typeUser === 10 && (
+                            {(typeUser === 10 || typeUser === 9) && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
