@@ -801,7 +801,7 @@ function PjesEscalasContent() {
                         </>
                       ) : (
                         <>
-                          <div style={{ width: "100%" }}>
+                          <div style={{ width: "50%" }}>
                             <div
                               style={{
                                 padding: "4px",

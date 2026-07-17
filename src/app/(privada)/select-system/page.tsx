@@ -4,7 +4,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FaUniversity, FaUser, FaCar, FaMapMarkerAlt } from "react-icons/fa";
+import {
+  FaUniversity,
+  FaUser,
+  FaCar,
+  FaMapMarkerAlt,
+  FaInfo,
+} from "react-icons/fa";
 import { FiLayers, FiGrid, FiSearch } from "react-icons/fi";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 import BuscaCopModal from "@/src/components/ui/BuscaCopModal";
@@ -340,30 +346,30 @@ export default function SelectSystem() {
           <div className="header-escalas">
             <div className="titulo">
               <span>AVISOS</span>
-              <div className="badge">{totalFuturas}</div>
+              <div className="badge">1</div>
             </div>
-            <span
-              className="ver-todas"
-              onClick={() => router.push("/minhas-escalas")}
-            >
-              Ver todos &gt;
-            </span>
+            <span className="ver-todas">Ver todos &gt;</span>
           </div>
           <span className="tituloProximas">Em destaque</span>
         </div>
 
         <div
           style={{
-            color: "#888",
+            color: "#0c832f",
             fontSize: 14,
-            backgroundColor: "#dad4d4",
+            backgroundColor: "#eee9e9",
             borderRadius: "6px",
             padding: "12px",
             marginTop: "5px",
             marginBottom: "10px",
           }}
         >
-          Lista Vazia.
+          <FaInfo style={{ marginRight: 6 }} />
+          <span>
+            Altere sua senha inicial, atualize seu telefone e altere sua foto
+            para evitar o bloqueio do seu perfil. Se você já fez, desconsidere
+            este aviso.
+          </span>
         </div>
       </div>
 
