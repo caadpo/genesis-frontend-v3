@@ -357,7 +357,7 @@ export default function SelectSystem() {
           style={{
             color: "#0c832f",
             fontSize: 14,
-            backgroundColor: "#f3ecec",
+            backgroundColor: "#f5f1f1",
             borderRadius: "6px",
             padding: "12px",
             marginTop: "5px",
@@ -402,7 +402,7 @@ export default function SelectSystem() {
             style={{
               color: "#888",
               fontSize: 14,
-              backgroundColor: "#f3ecec",
+              backgroundColor: "#f5f1f1",
               borderRadius: "6px",
               padding: "12px",
               marginTop: "5px",
