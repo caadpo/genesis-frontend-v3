@@ -285,7 +285,9 @@ function PjesEscalasContent() {
   });
 
   useEffect(() => {
-    if (matricula.trim().length === 0) {
+    const raw = matricula.trim();
+
+    if (raw.length === 0) {
       setUsuario(null);
       setBuscaUsuarioError(null);
       setLocalApresentacao("");
@@ -293,11 +295,22 @@ function PjesEscalasContent() {
       return;
     }
 
-    if (matricula.trim().length < 7) {
+    // ainda digitando, menos de 6 dígitos: não busca
+    if (raw.length < 6) {
       setUsuario(null);
       setBuscaUsuarioError(null);
       return;
     }
+
+    // mais de 7 dígitos não faz sentido: não busca
+    if (raw.length > 7) {
+      setUsuario(null);
+      setBuscaUsuarioError(null);
+      return;
+    }
+
+    // se tiver 6 dígitos, completa com 0 na frente -> sempre busca com 7
+    const matriculaBusca = raw.length === 6 ? `0${raw}` : raw;
 
     const timeout = setTimeout(async () => {
       setLoadingUsuario(true);
@@ -305,7 +318,7 @@ function PjesEscalasContent() {
 
       try {
         const response = await fetch(
-          `/api/user/search?q=${encodeURIComponent(matricula)}`,
+          `/api/user/search?q=${encodeURIComponent(matriculaBusca)}`,
         );
 
         if (!response.ok) {
@@ -555,6 +568,7 @@ function PjesEscalasContent() {
                   className="inputDadosEscala"
                   placeholder="matricula"
                   value={matricula}
+                  maxLength={7}
                   onChange={(e) =>
                     setMatricula(e.target.value.replace(/\D/g, ""))
                   }
