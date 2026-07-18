@@ -47,20 +47,20 @@
 
 /* Logo */
 .logo_layout {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
 }
 
 .user-info {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-left: auto; /* 🔥 ISSO resolve */
+  margin-left: auto;
 }
 
 .user-avatar {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   object-fit: cover;
 }
@@ -72,7 +72,7 @@
   justify-content: center;
   background-color: #e5e7eb;
   color: #555;
-  font-size: 18px;
+  font-size: 12px;
 }
 
 .usuarioImgPerfilDrawer {
@@ -85,7 +85,7 @@
 .user-text {
   display: flex;
   flex-direction: column;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 /* SIDEBAR BASE */
@@ -124,8 +124,8 @@
   justify-content: center;
   gap: 10px;
 
-  width: 45px;
-  height: 45px;
+  width: 35px;
+  height: 35px;
   margin: 0px 0;
 
   border-radius: 50%;
@@ -170,7 +170,7 @@
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 50px;
+    height: 40px;
 
     display: flex;
     flex-direction: row;

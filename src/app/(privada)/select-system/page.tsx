@@ -325,7 +325,7 @@ export default function SelectSystem() {
               <FiLayers className="icon" />
               <span style={{ fontSize: "20px" }}>PJES</span>
             </div>
-            <FiLayers style={{ fontSize: "60px", color: "#3a60c8" }} />
+            <FiLayers style={{ fontSize: "30px", color: "#3a60c8" }} />
           </button>
           <button
             className="select-card select-card-green"
@@ -335,7 +335,7 @@ export default function SelectSystem() {
               <FiGrid className="icon" />
               <span style={{ fontSize: "20px" }}>DIÁRIAS</span>
             </div>
-            <FiGrid style={{ fontSize: "60px", color: "#0db988" }} />
+            <FiGrid style={{ fontSize: "30px", color: "#0db988" }} />
           </button>
         </div>
       </div>
@@ -356,8 +356,8 @@ export default function SelectSystem() {
         <div
           style={{
             color: "#0c832f",
-            fontSize: 14,
-            backgroundColor: "#f5f1f1",
+            fontSize: 12,
+            backgroundColor: "#cff1d47a",
             borderRadius: "6px",
             padding: "12px",
             marginTop: "5px",
@@ -392,17 +392,17 @@ export default function SelectSystem() {
         </div>
 
         {loading && (
-          <p style={{ color: "#888", fontSize: 14 }}>Carregando escalas...</p>
+          <p style={{ color: "#888", fontSize: 12 }}>Carregando escalas...</p>
         )}
         {errorEscalas && (
-          <p style={{ color: "#e53e3e", fontSize: 14 }}>{errorEscalas}</p>
+          <p style={{ color: "#e53e3e", fontSize: 12 }}>{errorEscalas}</p>
         )}
         {!loading && !errorEscalas && proximas.length === 0 && (
           <div
             style={{
               color: "#888",
-              fontSize: 14,
-              backgroundColor: "#f5f1f1",
+              fontSize: 12,
+              backgroundColor: "#cfecf17a",
               borderRadius: "6px",
               padding: "12px",
               marginTop: "5px",
@@ -449,13 +449,13 @@ export default function SelectSystem() {
 
           <div style={{ overflow: "auto" }}>
             {loadingPagamentos && (
-              <p style={{ color: "#888", fontSize: 14 }}>
+              <p style={{ color: "#888", fontSize: 12 }}>
                 Carregando pagamentos...
               </p>
             )}
 
             {!loadingPagamentos && eventosPagos.length === 0 && (
-              <p style={{ color: "#888", fontSize: 14 }}>
+              <p style={{ color: "#888", fontSize: 12 }}>
                 Nenhum pagamento confirmado.
               </p>
             )}

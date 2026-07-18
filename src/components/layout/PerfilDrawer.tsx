@@ -20,6 +20,7 @@ import {
   FaExclamationTriangle,
   FaCheckCircle,
 } from "react-icons/fa";
+import { FaTriangleExclamation } from "react-icons/fa6";
 
 type Aba = "geral" | "senha" | "conta";
 
@@ -427,7 +428,7 @@ export default function PerfilDrawer() {
                     <div className="usuario_detalhes_icon">
                       <FaMale color="green" />
                       <div style={{ marginLeft: "5px", color: "green" }}>
-                        Tipo
+                        Of/Prç
                       </div>
                     </div>
                     <div className="usuario_detalhes_texto">
@@ -461,7 +462,7 @@ export default function PerfilDrawer() {
                     <div className="usuario_detalhes_icon">
                       <FaBarcode color="purple" />
                       <div style={{ marginLeft: "5px", color: "purple" }}>
-                        Nunfunc/Nunvinc
+                        Numfunc/Numvinc
                       </div>
                     </div>
                     <div className="usuario_detalhes_texto">
@@ -572,6 +573,23 @@ export default function PerfilDrawer() {
                       <div className="usuario_detalhes_titulo_item">
                         <div className="divUsuarioDetalhesRight">
                           {user?.ome?.nomeOme}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Situação */}
+                  <div className="usuario_detalhes_item">
+                    <div className="usuario_detalhes_icon">
+                      <FaTriangleExclamation color="blue" />
+                      <div style={{ marginLeft: "5px", color: "blue" }}>
+                        Regular/Impedido
+                      </div>
+                    </div>
+                    <div className="usuario_detalhes_texto">
+                      <div className="usuario_detalhes_titulo_item">
+                        <div className="divUsuarioDetalhesRight">
+                          {user?.situacao}
                         </div>
                       </div>
                     </div>

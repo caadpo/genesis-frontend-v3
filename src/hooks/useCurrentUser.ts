@@ -7,7 +7,7 @@ export function useCurrentUser() {
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
       .then(async (res) => {
-        if (!res.ok) return null; // ✅ evita json() em vazio
+        if (!res.ok) return null;
         return res.json();
       })
       .then((data) => setUser(data))
