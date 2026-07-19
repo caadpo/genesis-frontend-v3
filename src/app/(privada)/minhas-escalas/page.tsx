@@ -56,6 +56,7 @@ type Escala = {
   presencaConfirmadaEm?: string | null;
   presencaConfirmadaPorNome?: string | null;
   comentario_pagamento: string | null;
+  valorIndividual?: number;
 
   conta?: {
     banco: string;
@@ -170,11 +171,7 @@ export default function MinhasEscalasPage() {
 
     const somaCotaFinalPago = lista
       .filter((e) => isPago(e.pagamento))
-      .reduce(
-        (acc, e) =>
-          acc + (e.somaCotaFinal / (e.somacota_escala || 1)) * e.cota_escala,
-        0,
-      );
+      .reduce((acc, e) => acc + (e.valorIndividual ?? 0), 0);
 
     return {
       cota_escala: totalCotas,
