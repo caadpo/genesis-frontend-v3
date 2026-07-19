@@ -312,7 +312,13 @@ export default function SelectSystem() {
       {/* ── Escolha do sistema ───────────────────────────────────────────── */}
       <div className="div-itens-sistema">
         <div className="titulo">
-          <span>SISTEMAS</span>
+          <span
+            style={{
+              fontSize: 10,
+            }}
+          >
+            SISTEMAS
+          </span>
           <div className="badge">2</div>
         </div>
 
@@ -345,7 +351,13 @@ export default function SelectSystem() {
         <div>
           <div className="header-escalas">
             <div className="titulo">
-              <span>AVISOS</span>
+              <span
+                style={{
+                  fontSize: 10,
+                }}
+              >
+                AVISOS
+              </span>
               <div className="badge">1</div>
             </div>
             <span className="ver-todas">Ver todos &gt;</span>
@@ -378,7 +390,13 @@ export default function SelectSystem() {
         <div>
           <div className="header-escalas">
             <div className="titulo">
-              <span>MINHAS ESCALAS</span>
+              <span
+                style={{
+                  fontSize: 10,
+                }}
+              >
+                MINHAS ESCALAS
+              </span>
               <div className="badge">{totalFuturas}</div>
             </div>
             <span
@@ -434,7 +452,13 @@ export default function SelectSystem() {
         <div className="div-itens">
           <div className="header-escalas">
             <div className="titulo">
-              <span>ULTIMOS PAGAMENTOS</span>
+              <span
+                style={{
+                  fontSize: 10,
+                }}
+              >
+                ULTIMOS PAGAMENTOS
+              </span>
               {eventosPagos.length > 0 && (
                 <div className="badge">{eventosPagos.length}</div>
               )}

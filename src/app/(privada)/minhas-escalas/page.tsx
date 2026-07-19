@@ -159,7 +159,15 @@ export default function MinhasEscalasPage() {
       };
 
     const totalCotas = lista.reduce((acc, e) => acc + e.cota_escala, 0);
-    const somaCotaFinal = lista[0].somaCotaFinal;
+
+    // ✅ soma o valor individual de CADA escala (já calculado no backend
+    // conforme o tipo_escala/sistema daquela escala específica), em vez de
+    // reaproveitar o somaCotaFinal (agregado por teto) de apenas um item.
+    const somaCotaFinal = lista.reduce(
+      (acc, e) => acc + (e.valorIndividual ?? 0),
+      0,
+    );
+
     const todosPagos = lista.every((e) => isPago(e.pagamento));
     const algumPago = lista.some((e) => isPago(e.pagamento));
 
@@ -169,6 +177,7 @@ export default function MinhasEscalasPage() {
         ? "Parcialmente pago"
         : lista[0].pagamento;
 
+    // ✅ mesma lógica: soma o valor individual só das escalas já pagas
     const somaCotaFinalPago = lista
       .filter((e) => isPago(e.pagamento))
       .reduce((acc, e) => acc + (e.valorIndividual ?? 0), 0);
