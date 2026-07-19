@@ -68,6 +68,7 @@ export async function POST(request: Request) {
       }
 
       resized = await sharp(buffer)
+        .rotate() // aplica a orientação EXIF (corrige fotos "de lado") e remove a tag depois
         .resize(200, 200, { fit: "cover", position: "centre" })
         .jpeg({ quality: 80 })
         .toBuffer();

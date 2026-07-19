@@ -314,7 +314,7 @@ export default function SelectSystem() {
         <div className="titulo">
           <span
             style={{
-              fontSize: 10,
+              fontSize: 12,
             }}
           >
             SISTEMAS
@@ -353,7 +353,7 @@ export default function SelectSystem() {
             <div className="titulo">
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 12,
                 }}
               >
                 AVISOS
@@ -392,7 +392,7 @@ export default function SelectSystem() {
             <div className="titulo">
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 12,
                 }}
               >
                 MINHAS ESCALAS
@@ -454,7 +454,7 @@ export default function SelectSystem() {
             <div className="titulo">
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 12,
                 }}
               >
                 ULTIMOS PAGAMENTOS
@@ -467,7 +467,7 @@ export default function SelectSystem() {
               className="ver-todas"
               onClick={() => router.push("/pagamentos")}
             >
-              Ver todas &gt;
+              Ver todos &gt;
             </span>
           </div>
 
