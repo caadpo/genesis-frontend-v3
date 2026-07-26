@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
-import { FaInfo, FaUser } from "react-icons/fa";
+import { FaInfo, FaPhone, FaUser } from "react-icons/fa";
 import { FiX, FiSearch, FiCalendar } from "react-icons/fi";
 import toast from "react-hot-toast";
 
@@ -15,6 +14,8 @@ type Escala = {
   mat_escala: string;
   ng_escala: string;
   nomecompleto_escala: string;
+  nomeome_escala?: string;
+  phone?: string | null;
   tipo_escala: string;
   dataInicio: string;
   horaInicio: string;
@@ -48,6 +49,26 @@ const formatarData = (data: string) => {
   const [, mes, dia] = data.split("-");
   return `${dia}/${mes}`;
 };
+
+const MESES_ABREV = [
+  "JAN",
+  "FEV",
+  "MAR",
+  "ABR",
+  "MAI",
+  "JUN",
+  "JUL",
+  "AGO",
+  "SET",
+  "OUT",
+  "NOV",
+  "DEZ",
+];
+
+function diaMesAbrev(data: string) {
+  const [, mes, dia] = data.split("-");
+  return { dia, mes: MESES_ABREV[Number(mes) - 1] };
+}
 
 const isPassada = (data: string) => {
   const hoje = new Date();
@@ -187,6 +208,106 @@ export default function OperacoesPage() {
     }
     return true;
   });
+
+  type Grupo = {
+    chave: string;
+    dataInicio: string;
+    horaInicio: string;
+    horaFim: string;
+    escalas: Escala[];
+  };
+
+  const grupos: Grupo[] = [];
+  const gruposMap = new Map<string, Grupo>();
+  for (const e of escalasFiltradas) {
+    const chave = `${e.dataInicio}_${e.horaInicio}_${e.horaFim}`;
+    if (!gruposMap.has(chave)) {
+      const g: Grupo = {
+        chave,
+        dataInicio: e.dataInicio,
+        horaInicio: e.horaInicio,
+        horaFim: e.horaFim,
+        escalas: [],
+      };
+      gruposMap.set(chave, g);
+      grupos.push(g);
+    }
+    gruposMap.get(chave)!.escalas.push(e);
+  }
+
+  const ORDEM_FUNCAO = ["FISCAL", "MOT", "PAT", "CMT", "AUX"];
+
+  function posicaoFuncao(funcao: string) {
+    const idx = ORDEM_FUNCAO.indexOf(funcao);
+    return idx === -1 ? ORDEM_FUNCAO.length : idx; // desconhecidas vão pro final
+  }
+
+  type Subgrupo = {
+    patrimonio: string | null;
+    escalas: Escala[];
+  };
+
+  function agruparPorViatura(escalas: Escala[]): Subgrupo[] {
+    const mapa = new Map<string, Escala[]>();
+    const ordemChaves: string[] = [];
+
+    for (const e of escalas) {
+      const chave = e.viatura?.patrimonio ?? "__sem_viatura__";
+      if (!mapa.has(chave)) {
+        mapa.set(chave, []);
+        ordemChaves.push(chave);
+      }
+      mapa.get(chave)!.push(e);
+    }
+
+    return ordemChaves.map((chave) => ({
+      patrimonio: chave === "__sem_viatura__" ? null : chave,
+      escalas: mapa
+        .get(chave)!
+        .slice()
+        .sort((a, b) => posicaoFuncao(a.funcao) - posicaoFuncao(b.funcao)),
+    }));
+  }
+
+  function AvatarPolicial({ mat, nome }: { mat: string; nome: string }) {
+    const [imgError, setImgError] = useState(false);
+
+    if (imgError) {
+      return (
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: "50%",
+            background: "#e5e7eb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+          title={nome}
+        >
+          <FaUser size={16} color="#9ca3af" />
+        </div>
+      );
+    }
+
+    return (
+      <img
+        src={`/avatares/${mat}.jpg`}
+        alt={nome}
+        title={nome}
+        onError={() => setImgError(true)}
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: "50%",
+          objectFit: "cover",
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
 
   async function buscarPorCodOp() {
     const cod = codOp.trim();
@@ -420,70 +541,208 @@ export default function OperacoesPage() {
           </div>
 
           {/* Tabela */}
+          {/* Lista de escalas */}
           <div
             style={{
-              overflowX: "auto",
-              marginTop: 8,
-              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              marginTop: 5,
+              maxHeight: "100%",
               overflow: "auto",
             }}
           >
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "#4f8ed3", color: "#fff" }}>
-                  <th style={th}>DATA/HORA</th>
-                  <th style={th}>POLICIAL</th>
-                  <th style={th}>FUNÇÃO</th>
-                  <th style={th}>VTR</th>
-                  <th style={th}>
-                    <FaInfo />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {escalasFiltradas.map((e) => {
-                  const passada = isPassada(e.dataInicio);
-                  const { bg, border, cursor, disabled, title } =
-                    corBotaoInfo(e);
-                  return (
-                    <tr
-                      key={e.id}
+            {grupos.map((grupo) => {
+              const { dia, mes } = diaMesAbrev(grupo.dataInicio);
+              const passadaGrupo = isPassada(grupo.dataInicio);
+
+              return (
+                <div
+                  key={grupo.chave}
+                  style={{
+                    display: "flex",
+                    background: "#fff",
+                    borderRadius: 14,
+                    border: "1px solid #e5e7eb",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+                    overflow: "hidden",
+                    opacity: passadaGrupo ? 0.55 : 1,
+                  }}
+                >
+                  {/* Badge de data/hora */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minWidth: 40,
+                      padding: "5px 3px",
+                      background: "#f4f7fb",
+                      borderRight: "1px solid #e5e7eb",
+                    }}
+                  >
+                    <div
                       style={{
-                        color: passada ? "#b0b0b0" : "inherit",
-                        background: passada ? "#fafafa" : "transparent",
+                        fontSize: 18,
+                        fontWeight: 800,
+                        color: "#1f2937",
+                        lineHeight: 1,
                       }}
                     >
-                      <td style={td}>
-                        {formatarData(e.dataInicio)}, {e.horaInicio.slice(0, 5)}{" "}
-                        a {e.horaFim.slice(0, 5)}
-                      </td>
-                      <td style={td}>
-                        {e.pg_escala} {e.mat_escala} {e.ng_escala}
-                      </td>
-                      <td style={td}>{e.funcao}</td>
-                      <td style={td}>{e.viatura?.patrimonio ?? "-"}</td>
-                      <td style={{ ...td, textAlign: "center" }}>
-                        <button
-                          onClick={() => !disabled && abrirModal(e)}
-                          disabled={disabled}
-                          title={title}
-                          style={{
-                            padding: "2px 5px",
-                            borderRadius: 6,
-                            border: `1px solid ${border}`,
-                            backgroundColor: bg,
-                            color: "#ffffff",
-                            cursor,
-                          }}
-                        >
-                          <FaInfo />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      {dia}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#4f8ed3",
+                        letterSpacing: 1,
+                        marginBottom: 6,
+                      }}
+                    >
+                      {mes}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#6b7280",
+                        textAlign: "center",
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {grupo.horaInicio.slice(0, 5)}
+                      <br />
+                      às
+                      <br />
+                      {grupo.horaFim.slice(0, 5)}
+                    </div>
+                  </div>
+
+                  {/* Lista de policiais, agrupados por viatura */}
+                  <div style={{ flex: 1, padding: "4px 4px" }}>
+                    {(() => {
+                      const subgrupos = agruparPorViatura(grupo.escalas);
+                      const mostrarLabelViatura = subgrupos.length > 1;
+
+                      return subgrupos.map((sub, subIdx) => (
+                        <div key={sub.patrimonio ?? `sem-vtr-${subIdx}`}>
+                          {mostrarLabelViatura && (
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color: sub.patrimonio ? "#0a57a8" : "#9ca3af",
+                                letterSpacing: 0.5,
+                                marginTop: subIdx > 0 ? 10 : 4,
+                                marginBottom: 4,
+                              }}
+                            >
+                              {sub.patrimonio
+                                ? `VTR ${sub.patrimonio}`
+                                : "SEM VIATURA"}
+                            </div>
+                          )}
+
+                          {sub.escalas.map((e, idx) => {
+                            const { bg, border, cursor, disabled, title } =
+                              corBotaoInfo(e);
+                            return (
+                              <div
+                                key={e.id}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 10,
+                                  padding: "2px 0",
+                                  borderBottom:
+                                    idx < sub.escalas.length - 1
+                                      ? "1px solid #f1f1f1"
+                                      : "none",
+                                }}
+                              >
+                                <AvatarPolicial
+                                  mat={e.mat_escala}
+                                  nome={e.ng_escala}
+                                />
+
+                                <div
+                                  style={{
+                                    flex: 1,
+                                    fontSize: 11,
+                                    color: "#374151",
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  <div style={{ fontWeight: 600 }}>
+                                    {e.pg_escala} {e.mat_escala} {e.ng_escala}
+                                    {e.nomeome_escala && (
+                                      <span
+                                        style={{
+                                          fontWeight: 500,
+                                          color: "#6b7280",
+                                        }}
+                                      >
+                                        {" "}
+                                        · {e.nomeome_escala}
+                                      </span>
+                                    )}
+                                    <br />
+                                    {e.phone && (
+                                      <span
+                                        style={{
+                                          fontWeight: 500,
+                                          color: "#9ca3af",
+                                        }}
+                                      >
+                                        {" "}
+                                        <FaPhone /> {e.phone}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div
+                                    style={{ fontSize: 11, color: "#6b7280" }}
+                                  >
+                                    {e.funcao}
+                                    {!mostrarLabelViatura &&
+                                    e.viatura?.patrimonio
+                                      ? ` · VTR ${e.viatura.patrimonio}`
+                                      : ""}
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={() => !disabled && abrirModal(e)}
+                                  disabled={disabled}
+                                  title={title}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    minWidth: 44,
+                                    height: 26,
+                                    padding: "0 12px",
+                                    borderRadius: 999,
+                                    border: `1.5px solid ${border}`,
+                                    background: "#fff",
+                                    color: bg,
+                                    cursor,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <FaInfo size={12} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              );
+            })}
+
             {escalasFiltradas.length === 0 && (
               <div
                 style={{

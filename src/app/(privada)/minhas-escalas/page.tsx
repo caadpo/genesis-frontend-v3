@@ -393,7 +393,16 @@ export default function MinhasEscalasPage() {
               padding: "5px",
             }}
           >
-            <span className="escala-card__titulo">
+            <span
+              className="escala-card__titulo"
+              onClick={() => {
+                if (!escala.cod_op) return;
+                navigator.clipboard.writeText(escala.cod_op);
+                toast.success("Código da Operação Copiado");
+              }}
+              style={{ cursor: "pointer" }}
+              title="Clique para copiar o código da operação"
+            >
               <FaCalendarAlt
                 style={{ marginLeft: "5px", marginRight: "5px" }}
               />
@@ -614,7 +623,7 @@ export default function MinhasEscalasPage() {
                           padding: "10px",
                         }}
                       >
-                        {colegasEscala.map((c) => (
+                        {colegasEscala.slice(0, 3).map((c) => (
                           <div
                             key={c.id}
                             style={{
@@ -641,6 +650,19 @@ export default function MinhasEscalasPage() {
                             </div>
                           </div>
                         ))}
+
+                        {colegasEscala.length > 3 && (
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              color: "#94a3b8",
+                              textAlign: "center",
+                              marginTop: "4px",
+                            }}
+                          >
+                            +{colegasEscala.length - 3} outro(s)
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

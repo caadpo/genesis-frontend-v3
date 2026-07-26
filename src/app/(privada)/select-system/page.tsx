@@ -13,7 +13,6 @@ import {
 } from "react-icons/fa";
 import { FiLayers, FiGrid, FiSearch } from "react-icons/fi";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
-import BuscaCopModal from "@/src/components/ui/BuscaCopModal";
 
 // ─── Interfaces & Types ───────────────────────────────────────────────────────
 
