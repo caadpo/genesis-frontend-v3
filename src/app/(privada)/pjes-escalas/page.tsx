@@ -261,18 +261,14 @@ function PjesEscalasContent() {
     if (!searchText.trim()) return true;
     const term = searchText.toLowerCase();
     return [
-      escala.id,
       escala.mat_escala ?? "",
-      escala.usuarioId,
-      escala.operacaoId,
       escala.pg_escala ?? "",
       escala.ng_escala ?? "",
+      escala.nomeome_escala ?? "",
       escala.cpf_escala ?? "",
       escala.phone ?? "",
-      escala.conta?.banco ?? "",
-      escala.conta?.agencia ?? "",
-      escala.conta?.conta ?? "",
       escala.dataInicio,
+      formatarData(escala.dataInicio), // permite buscar "31/07"
       escala.horaInicio,
       escala.horaFim,
       escala.localApresentacao,
@@ -283,6 +279,19 @@ function PjesEscalasContent() {
       .map((value) => String(value).toLowerCase())
       .some((value) => value.includes(term));
   });
+
+  // Agrupa mantendo a ordem em que vieram do backend (Map preserva inserção)
+  const gruposPorData = Array.from(
+    filteredEscalas.reduce((map, escala) => {
+      const key = escala.dataInicio;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(escala);
+      return map;
+    }, new Map<string, Escala[]>()),
+  ).map(([data, escalas]) => ({ data, escalas }));
+
+  const totalRegistros = tabelaEscalas.length;
+  const totalFiltrado = filteredEscalas.length;
 
   useEffect(() => {
     const raw = matricula.trim();
@@ -901,7 +910,22 @@ function PjesEscalasContent() {
             <div className="divCriarEscala">
               <h4>ESCALA DE SERVIÇO</h4>
             </div>
-            <div className="divCriarEscala">
+            <div
+              className="divCriarEscala"
+              style={{ display: "flex", alignItems: "center", gap: "12px" }}
+            >
+              <span
+                style={{
+                  fontSize: "16px",
+                  fontWeight: 600,
+                  color: "#555",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {searchText.trim()
+                  ? `${totalFiltrado} de ${totalRegistros} registro${totalRegistros !== 1 ? "s" : ""}`
+                  : `${totalRegistros} registro${totalRegistros !== 1 ? "s" : ""}`}
+              </span>
               <button
                 onClick={handleDownloadPdf}
                 disabled={gerandoPdf}
@@ -931,134 +955,216 @@ function PjesEscalasContent() {
               </button>
             </div>
           </div>
-          <table className="tabelaEscalas">
-            <thead>
-              <tr className="tabelaHeaderEscalas">
-                <th>IDENTIFICAÇÃO</th>
-                <th>TELEFONE</th>
-                <th>DATA E HORA</th>
-                <th>APRESENTAÇÃO</th>
-                <th>FUNÇÃO | COTA</th>
-                <th>VIATURA</th>
-                <th>ANOTAÇÕES</th>
-                <th>
-                  <FaCheckSquare size={16} />
-                </th>
-                <th style={{ textAlign: "right" }}>ALTERAÇÃO</th>
-                <th></th>
-                <th>AÇÕES</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEscalas.length > 0 ? (
-                filteredEscalas.map((escala) => (
-                  <tr key={escala.id} className="tabelaLinhaEscalas">
-                    <td>
-                      {escala.pg_escala} {escala.mat_escala} {escala.ng_escala}{" "}
-                      {escala.nomeome_escala} - {escala.situacao}
-                    </td>
-
-                    <td>{formatarTelefone(escala.phone)}</td>
-
-                    <td>
-                      {formatarData(escala.dataInicio)} {escala.horaInicio} às{" "}
-                      {escala.horaFim}
-                    </td>
-                    <td>{escala.localApresentacao}</td>
-                    <td>
-                      {escala.funcao} | {escala.cota_escala} Ct
-                    </td>
-                    <td>
-                      {escala.viatura
-                        ? `${escala.viatura.patrimonio} ${escala.viatura.statusVtr === "INDISPONIVEL" ? "⚠️" : ""}`
-                        : "-"}
-                    </td>
-                    <td>{escala.anotacoes || "-"}</td>
-                    <td>
-                      <input
-                        style={{
-                          width: "10px",
-                          height: "10px",
-                          cursor: "pointer",
-                        }}
-                        type="checkbox"
-                        checked={escala.presencaConfirmada ?? false}
-                        readOnly
-                      />
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      {escala.presencaConfirmadaPorNome}
-                    </td>
-                    <td style={{ textAlign: "left" }}>
-                      {escala.presencaConfirmadaPorNome ? (
-                        <>
-                          {escala.presencaConfirmadaEm && (
-                            <div style={{ color: "#666", fontSize: 10 }}>
-                              {new Date(
-                                escala.presencaConfirmadaEm,
-                              ).toLocaleString("pt-BR")}
+          <div className="tabelaEscalasWrapper">
+            <table className="tabelaEscalas">
+              <thead className="tabelaEscalasThead">
+                <tr className="tabelaHeaderEscalas">
+                  <th className="colData">DATA</th>
+                  <th>IDENTIFICAÇÃO</th>
+                  <th>TELEFONE</th>
+                  <th>HORA</th>
+                  <th>APRESENTAÇÃO</th>
+                  <th>FUNÇÃO | COTA</th>
+                  <th>VIATURA</th>
+                  <th>ANOTAÇÕES</th>
+                  <th>
+                    <FaCheckSquare size={16} />
+                  </th>
+                  <th style={{ textAlign: "right" }}>ALTERAÇÃO</th>
+                  <th></th>
+                  <th>AÇÕES</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gruposPorData.length > 0 ? (
+                  gruposPorData.map((grupo) =>
+                    grupo.escalas.map((escala, idx) => (
+                      <tr key={escala.id} className="tabelaLinhaEscalas">
+                        {idx === 0 && (
+                          <td
+                            className="colData"
+                            rowSpan={grupo.escalas.length}
+                          >
+                            <div className="colDataConteudo">
+                              <span className="colDataValor">
+                                {formatarData(grupo.data)}
+                              </span>
                             </div>
+                          </td>
+                        )}
+
+                        <td
+                          style={{
+                            textAlign: "left",
+                          }}
+                        >
+                          {escala.pg_escala} {escala.mat_escala}{" "}
+                          {escala.ng_escala} {escala.nomeome_escala} -{" "}
+                          {escala.situacao}
+                        </td>
+
+                        <td>{formatarTelefone(escala.phone)}</td>
+
+                        <td>
+                          {escala.horaInicio} às {escala.horaFim}
+                        </td>
+                        <td>{escala.localApresentacao}</td>
+                        <td>
+                          {escala.funcao} | {escala.cota_escala} Ct
+                        </td>
+                        <td>
+                          {escala.viatura
+                            ? `${escala.viatura.patrimonio} ${escala.viatura.statusVtr === "INDISPONIVEL" ? "⚠️" : ""}`
+                            : "-"}
+                        </td>
+                        <td>{escala.anotacoes || "-"}</td>
+                        <td>
+                          <input
+                            style={{
+                              width: "10px",
+                              height: "10px",
+                              cursor: "pointer",
+                            }}
+                            type="checkbox"
+                            checked={escala.presencaConfirmada ?? false}
+                            readOnly
+                          />
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {escala.presencaConfirmadaPorNome}
+                        </td>
+                        <td style={{ textAlign: "left" }}>
+                          {escala.presencaConfirmadaPorNome ? (
+                            <>
+                              {escala.presencaConfirmadaEm && (
+                                <div style={{ color: "#666", fontSize: 10 }}>
+                                  {new Date(
+                                    escala.presencaConfirmadaEm,
+                                  ).toLocaleString("pt-BR")}
+                                </div>
+                              )}
+                              {escala.presencaObservacao && (
+                                <div
+                                  style={{ color: "#888", fontStyle: "italic" }}
+                                >
+                                  {escala.presencaObservacao}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span style={{ color: "#bbb" }}>—</span>
                           )}
-                          {escala.presencaObservacao && (
-                            <div style={{ color: "#888", fontStyle: "italic" }}>
-                              {escala.presencaObservacao}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <span style={{ color: "#bbb" }}>—</span>
-                      )}
-                    </td>
-                    <td className="acoesTabelaEscalas">
-                      <FiRefreshCcw
-                        size={16}
-                        color={escala.isRepasse ? "blue" : "#ccc"}
-                        style={{
-                          cursor: escala.isRepasse ? "pointer" : "default",
-                        }}
-                        title={
-                          escala.isRepasse
-                            ? `Repasse #${escala.repasseOrigemId}`
-                            : ""
-                        }
-                        onClick={() => {
-                          if (escala.isRepasse) {
-                            toast(
-                              `🔄 Codigo do Repasse (CR): ${escala.repasseOrigemId}`,
-                              {
-                                duration: 4000,
-                              },
-                            );
-                          }
-                        }}
-                      />
-                      <FaEdit
-                        size={16}
-                        color="orange"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => handleEditarEscala(escala)}
-                      />
-                      <FaTrash
-                        size={16}
-                        color="red"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => handleExcluirEscala(escala.id)}
-                      />
+                        </td>
+                        <td className="acoesTabelaEscalas">
+                          <FiRefreshCcw
+                            size={12}
+                            color={escala.isRepasse ? "blue" : "#ccc"}
+                            style={{
+                              cursor: escala.isRepasse ? "pointer" : "default",
+                            }}
+                            title={
+                              escala.isRepasse
+                                ? `Repasse #${escala.repasseOrigemId}`
+                                : ""
+                            }
+                            onClick={() => {
+                              if (escala.isRepasse) {
+                                toast(
+                                  `🔄 Codigo do Repasse (CR): ${escala.repasseOrigemId}`,
+                                  { duration: 4000 },
+                                );
+                              }
+                            }}
+                          />
+                          <FaEdit
+                            size={12}
+                            color="orange"
+                            style={{ cursor: "pointer" }}
+                            onClick={() => handleEditarEscala(escala)}
+                          />
+                          <FaTrash
+                            size={12}
+                            color="red"
+                            style={{ cursor: "pointer" }}
+                            onClick={() => handleExcluirEscala(escala.id)}
+                          />
+                        </td>
+                      </tr>
+                    )),
+                  )
+                ) : (
+                  <tr className="tabelaLinhaEscalas">
+                    <td
+                      colSpan={12}
+                      style={{ textAlign: "center", padding: "18px" }}
+                    >
+                      Nenhuma escala cadastrada
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr className="tabelaLinhaEscalas">
-                  <td
-                    colSpan={10}
-                    style={{ textAlign: "center", padding: "18px" }}
-                  >
-                    Nenhuma escala cadastrada
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <style jsx>{`
+            .tabelaEscalasWrapper {
+              width: 100%;
+              max-height: 70vh;
+              overflow: auto;
+              border: 1px solid #e0e0e0;
+              border-radius: 8px;
+            }
+
+            .tabelaEscalasThead {
+              position: sticky;
+              top: 0;
+              z-index: 2;
+            }
+
+            .colData {
+              position: sticky;
+              left: 0;
+              z-index: 1;
+              background: #08462e;
+              color: #fff;
+              text-align: center;
+              vertical-align: middle;
+              min-width: 50px;
+              border-right: 2px solid #063a25;
+            }
+
+            thead .colData {
+              z-index: 3;
+            }
+
+            .colDataConteudo {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 4px;
+            }
+
+            .colDataValor {
+              font-weight: 700;
+              font-size: 13px;
+            }
+
+            .colDataBadge {
+              background: rgba(255, 255, 255, 0.2);
+              padding: 1px 6px;
+              border-radius: 10px;
+              font-size: 10px;
+              font-weight: 600;
+            }
+
+            .tabelaEscalas tbody tr.tabelaLinhaEscalas:nth-child(odd) {
+              background-color: #ffffff;
+            }
+
+            .tabelaEscalas tbody tr.tabelaLinhaEscalas:nth-child(even) {
+              background-color: #dfd9d9;
+            }
+          `}</style>
         </div>
       </div>
       {/* fim escalas */}
