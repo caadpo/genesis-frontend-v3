@@ -80,7 +80,6 @@ export default function LoginPage() {
           </div>
 
           {/* Senha */}
-          {/* Senha */}
           <div className="input-wrapper_login" style={{ position: "relative" }}>
             <FaLock className="input-icon_login" />
             <input
@@ -91,9 +90,7 @@ export default function LoginPage() {
               className="input_login"
             />
             <span
-              onMouseDown={() => setShowPassword(true)}
-              onMouseUp={() => setShowPassword(false)}
-              onMouseLeave={() => setShowPassword(false)}
+              onClick={() => setShowPassword(!showPassword)}
               style={{
                 position: "absolute",
                 right: 10,
@@ -102,6 +99,7 @@ export default function LoginPage() {
                 cursor: "pointer",
                 color: "#888",
                 userSelect: "none",
+                touchAction: "manipulation",
               }}
             >
               {showPassword ? <FaEyeSlash /> : <FaEye />}

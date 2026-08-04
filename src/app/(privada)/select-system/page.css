@@ -338,3 +338,12 @@
   padding: 6px 12px;
   border-radius: 20px;
 }
+
+.verTodas-badge {
+  background: #058ea0;
+  color: #ffffff;
+  border: 1px solid rgb(9, 110, 114);
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 20px;
+}

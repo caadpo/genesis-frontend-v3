@@ -169,7 +169,7 @@ function CardEscala({ escala }: { escala: Escala }) {
             e.dataInicio === escala.dataInicio &&
             e.horaInicio === escala.horaInicio &&
             e.horaFim === escala.horaFim &&
-            e.viaturaId === escala.viaturaId, // ← agrupa pela mesma viatura
+            e.viaturaId === escala.viaturaId,
         );
         setMembros(grupo);
       })
@@ -183,16 +183,11 @@ function CardEscala({ escala }: { escala: Escala }) {
           {emojiTurno(escala.horaInicio)} {formatarData(escala.dataInicio)},{" "}
           {formatarHora(escala.horaInicio)} às {formatarHora(escala.horaFim)}
         </div>
-        <div
-          className={`badge-sistema ${
-            escala.sistema === "PJES" ? "badge-pjes" : "badge-diaria"
-          }`}
-        >
-          {escala.sistema}
-        </div>
       </div>
 
-      <div className="nome-escala">{escala.nomeEvento}</div>
+      <div className="nome-escala">
+        {escala.nomeEvento} | {escala.sistema}
+      </div>
 
       <div className="tempo">
         <FaMapMarkerAlt style={{ marginRight: 4 }} />
@@ -313,7 +308,7 @@ export default function SelectSystem() {
         <div className="titulo">
           <span
             style={{
-              fontSize: 12,
+              fontSize: 14,
             }}
           >
             SISTEMAS
@@ -352,14 +347,19 @@ export default function SelectSystem() {
             <div className="titulo">
               <span
                 style={{
-                  fontSize: 12,
+                  fontSize: 14,
                 }}
               >
                 AVISOS
               </span>
               <div className="badge">1</div>
             </div>
-            <span className="ver-todas">Ver todos &gt;</span>
+            <div
+              onClick={() => router.push("/minhas-escalas")}
+              className="verTodas-badge"
+            >
+              Ver todos
+            </div>
           </div>
           <span className="tituloProximas">Em destaque</span>
         </div>
@@ -391,19 +391,20 @@ export default function SelectSystem() {
             <div className="titulo">
               <span
                 style={{
-                  fontSize: 12,
+                  fontSize: 14,
                 }}
               >
                 MINHAS ESCALAS
               </span>
               <div className="badge">{totalFuturas}</div>
             </div>
-            <span
-              className="ver-todas"
+
+            <div
               onClick={() => router.push("/minhas-escalas")}
+              className="verTodas-badge"
             >
-              Ver todas &gt;
-            </span>
+              Ver todas
+            </div>
           </div>
           <span className="tituloProximas">Proximas</span>
         </div>
@@ -453,7 +454,7 @@ export default function SelectSystem() {
             <div className="titulo">
               <span
                 style={{
-                  fontSize: 12,
+                  fontSize: 14,
                 }}
               >
                 ULTIMOS PAGAMENTOS
@@ -462,12 +463,6 @@ export default function SelectSystem() {
                 <div className="badge">{eventosPagos.length}</div>
               )}
             </div>
-            <span
-              className="ver-todas"
-              onClick={() => router.push("/pagamentos")}
-            >
-              Ver todos &gt;
-            </span>
           </div>
 
           <div style={{ overflow: "auto" }}>
