@@ -38,6 +38,7 @@ type TetoModalProps = {
     data_fim?: string;
     tipo_periodo: string;
     status: string;
+    data_prestacao_contas?: string | null;
     imagemUrl: string;
   } | null;
 };
@@ -218,7 +219,7 @@ export default function TetoModal({
 
   const [baixandoXls, setBaixandoXls] = useState(false);
 
-  async function handlePrestarContas() {
+  async function handleExportarPlanilha() {
     if (!teto) return;
     setBaixandoXls(true);
     try {
@@ -242,6 +243,42 @@ export default function TetoModal({
       toast.error(err.message || "Erro ao baixar planilha");
     } finally {
       setBaixandoXls(false);
+    }
+  }
+
+  const [prestandoContas, setPrestandoContas] = useState(false);
+
+  function formatDateTime(dateString?: string | null): string {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    const dia = String(date.getUTCDate()).padStart(2, "0");
+    const mes = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const ano = date.getUTCFullYear();
+    const hora = String(date.getUTCHours()).padStart(2, "0");
+    const min = String(date.getUTCMinutes()).padStart(2, "0");
+    return `${dia}/${mes}/${ano} às ${hora}:${min}`;
+  }
+
+  async function handlePrestarContasFinal() {
+    if (!teto) return;
+    setPrestandoContas(true);
+    try {
+      const res = await fetch(`/api/tetos/${teto.id}/prestar-contas`, {
+        method: "PATCH",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(
+          err?.message || "Erro ao registrar prestação de contas",
+        );
+      }
+      toast.success("Prestação de contas registrada ✅");
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setPrestandoContas(false);
     }
   }
 
@@ -433,6 +470,22 @@ export default function TetoModal({
               </select>
             </div>
           )}
+
+          {teto?.data_prestacao_contas && (
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                fontSize: 12,
+                color: "#1976d2",
+                background: "#e3f2fd",
+                padding: "6px 10px",
+                borderRadius: 6,
+              }}
+            >
+              📄 Prestação de contas registrada em{" "}
+              {formatDateTime(teto.data_prestacao_contas)}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -483,22 +536,26 @@ export default function TetoModal({
                   </button>
                 )}
 
-                <button
-                  onClick={handlePrestarContas}
-                  disabled={loading || baixandoXls}
-                  style={{
-                    fontSize: 12,
-                    borderRadius: 8,
-                    padding: "5px 10px",
-                    border: "solid 1px #46af0a",
-                    color: "#46af0a",
-                    background: "transparent",
-                    cursor: baixandoXls ? "wait" : "pointer",
-                    opacity: baixandoXls ? 0.6 : 1,
-                  }}
-                >
-                  {baixandoXls ? "Gerando..." : "Prestar Contas"}
-                </button>
+                {!teto?.data_prestacao_contas && (
+                  <button
+                    onClick={handlePrestarContasFinal}
+                    disabled={loading || prestandoContas}
+                    style={{
+                      fontSize: 12,
+                      borderRadius: 8,
+                      padding: "5px 10px",
+                      border: "solid 1px #1976d2",
+                      color: "#1976d2",
+                      background: "transparent",
+                      cursor: prestandoContas ? "wait" : "pointer",
+                      opacity: prestandoContas ? 0.6 : 1,
+                    }}
+                  >
+                    {prestandoContas
+                      ? "Registrando..."
+                      : "📄 Registrar Prestação de Contas"}
+                  </button>
+                )}
               </>
             )}
           </div>

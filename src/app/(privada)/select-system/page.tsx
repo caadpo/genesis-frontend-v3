@@ -58,6 +58,7 @@ type EventoPago = {
   total_policiais: number;
   valor_total_evento: number;
   createdAt: string;
+  data_prestacao_contas?: string | null;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -103,6 +104,17 @@ function extrairDataPagamento(pagamento: string): string {
   const match = pagamento.match(/(\d{2}\/\d{2}\/\d{4}),?\s*(\d{2}:\d{2})/);
   if (match) return `${match[1]} ${match[2]}`;
   return "Pago";
+}
+
+function formatarPrestacaoContas(dateStr?: string | null): string | null {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  const dia = String(date.getUTCDate()).padStart(2, "0");
+  const mes = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const ano = date.getUTCFullYear();
+  const hora = String(date.getUTCHours()).padStart(2, "0");
+  const min = String(date.getUTCMinutes()).padStart(2, "0");
+  return `Prestação de contas registrada em ${dia}/${mes}/${ano} às ${hora}:${min}`;
 }
 
 // ─── Sub-componentes ─────────────────────────────────────────────────────────
@@ -299,6 +311,153 @@ export default function SelectSystem() {
       .finally(() => setLoadingPagamentos(false));
   }, []);
 
+  {
+    /* ATENÇÃO AJUSTAR APENAS OS DADOS MOKADOS */
+  }
+
+  const prestacoesMock = [
+    {
+      id: 1,
+      logo: "/logo_dpo.png",
+      nome: "JUL | PJES PMPE",
+      dataHora: "07/08/2026 às 15:30",
+    },
+    {
+      id: 2,
+      logo: "/pe_logo.png",
+      nome: "JUL | PJES PE",
+      dataHora: "07/08/2026 às 15:30",
+    },
+    {
+      id: 3,
+      logo: "/mobi_logo.png",
+      nome: "JUL | PJES CTM(BRT)",
+      dataHora: "07/08/2026 às 15:30",
+    },
+  ];
+
+  function PrestacaoContasList() {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 3,
+          marginBottom: " 20px",
+        }}
+      >
+        {prestacoesMock.map((item) => (
+          <div
+            key={item.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              backgroundColor: "#ffffff",
+              border: "1px solid #e6e8e6",
+              borderRadius: 10,
+              padding: "5px 8px",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+            }}
+          >
+            {/* Logo */}
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                backgroundColor: "#f4f6f4",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                overflow: "hidden",
+              }}
+            >
+              <img
+                src={item.logo}
+                alt={item.nome}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  padding: 4,
+                }}
+              />
+            </div>
+
+            {/* Texto */}
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#1a1a1a",
+                }}
+              >
+                {item.nome}
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "#6b7280",
+                }}
+              >
+                Prestação de contas concluída
+              </span>
+            </div>
+
+            {/* Badge de status */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-end",
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "#0c832f",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.3,
+                  marginBottom: 2,
+                }}
+              >
+                ✓ Concluída
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: "#374151",
+                  backgroundColor: "#eef1ee",
+                  borderRadius: 6,
+                  padding: "2px 8px",
+                }}
+              >
+                {item.dataHora}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  {
+    /* ATENÇÃO AJUSTAR APENAS OS DADOS MOKADOS */
+  }
+
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -364,24 +523,7 @@ export default function SelectSystem() {
           <span className="tituloProximas">Em destaque</span>
         </div>
 
-        <div
-          style={{
-            color: "#0c832f",
-            fontSize: 12,
-            backgroundColor: "#cff1d47a",
-            borderRadius: "6px",
-            padding: "12px",
-            marginTop: "5px",
-            marginBottom: "10px",
-          }}
-        >
-          <FaInfo style={{ marginRight: 6 }} />
-          <span>
-            Altere sua senha inicial, atualize seu telefone e altere sua foto
-            para evitar o bloqueio do seu perfil. Se você já fez, desconsidere
-            este aviso.
-          </span>
-        </div>
+        <PrestacaoContasList />
       </div>
 
       {/* ── Minhas Escalas ───────────────────────────────────────────────── */}
@@ -480,6 +622,10 @@ export default function SelectSystem() {
 
             {eventosPagos.map((ev) => {
               const isPjes = ev.sistema === "PJES";
+              const prestacaoTexto = formatarPrestacaoContas(
+                ev.data_prestacao_contas,
+              );
+
               return (
                 <div
                   key={`${ev.sistema}-${ev.eventoId}`}
@@ -499,11 +645,31 @@ export default function SelectSystem() {
                           <span className="pay-title">{ev.nome_ome}</span>
                         )}
                         <span className="pay-sub">
-                          {ev.sistema} | {ev.nome_evento}
+                          {ev.sistema} |{" "}
+                          {isPjes ? ev.nome_verba : ev.nome_evento}
                         </span>
+                        {prestacaoTexto && (
+                          <span
+                            className="pay-sub"
+                            style={{ color: "#1976d2", fontSize: 11 }}
+                          >
+                            {prestacaoTexto}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="pay-right">
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          display: "block",
+                          textAlign: "right",
+                          marginBottom: 2,
+                        }}
+                      >
+                        PAGO em
+                      </span>
                       <span className="pay-badge">
                         {new Date(ev.createdAt).toLocaleDateString("pt-BR")}
                       </span>
