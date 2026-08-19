@@ -61,6 +61,16 @@ type EventoPago = {
   data_prestacao_contas?: string | null;
 };
 
+// tipo pra resposta
+type UsuarioEspecial = {
+  mat: string;
+  id: number;
+  imagemUrl?: string;
+  pg: string;
+  nomeGuerra: string;
+  ome?: { id: number; nomeOme: string };
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function proximasEscalas(escalas: Escala[]): Escala[] {
@@ -114,7 +124,7 @@ function formatarPrestacaoContas(dateStr?: string | null): string | null {
   const ano = date.getUTCFullYear();
   const hora = String(date.getUTCHours()).padStart(2, "0");
   const min = String(date.getUTCMinutes()).padStart(2, "0");
-  return `Prestação de contas registrada em ${dia}/${mes}/${ano} às ${hora}:${min}`;
+  return `Prestação de Contas concluida em ${dia}/${mes}/${ano}`;
 }
 
 // ─── Sub-componentes ─────────────────────────────────────────────────────────
@@ -278,6 +288,12 @@ export default function SelectSystem() {
   const [eventosPagos, setEventosPagos] = useState<EventoPago[]>([]);
   const [loadingPagamentos, setLoadingPagamentos] = useState(true);
 
+  // state
+  const [usuariosEspeciais, setUsuariosEspeciais] = useState<UsuarioEspecial[]>(
+    [],
+  );
+  const [loadingEspeciais, setLoadingEspeciais] = useState(true);
+
   // ─── Derivados ─────────────────────────────────────────────────────────
 
   const typeUser = user?.typeUser;
@@ -301,6 +317,15 @@ export default function SelectSystem() {
       }
     }
     fetchEscalas();
+  }, []);
+
+  // Lista dos Auxiliares (Usuarios Especiais)
+  useEffect(() => {
+    fetch("/api/user/especiais?limit=4", { cache: "no-store" })
+      .then((r) => r.json())
+      .then(setUsuariosEspeciais)
+      .catch(() => setUsuariosEspeciais([]))
+      .finally(() => setLoadingEspeciais(false));
   }, []);
 
   useEffect(() => {
@@ -458,6 +483,48 @@ export default function SelectSystem() {
     /* ATENÇÃO AJUSTAR APENAS OS DADOS MOKADOS */
   }
 
+  // ─── Novo sub-componente (avatar com fallback) ────────────────────────────
+
+  function AvatarEspecial({ mat, nome }: { mat?: string; nome: string }) {
+    const [imgError, setImgError] = useState(false);
+
+    const boxStyle: React.CSSProperties = {
+      width: "48px",
+      height: "48px",
+      borderRadius: "10px",
+      overflow: "hidden",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "#eef1ee",
+      flexShrink: 0,
+    };
+
+    if (!mat || imgError) {
+      return (
+        <div style={boxStyle} title={nome}>
+          <FaUser size={20} color="#8a8f8a" />
+        </div>
+      );
+    }
+
+    return (
+      <div style={boxStyle}>
+        <img
+          src={`/avatares/${mat}.jpg`}
+          alt={nome}
+          title={nome}
+          onError={() => setImgError(true)}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      </div>
+    );
+  }
+
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -580,7 +647,86 @@ export default function SelectSystem() {
         </div>
       </div>
 
-      {/* ── Últimos Pagamentos ───────────────────────────────────────────── */}
+      {/* ── Inicio Usuarios Especiais ───────────────────────────────────────────── */}
+      <div style={{ width: "100%" }}>
+        <div className="header-escalas">
+          <div className="titulo">
+            <span style={{ fontSize: 14 }}>AUXILIARES</span>
+            {usuariosEspeciais.length > 0 && (
+              <div className="badge">{usuariosEspeciais.length}</div>
+            )}
+          </div>
+          <div
+            onClick={() => router.push("/auxiliares")}
+            className="verTodas-badge"
+          >
+            Ver todos
+          </div>
+        </div>
+
+        {loadingEspeciais && (
+          <p style={{ color: "#888", fontSize: 12 }}>Carregando...</p>
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            gap: "6px",
+            marginBottom: "10px",
+          }}
+        >
+          {usuariosEspeciais.map((u) => (
+            <div
+              key={u.id}
+              style={{
+                border: "solid 1px #eee9e9",
+                borderRadius: "5px",
+                padding: "8px 4px",
+                flex: "1 1 0",
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                textAlign: "center",
+                backgroundColor: "#faf7f7",
+              }}
+            >
+              <AvatarEspecial mat={u.mat} nome={u.nomeGuerra} />
+
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "#1a1a1a",
+                  marginTop: 6,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  width: "100%",
+                }}
+              >
+                {u.pg} {u.nomeGuerra}
+              </div>
+              <div
+                style={{
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: "#1a1a1a",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  width: "100%",
+                }}
+              >
+                {u.ome?.nomeOme}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* ── Fim Usuarios Especiais ───────────────────────────────────────────── */}
+
+      {/* ── Inicio Últimos Pagamentos ───────────────────────────────────────────── */}
       <div
         style={{
           width: "100%",
@@ -659,20 +805,20 @@ export default function SelectSystem() {
                       </div>
                     </div>
                     <div className="pay-right">
-                      <span
+                      <div
                         style={{
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: 600,
-                          display: "block",
-                          textAlign: "right",
+                          textAlign: "left",
                           marginBottom: 2,
+                          color: "#8e9092",
                         }}
                       >
-                        PAGO em
-                      </span>
-                      <span className="pay-badge">
+                        Pago em
+                      </div>
+                      <div className="pay-badge">
                         {new Date(ev.createdAt).toLocaleDateString("pt-BR")}
-                      </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -681,6 +827,7 @@ export default function SelectSystem() {
           </div>
         </div>
       </div>
+      {/* ── Fim Últimos Pagamentos ───────────────────────────────────────────── */}
     </div>
   );
 }

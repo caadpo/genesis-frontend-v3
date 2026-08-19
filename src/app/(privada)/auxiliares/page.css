@@ -1,0 +1,210 @@
+.usr-container {
+  padding: 16px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.usr-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.usr-voltar {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: #333;
+}
+
+.usr-titulo {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+/* ── Busca ────────────────────────────────────────────────── */
+
+.usr-busca-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.usr-busca-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+}
+
+.usr-busca-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px 10px 34px;
+  border: 1px solid #e2e2e2;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  background-color: #fff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.usr-busca-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.usr-busca-input::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.usr-loading,
+.usr-vazio {
+  color: #888;
+  font-size: 13px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* ── Lista / Card ─────────────────────────────────────────── */
+
+.usr-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.usr-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #ececec;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.usr-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+}
+
+.usr-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.usr-avatar-fallback {
+  color: #9ca3af;
+  background-color: #eef1ee;
+}
+
+.usr-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.usr-nome {
+  font-size: 14px;
+  font-weight: 700;
+  color: #b91c1c;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usr-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.usr-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.usr-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.usr-status.ativo {
+  color: #0c832f;
+}
+
+.usr-status.inativo {
+  color: #9ca3af;
+}
+
+.usr-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
+/* ── Responsivo ───────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .usr-container {
+    padding: 12px;
+  }
+
+  .usr-card {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+
+  .usr-avatar {
+    width: 42px;
+    height: 42px;
+  }
+
+  .usr-nome {
+    font-size: 13px;
+  }
+
+  .usr-meta {
+    gap: 6px 8px;
+    font-size: 10px;
+  }
+
+  .usr-status-label {
+    display: none;
+  }
+
+  .usr-status-dot {
+    width: 10px;
+    height: 10px;
+  }
+}

@@ -7,7 +7,6 @@ import {
   FiMenu,
   FiHome,
   FiUsers,
-  FiLogOut,
   FiUser,
   FiLayers,
   FiGrid,
@@ -15,6 +14,8 @@ import {
   FiDollarSign,
 } from "react-icons/fi";
 import { FaUniversity } from "react-icons/fa";
+
+import { useRepassesDisponiveisCount } from "@/src/hooks/useRepassesDisponiveisCount";
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
@@ -37,6 +38,9 @@ export default function Sidebar() {
       window.removeEventListener("perfilDrawerClosed", onClose);
     };
   }, []);
+
+  // dentro do componente Sidebar:
+  const repassesDisponiveisCount = useRepassesDisponiveisCount();
 
   return (
     <aside className={`sidebar ${open ? "open" : ""}`}>
@@ -91,7 +95,16 @@ export default function Sidebar() {
           href="/repasses"
           className={`icon-btn ${isActive("/repasses") ? "active" : ""}`}
         >
-          <FiRefreshCcw />
+          <div className="icon-wrapper">
+            <FiRefreshCcw />
+            {repassesDisponiveisCount > 0 && (
+              <span className="icon-badge">
+                {repassesDisponiveisCount > 99
+                  ? "99+"
+                  : repassesDisponiveisCount}
+              </span>
+            )}
+          </div>
           {open && <span>Repasse</span>}
         </Link>
       </div>

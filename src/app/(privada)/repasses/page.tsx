@@ -403,6 +403,9 @@ export default function RepassesPage() {
       toast.success("Serviço aceito com sucesso!");
       setRepasseSelecionado(null);
       buscarRepasses();
+
+      // 🔥 avisa o Sidebar (e qualquer outro ouvinte) pra atualizar o badge na hora
+      window.dispatchEvent(new Event("repassesAtualizados"));
     } catch (e: any) {
       toast.error(e.message);
       setRepasseSelecionado(null);

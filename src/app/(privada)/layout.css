@@ -117,6 +117,30 @@
   padding: 10px;
 }
 
+.icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background-color: #0fa027;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+}
+
 /* BOTÕES */
 .icon-btn {
   display: flex;
@@ -207,7 +231,7 @@
     font-size: 30px;
   }
 
-  .icon-btn span {
+  .icon-btn > span {
     display: none;
   }
 }
