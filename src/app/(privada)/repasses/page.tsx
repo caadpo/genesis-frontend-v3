@@ -29,6 +29,7 @@ type Repasse = {
   nome_operacao?: string;
   funcao?: string;
   localApresentacao?: string;
+  anotacoes?: string | null;
   ofertante_img?: string;
   ofertante_pg?: string;
   ofertante_nome_guerra?: string;
@@ -145,6 +146,12 @@ function ModalConfirmacao({
           <p className="modalMotivo">Motivo do repasse: {repasse.motivo}</p>
         )}
 
+        {repasse.anotacoes && (
+          <p className="modalMotivo">
+            Anotações da escala: {repasse.anotacoes}
+          </p>
+        )}
+
         <div className="modalBotoes">
           <button
             className="btnCancelRepasse"
@@ -249,6 +256,16 @@ function CardRepasse({
                         {repasse.localApresentacao}
                       </span>
                     </div>
+                    {repasse.anotacoes && (
+                      <div style={{ display: "flex" }}>
+                        <div style={{ paddingRight: "3px" }}>
+                          <FaInfo size={12} color="gray" />
+                        </div>
+                        <span className="repasse-sub">
+                          Obs: {repasse.anotacoes}
+                        </span>
+                      </div>
+                    )}
                     <div style={{ display: "flex" }}>
                       <div style={{ paddingRight: "3px" }}>
                         <FaInfo size={12} color="gray" />
