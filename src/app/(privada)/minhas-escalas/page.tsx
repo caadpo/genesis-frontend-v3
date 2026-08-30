@@ -11,6 +11,7 @@ import {
   FaBan,
   FaUser,
   FaExclamationTriangle,
+  FaInfo,
 } from "react-icons/fa";
 import { FiGrid, FiLayers } from "react-icons/fi";
 
@@ -74,6 +75,14 @@ type Repasse = {
   motivo?: string | null;
 };
 
+// ✅ NOVO — usuário retornado pelo autocomplete de destinatário
+type UsuarioBusca = {
+  mat: string;
+  nomeGuerra: string;
+  pg: string;
+  imagemUrl: string | null;
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const MESES = [
@@ -121,6 +130,14 @@ export default function MinhasEscalasPage() {
   const [loadingCancelar, setLoadingCancelar] = useState(false);
   const [modalRepasse, setModalRepasse] = useState(false);
 
+  // ✅ NOVO — estados do autocomplete de destinatário
+  const [matDestinatario, setMatDestinatario] = useState("");
+  const [destinatarioSelecionado, setDestinatarioSelecionado] =
+    useState<UsuarioBusca | null>(null);
+  const [sugestoes, setSugestoes] = useState<UsuarioBusca[]>([]);
+  const [buscandoSugestoes, setBuscandoSugestoes] = useState(false);
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+
   const [colegas, setColegas] = useState<Record<number, Escala[]>>({});
   const [loadingColegas, setLoadingColegas] = useState<Record<number, boolean>>(
     {},
@@ -128,6 +145,52 @@ export default function MinhasEscalasPage() {
 
   const { data: escalas, loading } = useApi<Escala[]>("/api/escala/minhas", []);
   const [meusRepasses, setMeusRepasses] = useState<Repasse[] | null>(null);
+
+  // ✅ NOVO — impede envio com matrícula digitada mas não confirmada na lista
+  const destinatarioAmbiguo =
+    matDestinatario.trim().length > 0 && !destinatarioSelecionado;
+
+  // ✅ NOVO — busca com debounce enquanto o usuário digita a matrícula
+  useEffect(() => {
+    if (destinatarioSelecionado) return;
+
+    const termo = matDestinatario.trim();
+    if (termo.length < 6) {
+      setSugestoes([]);
+      return;
+    }
+
+    setBuscandoSugestoes(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/repasse/buscar-usuario?q=${encodeURIComponent(termo)}`,
+        );
+        const data: UsuarioBusca[] = await res.json();
+        setSugestoes(data);
+        setMostrarSugestoes(true);
+      } catch {
+        setSugestoes([]);
+      } finally {
+        setBuscandoSugestoes(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [matDestinatario, destinatarioSelecionado]);
+
+  function selecionarDestinatario(usuario: UsuarioBusca) {
+    setDestinatarioSelecionado(usuario);
+    setMatDestinatario(usuario.mat);
+    setSugestoes([]);
+    setMostrarSugestoes(false);
+  }
+
+  function limparDestinatario() {
+    setDestinatarioSelecionado(null);
+    setMatDestinatario("");
+    setSugestoes([]);
+  }
 
   // ─── Resumo financeiro ───────────────────────────────────────────────────────
   const mesStr = String(mesAtual + 1).padStart(2, "0");
@@ -160,9 +223,6 @@ export default function MinhasEscalasPage() {
 
     const totalCotas = lista.reduce((acc, e) => acc + e.cota_escala, 0);
 
-    // ✅ soma o valor individual de CADA escala (já calculado no backend
-    // conforme o tipo_escala/sistema daquela escala específica), em vez de
-    // reaproveitar o somaCotaFinal (agregado por teto) de apenas um item.
     const somaCotaFinal = lista.reduce(
       (acc, e) => acc + (e.valorIndividual ?? 0),
       0,
@@ -177,7 +237,6 @@ export default function MinhasEscalasPage() {
         ? "Parcialmente pago"
         : lista[0].pagamento;
 
-    // ✅ mesma lógica: soma o valor individual só das escalas já pagas
     const somaCotaFinalPago = lista
       .filter((e) => isPago(e.pagamento))
       .reduce((acc, e) => acc + (e.valorIndividual ?? 0), 0);
@@ -217,14 +276,12 @@ export default function MinhasEscalasPage() {
     return new Date(dataHora) <= new Date();
   }
 
-  // ─── Mapa de datas com escalas ───────────────────────────────────────────────
   const escalaPorData = new Map<string, Escala[]>();
   escalas?.forEach((e) => {
     if (!escalaPorData.has(e.dataInicio)) escalaPorData.set(e.dataInicio, []);
     escalaPorData.get(e.dataInicio)!.push(e);
   });
 
-  // ─── Navegação do calendário ─────────────────────────────────────────────────
   function irParaMesAnterior() {
     setMesAtual((m) => (m === 0 ? 11 : m - 1));
     if (mesAtual === 0) setAnoAtual((a) => a - 1);
@@ -237,7 +294,6 @@ export default function MinhasEscalasPage() {
     setEscalasDoDiaSelecionado([]);
   }
 
-  // ─── Grade do calendário ─────────────────────────────────────────────────────
   const primeiroDia = new Date(anoAtual, mesAtual, 1).getDay();
   const totalDias = new Date(anoAtual, mesAtual + 1, 0).getDate();
   const celulas = Array.from({ length: primeiroDia + totalDias }, (_, i) =>
@@ -254,8 +310,8 @@ export default function MinhasEscalasPage() {
       setLoadingColegas((prev) => ({ ...prev, [escala.id]: true }));
       try {
         const res = await fetch(`/api/escala?operacaoId=${escala.operacaoId}`);
-        const data = await res.json(); // ← recebe o objeto
-        const todas: Escala[] = data.escalas ?? data; // ← extrai o array
+        const data = await res.json();
+        const todas: Escala[] = data.escalas ?? data;
 
         const mesmoGrupo = todas.filter(
           (e) =>
@@ -283,6 +339,14 @@ export default function MinhasEscalasPage() {
       return;
     }
 
+    // ✅ NOVO — impede envio com matrícula digitada mas não confirmada
+    if (matDestinatario.trim().length > 0 && !destinatarioSelecionado) {
+      toast.error(
+        "Selecione um usuário da lista ou limpe o campo para repasse aberto",
+      );
+      return;
+    }
+
     setLoadingRepasse(true);
     try {
       const response = await fetch("/api/repasse", {
@@ -291,6 +355,7 @@ export default function MinhasEscalasPage() {
         body: JSON.stringify({
           escalaId: escalaSelecionadaParaRepasse.id,
           motivo: motivo.trim(),
+          matDestinatario: destinatarioSelecionado?.mat || undefined,
         }),
       });
 
@@ -306,6 +371,7 @@ export default function MinhasEscalasPage() {
       toast.success("Repasse solicitado com sucesso!");
       setModalRepasse(false);
       setMotivo("");
+      limparDestinatario();
       recarregarRepasses();
     } catch (error: any) {
       toast.error(error?.message || "Não foi possível solicitar o repasse");
@@ -598,7 +664,6 @@ export default function MinhasEscalasPage() {
                   </div>
                 )}
 
-                {/* Equipe de serviço */}
                 {(carregandoColegas || colegasEscala.length > 0) && (
                   <div
                     style={{
@@ -632,7 +697,6 @@ export default function MinhasEscalasPage() {
                               marginBottom: "6px",
                             }}
                           >
-                            {/* ✅ nome vem de dadosSgp.nomeGuerraSgp */}
                             <AvatarColega
                               mat={c.mat_escala ?? c.mat_escala}
                               nome={c.ng_escala ?? c.ng_escala}
@@ -685,7 +749,6 @@ export default function MinhasEscalasPage() {
         MINHAS ESCALAS
       </h1>
 
-      {/* ─── Cabeçalho do calendário ─── */}
       <div
         style={{
           display: "flex",
@@ -711,7 +774,6 @@ export default function MinhasEscalasPage() {
         </button>
       </div>
 
-      {/* ─── Dias da semana ─── */}
       <div
         style={{
           display: "grid",
@@ -728,7 +790,6 @@ export default function MinhasEscalasPage() {
         ))}
       </div>
 
-      {/* ─── Grade do calendário ─── */}
       {loading ? (
         <div style={{ textAlign: "center", padding: "40px", color: "#888" }}>
           Carregando escalas...
@@ -830,12 +891,10 @@ export default function MinhasEscalasPage() {
         </div>
       )}
 
-      {/* Cards do dia selecionado */}
       {escalasDoDiaSelecionado.map((escala) => (
         <CardEscala key={escala.id} escala={escala} />
       ))}
 
-      {/* ─── Resumo financeiro ─── */}
       <div
         style={{
           width: "100%",
@@ -873,7 +932,6 @@ export default function MinhasEscalasPage() {
           </span>
         </div>
 
-        {/* PJES */}
         <div
           style={{
             display: "flex",
@@ -971,7 +1029,6 @@ export default function MinhasEscalasPage() {
           </div>
         </div>
 
-        {/* DIÁRIAS */}
         <div style={{ display: "flex", gap: "14px" }}>
           <div
             style={{
@@ -1072,110 +1129,472 @@ export default function MinhasEscalasPage() {
       {/* ─── Modal de repasse ─── */}
       {modalRepasse && escalaSelecionadaParaRepasse && (
         <div
+          onClick={() => {
+            setModalRepasse(false);
+            setMotivo("");
+            limparDestinatario();
+            setEscalaSelecionadaParaRepasse(null);
+          }}
           style={{
             position: "fixed",
             inset: 0,
-            backgroundColor: "rgba(0,0,0,0.4)",
+            backgroundColor: "rgba(15, 23, 42, 0.5)",
+            backdropFilter: "blur(2px)",
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-end",
             justifyContent: "center",
-            zIndex: 50,
+            zIndex: 60,
+            paddingBottom: "var(--bottom-nav-height, 40px)", // ✅ NOVO
           }}
         >
+          <style>{`
+      @keyframes slideUpSheet {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+      }
+      .repasseModalInput {
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+      .repasseModalInput:focus {
+        outline: none;
+        border-color: #f97316 !important;
+        box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+      }
+      .repasseBtnConfirmar:not(:disabled):hover {
+        background-color: #ea6c0c !important;
+      }
+      .repasseBtnCancelar:hover {
+        background-color: #f9fafb !important;
+      }
+      .repasseSugestaoItem:hover {
+        background-color: #f8fafc !important;
+      }
+    `}</style>
+
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: "#fff",
-              borderRadius: "10px",
-              padding: "24px",
-              width: "360px",
-              boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
+              borderRadius: "20px 20px 0 0",
+              width: "100%",
+              maxWidth: "480px",
+              height: "68vh",
+              maxHeight: "calc(100vh - var(--bottom-nav-height, 64px) - 16px)",
+              boxShadow: "0 -12px 40px rgba(0,0,0,0.18)",
+              animation: "slideUpSheet 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
             }}
           >
-            <h2
+            {/* ─── Alça de puxar ─── */}
+            <div
               style={{
-                fontSize: "14px",
-                fontWeight: "bold",
-                marginBottom: "12px",
+                width: "40px",
+                height: "4px",
+                borderRadius: "2px",
+                backgroundColor: "#d1d5db",
+                margin: "10px auto 0 auto",
+                flexShrink: 0,
               }}
-            >
-              Solicitar Repasse
-            </h2>
-            <p
-              style={{
-                fontSize: "12px",
-                color: "#6b7280",
-                marginBottom: "4px",
-              }}
-            >
-              <strong>{escalaSelecionadaParaRepasse.nomeEvento}</strong>
-            </p>
-            <p
-              style={{
-                fontSize: "12px",
-                color: "#6b7280",
-                marginBottom: "12px",
-              }}
-            >
-              {escalaSelecionadaParaRepasse.nomeOperacao} —{" "}
-              {formatarData(escalaSelecionadaParaRepasse.dataInicio)} |{" "}
-              {escalaSelecionadaParaRepasse.funcao}
-            </p>
-            <label style={{ fontSize: "12px", fontWeight: "bold" }}>
-              Motivo *
-            </label>
-            <textarea
-              style={{
-                width: "100%",
-                marginTop: "6px",
-                marginBottom: "16px",
-                padding: "8px",
-                fontSize: "12px",
-                borderRadius: "6px",
-                border: "1px solid #d1d5db",
-                resize: "none",
-                height: "80px",
-              }}
-              placeholder="Ex: Emergência médica com familiar"
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
             />
+
+            {/* ─── Conteúdo com scroll ─── */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: "16px 20px 0 20px",
+              }}
+            >
+              {/* Header */}
+              <div style={{ marginBottom: "16px" }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    marginBottom: "8px",
+                  }}
+                >
+                  REPASSE SUPERVISIONADO PELA DIRETORIA/OME
+                </span>
+
+                {/* Card de resumo do serviço */}
+                <div
+                  style={{
+                    backgroundColor: "#f8fafc",
+                    border: "1px solid #eef2f7",
+                    borderRadius: "12px",
+                    padding: "12px 14px",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      color: "#111827",
+                      margin: 0,
+                      marginBottom: "3px",
+                    }}
+                  >
+                    {escalaSelecionadaParaRepasse.nomeEvento}
+                  </p>
+                  <p
+                    style={{ fontSize: "11.5px", color: "#6b7280", margin: 0 }}
+                  >
+                    {escalaSelecionadaParaRepasse.nomeOperacao} —{" "}
+                    {formatarData(escalaSelecionadaParaRepasse.dataInicio)} |{" "}
+                    {escalaSelecionadaParaRepasse.funcao}
+                  </p>
+                  {escalaSelecionadaParaRepasse.anotacoes && (
+                    <p
+                      style={{
+                        fontSize: "11px",
+                        color: "#9ca3af",
+                        fontStyle: "italic",
+                        margin: 0,
+                        marginTop: "4px",
+                      }}
+                    >
+                      {escalaSelecionadaParaRepasse.anotacoes}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Motivo */}
+              <label
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "#374151",
+                  display: "block",
+                  marginBottom: "6px",
+                }}
+              >
+                Motivo do repasse *
+              </label>
+              <textarea
+                className="repasseModalInput"
+                style={{
+                  width: "100%",
+                  marginBottom: "18px",
+                  padding: "10px 12px",
+                  fontSize: "12.5px",
+                  borderRadius: "10px",
+                  border: "1px solid #e2e8f0",
+                  resize: "none",
+                  height: "56px",
+                  fontFamily: "inherit",
+                  color: "#111827",
+                }}
+                placeholder="Ex: Emergência médica com familiar"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+              />
+
+              {/* Destinatário */}
+              <label
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "#374151",
+                  display: "block",
+                  marginBottom: "6px",
+                }}
+              >
+                Deseja escolher alguém?{" "}
+                <span style={{ fontWeight: 400, color: "#9ca3af" }}>
+                  (opcional)
+                </span>
+              </label>
+
+              {destinatarioSelecionado ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "6px 8px 6px 6px",
+                    marginBottom: "10px",
+                    borderRadius: "999px",
+                    border: "1px solid #bfdbfe",
+                    backgroundColor: "#eff6ff",
+                    width: "fit-content",
+                  }}
+                >
+                  {destinatarioSelecionado.imagemUrl ? (
+                    <img
+                      src={destinatarioSelecionado.imagemUrl}
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: "50%",
+                        backgroundColor: "#dbeafe",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <FaUser size={12} color="#1d4ed8" />
+                    </div>
+                  )}
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "#1e3a8a",
+                    }}
+                  >
+                    {destinatarioSelecionado.pg} {destinatarioSelecionado.mat}{" "}
+                    {destinatarioSelecionado.nomeGuerra}
+                  </span>
+                  <button
+                    onClick={limparDestinatario}
+                    style={{
+                      border: "none",
+                      background: "#dbeafe",
+                      width: "18px",
+                      height: "18px",
+                      borderRadius: "50%",
+                      cursor: "pointer",
+                      color: "#1e3a8a",
+                      fontWeight: "bold",
+                      fontSize: "12px",
+                      lineHeight: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                    }}
+                    aria-label="Remover destinatário"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <div style={{ position: "relative", marginBottom: "10px" }}>
+                  <input
+                    className="repasseModalInput"
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      fontSize: "12.5px",
+                      borderRadius: "10px",
+                      border: "1px solid #e2e8f0",
+                      color: "#111827",
+                    }}
+                    placeholder="Digite a matrícula do destinatário"
+                    value={matDestinatario}
+                    onChange={(e) => setMatDestinatario(e.target.value)}
+                    onFocus={() =>
+                      sugestoes.length > 0 && setMostrarSugestoes(true)
+                    }
+                    onBlur={() =>
+                      setTimeout(() => setMostrarSugestoes(false), 150)
+                    }
+                  />
+
+                  {mostrarSugestoes &&
+                    (buscandoSugestoes || sugestoes.length > 0) && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          zIndex: 60,
+                          backgroundColor: "#fff",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "10px",
+                          marginTop: "6px",
+                          maxHeight: "180px",
+                          overflowY: "auto",
+                          boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        {buscandoSugestoes ? (
+                          <div
+                            style={{
+                              padding: "10px",
+                              fontSize: "11px",
+                              color: "#9ca3af",
+                            }}
+                          >
+                            Buscando...
+                          </div>
+                        ) : (
+                          sugestoes.map((u) => (
+                            <div
+                              key={u.mat}
+                              className="repasseSugestaoItem"
+                              onClick={() => selecionarDestinatario(u)}
+                              onMouseDown={(e) => e.preventDefault()}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                padding: "8px 10px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                borderBottom: "1px solid #f1f5f9",
+                              }}
+                            >
+                              {u.imagemUrl ? (
+                                <img
+                                  src={u.imagemUrl}
+                                  style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: "50%",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: "50%",
+                                    backgroundColor: "#f1f5f9",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  <FaUser size={11} color="#94a3b8" />
+                                </div>
+                              )}
+                              <span style={{ color: "#111827" }}>
+                                {u.pg} {u.mat} {u.nomeGuerra}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                </div>
+              )}
+
+              {destinatarioAmbiguo &&
+                !mostrarSugestoes &&
+                !buscandoSugestoes && (
+                  <p
+                    style={{
+                      fontSize: "11px",
+                      color: "#dc2626",
+                      marginTop: "-4px",
+                      marginBottom: "10px",
+                    }}
+                  >
+                    Selecione um usuário da lista de sugestões ou limpe o campo.
+                  </p>
+                )}
+
+              {/* Avisos */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  padding: "12px 14px",
+                  marginBottom: "16px",
+                  borderRadius: "12px",
+                  backgroundColor: "#fffbeb",
+                  border: "1px solid #fde68a",
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: "11px",
+                    color: "#92400e",
+                    margin: 0,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  <strong>⚠ Prazo:</strong> o destinatário deve aceitar o
+                  repasse até a data do serviço.
+                </p>
+                <p
+                  style={{
+                    fontSize: "11px",
+                    color: "#92400e",
+                    margin: 0,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  <strong>⚠ Formalização:</strong> deve ser enviado documento à
+                  seção da OME responsável. O descumprimento poderá ocasionar o
+                  cancelamento do repasse.
+                </p>
+              </div>
+            </div>
+
+            {/* ─── Rodapé fixo com os botões ─── */}
             <div
               style={{
                 display: "flex",
-                gap: "8px",
-                justifyContent: "flex-end",
+                gap: "10px",
+                padding: "14px 20px",
+                paddingBottom: "calc(14px + env(safe-area-inset-bottom, 0px))", // ✅ NOVO
+                borderTop: "1px solid #f1f5f9",
+                backgroundColor: "#fff",
+                flexShrink: 0,
               }}
             >
               <button
+                className="repasseBtnCancelar"
                 onClick={() => {
                   setModalRepasse(false);
                   setMotivo("");
+                  limparDestinatario();
                   setEscalaSelecionadaParaRepasse(null);
                 }}
                 style={{
-                  padding: "7px 14px",
-                  fontSize: "12px",
-                  borderRadius: "6px",
-                  border: "1px solid #d1d5db",
+                  flex: 1,
+                  padding: "10px 14px",
+                  fontSize: "12.5px",
+                  fontWeight: 600,
+                  borderRadius: "10px",
+                  border: "1px solid #e2e8f0",
                   cursor: "pointer",
                   backgroundColor: "#fff",
+                  color: "#374151",
+                  transition: "background-color 0.15s ease",
                 }}
               >
                 Cancelar
               </button>
               <button
+                className="repasseBtnConfirmar"
                 onClick={handleRepasse}
-                disabled={loadingRepasse}
+                disabled={loadingRepasse || destinatarioAmbiguo}
                 style={{
-                  padding: "7px 14px",
-                  fontSize: "12px",
-                  borderRadius: "6px",
+                  flex: 1.4,
+                  padding: "10px 14px",
+                  fontSize: "12.5px",
+                  borderRadius: "10px",
                   border: "none",
-                  cursor: loadingRepasse ? "not-allowed" : "pointer",
+                  cursor:
+                    loadingRepasse || destinatarioAmbiguo
+                      ? "not-allowed"
+                      : "pointer",
                   backgroundColor: "#f97316",
                   color: "#fff",
-                  fontWeight: "bold",
-                  opacity: loadingRepasse ? 0.6 : 1,
+                  fontWeight: 700,
+                  opacity: loadingRepasse || destinatarioAmbiguo ? 0.5 : 1,
+                  transition: "background-color 0.15s ease",
                 }}
               >
                 {loadingRepasse ? "Enviando..." : "Confirmar Repasse"}

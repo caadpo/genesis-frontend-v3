@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { FaUser, FaMapMarkerAlt, FaInfo, FaUniversity } from "react-icons/fa";
+import {
+  FaUser,
+  FaMapMarkerAlt,
+  FaInfo,
+  FaUniversity,
+  FaHandshake,
+} from "react-icons/fa";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FiGrid, FiLayers } from "react-icons/fi";
 import toast from "react-hot-toast";
@@ -13,6 +19,7 @@ type Repasse = {
   escalaId: number;
   ofertanteId: number;
   receptorId: number | null;
+  destinatarioId?: number | null;
   statusRepasse: "ABERTO" | "ACEITO" | "CANCELADO";
   sistemaRepasse: string;
   tipoEscalaRepasse: string;
@@ -20,6 +27,7 @@ type Repasse = {
   horaInicioRepasse: string;
   horaFimRepasse: string;
   matOfertante: string;
+  matDestinatario?: string | null;
   motivo: string | null;
   createdAt: string;
   updatedAt: string;
@@ -106,6 +114,37 @@ function BadgeStatus({
       }}
     >
       {config.label} em {new Date(updatedAt).toLocaleString("pt-BR")}
+    </span>
+  );
+}
+
+// ─── Badge de Repasse Direcionado ──────────────────────────────────────────────
+
+function BadgeDirecionado({
+  mat,
+  somenteIcone = false,
+}: {
+  mat: string;
+  somenteIcone?: boolean;
+}) {
+  return (
+    <span
+      title={`Repasse direcionado à matrícula ${mat}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: somenteIcone ? "0" : "4px",
+        backgroundColor: "#fbbf24",
+        color: "#78350f",
+        padding: somenteIcone ? "4px" : "4px 8px",
+        borderRadius: "4px",
+        fontSize: "0.7rem",
+        fontWeight: 600,
+        marginLeft: somenteIcone ? "0" : "8px",
+      }}
+    >
+      <FaHandshake size={12} />
+      {!somenteIcone && mat}
     </span>
   );
 }
@@ -198,8 +237,10 @@ function CardRepasse({
           marginBottom: "1px",
         }}
       >
-        CR:{repasse.id} - {formatarData(repasse.dataInicioRepasse)} |{" "}
-        {repasse.nome_ome ? ` ${repasse.nome_ome}` : ""}
+        <span>
+          CR:{repasse.id} - {formatarData(repasse.dataInicioRepasse)} |{" "}
+          {repasse.nome_ome ? ` ${repasse.nome_ome}` : ""}
+        </span>
         <BadgeStatus
           status={repasse.statusRepasse}
           updatedAt={repasse.updatedAt}
@@ -284,22 +325,48 @@ function CardRepasse({
               textAlign: "center",
             }}
           >
+            {/* ─── Repasse direcionado ainda ABERTO: mostra só ícone + mat do destinatário ─── */}
+            {mostrarReceptor &&
+              repasse.statusRepasse === "ABERTO" &&
+              repasse.matDestinatario && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "2px",
+                  }}
+                >
+                  <BadgeDirecionado mat={repasse.matDestinatario} />
+                </div>
+              )}
+
+            {/* ─── Repasse ACEITO: mostra os dados normais do receptor + ícone abaixo ─── */}
             {mostrarReceptor && repasse.receptorId && repasse.receptor_pg && (
               <div>
                 {repasse.receptor_img ? (
                   <img src={repasse.receptor_img} className="user-avatar" />
                 ) : (
-                  <div className="user-avatar user-avatar-icon">
-                    <FaUser className="userReceptorIcon" />
+                  <div>
+                    <FaUser size={18} color="#979797" />
                   </div>
                 )}
 
                 <div style={{ textAlign: "center" }}>
                   <div className="dadosReceptorRepasse">
                     {repasse.receptor_pg && `${repasse.receptor_pg} `}
-                    {repasse.receptor_nome_guerra ?? ""} <br></br>
+                    {repasse.receptor_nome_guerra ?? ""} <br />
                     {repasse.receptor_mat ?? ""}
                   </div>
+
+                  {repasse.matDestinatario && (
+                    <div style={{ marginTop: "4px" }}>
+                      <BadgeDirecionado
+                        mat={repasse.matDestinatario}
+                        somenteIcone
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
