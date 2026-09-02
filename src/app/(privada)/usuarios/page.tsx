@@ -718,14 +718,20 @@ export default function UsuariosPage() {
                         {/* Navegação do mês */}
 
                         {(() => {
-                          const totalNoMes = escalasUsuario.filter((e) => {
-                            const [ano, mes] = e.dataInicio
-                              .split("-")
-                              .map(Number);
-                            return (
-                              ano === mesAtual.ano && mes - 1 === mesAtual.mes
+                          // ✅ ALTERADO — soma cota_escala em vez de contar registros
+                          const totalNoMes = escalasUsuario
+                            .filter((e) => {
+                              const [ano, mes] = e.dataInicio
+                                .split("-")
+                                .map(Number);
+                              return (
+                                ano === mesAtual.ano && mes - 1 === mesAtual.mes
+                              );
+                            })
+                            .reduce(
+                              (soma, e) => soma + (e.cota_escala ?? 0),
+                              0,
                             );
-                          }).length;
 
                           return (
                             <div
