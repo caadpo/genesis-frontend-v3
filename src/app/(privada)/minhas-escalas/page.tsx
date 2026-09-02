@@ -112,6 +112,11 @@ function formatarData(data: string): string {
   return `${dia}/${mes}/${ano}`;
 }
 
+function abreviarNomeEvento(nome?: string): string {
+  if (!nome) return "-";
+  return nome.length > 7 ? `${nome.slice(0, 7)}.` : nome;
+}
+
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function MinhasEscalasPage() {
@@ -200,6 +205,11 @@ export default function MinhasEscalasPage() {
     escalasDoDiaSelecionado.length > 0
       ? escalasDoDiaSelecionado
       : (escalas?.filter((e) => e.dataInicio.startsWith(prefixoMes)) ?? []);
+
+  // ─── Total de cotas do mês exibido no calendário ─────────────────────────────
+  const totalCotasMes = (escalas ?? [])
+    .filter((e) => e.dataInicio.startsWith(prefixoMes))
+    .reduce((soma, e) => soma + (e.cota_escala ?? 0), 0);
 
   const tituloContexto =
     escalasDoDiaSelecionado.length > 0
@@ -746,7 +756,14 @@ export default function MinhasEscalasPage() {
         style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "16px" }}
       >
         <FaCalendarAlt style={{ marginRight: "8px" }} />
-        MINHAS ESCALAS
+        MINHAS ESCALAS |
+        <span style={{ marginLeft: "8px" }}>
+          {totalCotasMes === 0
+            ? "Nenhuma cota"
+            : totalCotasMes === 1
+              ? "1 COTA"
+              : `${totalCotasMes} COTAS`}
+        </span>
       </h1>
 
       <div
@@ -858,6 +875,7 @@ export default function MinhasEscalasPage() {
                 {escalasNoDia.map((e) => (
                   <div
                     key={e.id}
+                    title={e.nomeEvento || "-"} // ✅ mostra o nome completo ao passar o mouse
                     style={{
                       fontSize: "9px",
                       backgroundColor:
@@ -871,7 +889,7 @@ export default function MinhasEscalasPage() {
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {e.sistema} {e.funcao}
+                    {abreviarNomeEvento(e.nomeEvento)}
                   </div>
                 ))}
                 {temRepasseAberto && (
