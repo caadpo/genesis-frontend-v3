@@ -716,65 +716,102 @@ export default function UsuariosPage() {
                     ) : (
                       <>
                         {/* Navegação do mês */}
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            marginTop: 8,
-                          }}
-                        >
-                          <button
-                            onClick={() =>
-                              setMesAtual((prev) => {
-                                const d = new Date(prev.ano, prev.mes - 1);
-                                return {
-                                  mes: d.getMonth(),
-                                  ano: d.getFullYear(),
-                                };
-                              })
-                            }
-                            style={{
-                              background: "none",
-                              border: "none",
-                              cursor: "pointer",
-                              fontSize: 16,
-                              padding: "0 8px",
-                            }}
-                          >
-                            ‹
-                          </button>
 
-                          <span style={{ fontWeight: 600, fontSize: 13 }}>
-                            {new Date(mesAtual.ano, mesAtual.mes)
-                              .toLocaleString("pt-BR", {
-                                month: "long",
-                                year: "numeric",
-                              })
-                              .toUpperCase()}
-                          </span>
+                        {(() => {
+                          const totalNoMes = escalasUsuario.filter((e) => {
+                            const [ano, mes] = e.dataInicio
+                              .split("-")
+                              .map(Number);
+                            return (
+                              ano === mesAtual.ano && mes - 1 === mesAtual.mes
+                            );
+                          }).length;
 
-                          <button
-                            onClick={() =>
-                              setMesAtual((prev) => {
-                                const d = new Date(prev.ano, prev.mes + 1);
-                                return {
-                                  mes: d.getMonth(),
-                                  ano: d.getFullYear(),
-                                };
-                              })
-                            }
-                            style={{
-                              background: "none",
-                              border: "none",
-                              cursor: "pointer",
-                              fontSize: 16,
-                              padding: "0 8px",
-                            }}
-                          >
-                            ›
-                          </button>
-                        </div>
+                          return (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                marginTop: 15,
+                              }}
+                            >
+                              <button
+                                onClick={() =>
+                                  setMesAtual((prev) => {
+                                    const d = new Date(prev.ano, prev.mes - 1);
+                                    return {
+                                      mes: d.getMonth(),
+                                      ano: d.getFullYear(),
+                                    };
+                                  })
+                                }
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  fontSize: 16,
+                                  padding: "0 8px",
+                                }}
+                              >
+                                ‹
+                              </button>
+
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <span style={{ fontWeight: 600, fontSize: 13 }}>
+                                  {new Date(mesAtual.ano, mesAtual.mes)
+                                    .toLocaleString("pt-BR", {
+                                      month: "long",
+                                      year: "numeric",
+                                    })
+                                    .toUpperCase()}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 15,
+                                    fontWeight: 600,
+                                    color:
+                                      totalNoMes > 0 ? "#21d811" : "#9ca3af",
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  {totalNoMes === 0
+                                    ? "Nenhum serviço"
+                                    : totalNoMes === 1
+                                      ? "1 SERVIÇO"
+                                      : `${totalNoMes} SERVIÇOS`}
+                                </span>
+                              </div>
+
+                              <button
+                                onClick={() =>
+                                  setMesAtual((prev) => {
+                                    const d = new Date(prev.ano, prev.mes + 1);
+                                    return {
+                                      mes: d.getMonth(),
+                                      ano: d.getFullYear(),
+                                    };
+                                  })
+                                }
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  fontSize: 16,
+                                  padding: "0 8px",
+                                }}
+                              >
+                                ›
+                              </button>
+                            </div>
+                          );
+                        })()}
 
                         {/* Grade do calendário */}
                         {(() => {

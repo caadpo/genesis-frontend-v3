@@ -1148,28 +1148,28 @@ export default function MinhasEscalasPage() {
           }}
         >
           <style>{`
-      @keyframes slideUpSheet {
-        from { transform: translateY(100%); }
-        to { transform: translateY(0); }
-      }
-      .repasseModalInput {
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
-      }
-      .repasseModalInput:focus {
-        outline: none;
-        border-color: #f97316 !important;
-        box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
-      }
-      .repasseBtnConfirmar:not(:disabled):hover {
-        background-color: #ea6c0c !important;
-      }
-      .repasseBtnCancelar:hover {
-        background-color: #f9fafb !important;
-      }
-      .repasseSugestaoItem:hover {
-        background-color: #f8fafc !important;
-      }
-    `}</style>
+                    @keyframes slideUpSheet {
+                      from { transform: translateY(100%); }
+                      to { transform: translateY(0); }
+                    }
+                    .repasseModalInput {
+                      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+                    }
+                    .repasseModalInput:focus {
+                      outline: none;
+                      border-color: #f97316 !important;
+                      box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+                    }
+                    .repasseBtnConfirmar:not(:disabled):hover {
+                      background-color: #ea6c0c !important;
+                    }
+                    .repasseBtnCancelar:hover {
+                      background-color: #f9fafb !important;
+                    }
+                    .repasseSugestaoItem:hover {
+                      background-color: #f8fafc !important;
+                    }
+                  `}</style>
 
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1181,7 +1181,7 @@ export default function MinhasEscalasPage() {
               height: "68vh",
               maxHeight: "calc(100vh - var(--bottom-nav-height, 64px) - 16px)",
               boxShadow: "0 -12px 40px rgba(0,0,0,0.18)",
-              animation: "slideUpSheet 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
+              animation: "slideUpSheet 0.6s cubic-bezier(0.22, 1, 0.36, 1)",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",

@@ -189,6 +189,7 @@ function PjesEscalasContent() {
   const [searchText, setSearchText] = useState("");
   const [tabelaEscalas, setTabelaEscalas] = useState<Escala[]>([]);
   const isEditandoRef = useRef(false);
+  const isLimpandoAposAdicionarRef = useRef(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const { data: escalasData } = useApi<EscalaOperacaoResponse>(
@@ -299,8 +300,12 @@ function PjesEscalasContent() {
     if (raw.length === 0) {
       setUsuario(null);
       setBuscaUsuarioError(null);
-      setLocalApresentacao("");
-      setSituacao("");
+
+      if (!isLimpandoAposAdicionarRef.current) {
+        setLocalApresentacao("");
+        setSituacao("");
+      }
+      isLimpandoAposAdicionarRef.current = false;
       return;
     }
 
@@ -441,6 +446,7 @@ function PjesEscalasContent() {
       } else {
         setTabelaEscalas((prev) => [data, ...prev]);
         toast.success("Escala adicionada com sucesso!");
+        isLimpandoAposAdicionarRef.current = true;
         setMatricula("");
       }
     } catch (error: any) {
@@ -581,6 +587,12 @@ function PjesEscalasContent() {
                   onChange={(e) =>
                     setMatricula(e.target.value.replace(/\D/g, ""))
                   }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddEscala();
+                    }
+                  }}
                 />
               </div>
             </div>
