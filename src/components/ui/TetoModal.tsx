@@ -518,6 +518,7 @@ export default function TetoModal({
                 >
                   Excluir
                 </button>
+
                 {form.status === "ABERTO" && (
                   <button
                     onClick={handleEncerrar}
@@ -535,6 +536,24 @@ export default function TetoModal({
                     🔒 Encerrar
                   </button>
                 )}
+
+                {/* BOTÃO QUE ESTAVA FALTANDO */}
+                <button
+                  onClick={handleExportarPlanilha}
+                  disabled={loading || baixandoXls}
+                  style={{
+                    fontSize: 12,
+                    borderRadius: 8,
+                    padding: "5px 10px",
+                    border: "solid 1px #0a756c",
+                    color: "#0a756c",
+                    background: "transparent",
+                    cursor: baixandoXls ? "wait" : "pointer",
+                    opacity: baixandoXls ? 0.6 : 1,
+                  }}
+                >
+                  {baixandoXls ? "Gerando..." : "📊 Exportar Planilha"}
+                </button>
 
                 {!teto?.data_prestacao_contas && (
                   <button
