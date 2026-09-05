@@ -7,13 +7,10 @@ import {
   FaCalendarAlt,
   FaChevronLeft,
   FaChevronRight,
-  FaExchangeAlt,
-  FaBan,
   FaUser,
-  FaExclamationTriangle,
-  FaInfo,
 } from "react-icons/fa";
 import { FiGrid, FiLayers } from "react-icons/fi";
+import DetalhesEscalaModal from "@/src/components/ui/DetalhesEscalaModal";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -134,6 +131,8 @@ export default function MinhasEscalasPage() {
   const [loadingRepasse, setLoadingRepasse] = useState(false);
   const [loadingCancelar, setLoadingCancelar] = useState(false);
   const [modalRepasse, setModalRepasse] = useState(false);
+
+  const [escalaDetalhe, setEscalaDetalhe] = useState<Escala | null>(null);
 
   // ✅ NOVO — estados do autocomplete de destinatário
   const [matDestinatario, setMatDestinatario] = useState("");
@@ -262,6 +261,22 @@ export default function MinhasEscalasPage() {
 
   const pjes = resumoPorSistema("PJES");
   const diarias = resumoPorSistema("DIARIAS");
+
+  const valorTotalEstimado = (escalas ?? [])
+    .filter((e) => e.dataInicio.startsWith(prefixoMes))
+    .reduce((soma, e) => {
+      let valorPorCota = 0;
+
+      if (e.sistema === "DIARIAS") {
+        valorPorCota = 180;
+      } else if (e.tipo_escala === "P") {
+        valorPorCota = 200;
+      } else if (e.tipo_escala === "O") {
+        valorPorCota = 300;
+      }
+
+      return soma + e.cota_escala * valorPorCota;
+    }, 0);
 
   async function recarregarRepasses() {
     const res = await fetch("/api/repasse/meus");
@@ -446,309 +461,6 @@ export default function MinhasEscalasPage() {
     );
   }
 
-  // ─── Card de detalhe por escala ───────────────────────────────────────────────
-  function CardEscala({ escala }: { escala: Escala }) {
-    const repasseAtivo = getRepasseAtivo(escala.id);
-    const expirado = isRepasseExpirado(escala);
-    const colegasEscala = colegas[escala.id] ?? [];
-    const carregandoColegas = loadingColegas[escala.id] ?? false;
-
-    return (
-      <div className="escala-card" style={{ marginBottom: "3px" }}>
-        <div className="escala-card__header_direita">
-          <div
-            style={{
-              background: "#482cad",
-              fontWeight: "bold",
-              width: "100%",
-              borderRadius: "20px",
-              height: "30px",
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: "10px",
-              padding: "5px",
-            }}
-          >
-            <span
-              className="escala-card__titulo"
-              onClick={() => {
-                if (!escala.cod_op) return;
-                navigator.clipboard.writeText(escala.cod_op);
-                toast.success("Código da Operação Copiado");
-              }}
-              style={{ cursor: "pointer" }}
-              title="Clique para copiar o código da operação"
-            >
-              <FaCalendarAlt
-                style={{ marginLeft: "5px", marginRight: "5px" }}
-              />
-              {formatarData(escala.dataInicio)} | {escala.nomeOme} - COP{" "}
-              {escala.cod_op}
-            </span>
-
-            <button
-              className="btn-repassar"
-              onClick={() => {
-                setEscalaSelecionadaParaRepasse(escala);
-                setModalRepasse(true);
-              }}
-              disabled={!!repasseAtivo || expirado}
-            >
-              <FaExchangeAlt />
-              {expirado ? "PRAZO ENCERRADO" : "REPASSAR"}
-            </button>
-
-            {repasseAtivo && (
-              <button
-                className="btn-cancelar-repasse"
-                onClick={() => handleCancelarRepasse(escala)}
-                disabled={loadingCancelar}
-              >
-                <FaBan />
-                {loadingCancelar ? "CANCELANDO..." : "CANCELAR REPASSE"}
-              </button>
-            )}
-          </div>
-
-          <div>
-            <div className="escala-card__body">
-              <div className="escala-card-secundaria">
-                <div style={{ display: "flex" }}>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    {escala.nomeEvento && (
-                      <div style={{ display: "flex" }}>
-                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                          EVENTO:{" "}
-                        </div>
-                        <div>{escala.nomeEvento}</div>
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    {escala.nomeOperacao && (
-                      <div style={{ display: "flex" }}>
-                        <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                          OPERAÇÃO:{" "}
-                        </div>
-                        <div>{escala.nomeOperacao}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                      SISTEMA:{" "}
-                    </div>
-                    <div>{escala.sistema}</div>
-                  </div>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                      FUNÇÃO:{" "}
-                    </div>
-                    <div>{escala.funcao}</div>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                      HORÁRIO:{" "}
-                    </div>
-                    <div>
-                      {formatarHora(escala.horaInicio)} às{" "}
-                      {formatarHora(escala.horaFim)}
-                    </div>
-                  </div>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                      LOCAL:{" "}
-                    </div>
-                    <div>{escala.localApresentacao}</div>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                      SITUAÇÃO:{" "}
-                    </div>
-                    <div>{escala.situacao}</div>
-                  </div>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                      TOTAL DE COTA:{" "}
-                    </div>
-                    <div>{escala.cota_escala}</div>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex" }}>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                      VIATURA:{" "}
-                    </div>
-                    {escala.viatura && (
-                      <div>
-                        {escala.viatura.patrimonio}{" "}
-                        <span
-                          style={{
-                            color:
-                              escala.viatura.statusVtr === "INDISPONIVEL"
-                                ? "#f87171"
-                                : "#4ade80",
-                            fontSize: 10,
-                          }}
-                        >
-                          ({escala.viatura.statusVtr})
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                      ANOTAÇÕES:{" "}
-                    </div>
-                    {escala.anotacoes && <div>{escala.anotacoes}</div>}
-                  </div>
-                </div>
-                <div style={{ display: "flex" }}>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                      VERIFICADOR:{" "}
-                    </div>
-                    {escala.presencaConfirmadaPorNome}
-                  </div>
-                  <div style={{ width: "50%", display: "flex" }}>
-                    <div style={{ paddingRight: "5px", fontWeight: "700" }}>
-                      DETALHES:{" "}
-                    </div>
-                    {escala.presencaConfirmadaPorNome ? (
-                      <>
-                        {escala.presencaConfirmadaEm && (
-                          <div style={{ color: "#666", fontSize: 10 }}>
-                            {new Date(
-                              escala.presencaConfirmadaEm,
-                            ).toLocaleString("pt-BR")}
-                          </div>
-                        )}
-                        {escala.presencaObservacao && (
-                          <div style={{ color: "#888", fontStyle: "italic" }}>
-                            {escala.presencaObservacao}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <span style={{ color: "#bbb" }}>—</span>
-                    )}
-                  </div>
-                </div>
-                {escala.comentario_pagamento && (
-                  <div
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      textAlign: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "90%",
-                        display: "flex",
-                        textAlign: "center",
-                        borderRadius: "5px",
-                        backgroundColor: "#b90f09",
-                        color: "#fff",
-                        padding: "5px",
-                        marginTop: "10px",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      <FaExclamationTriangle />
-                      <span style={{ marginLeft: "5px" }}>
-                        {escala.comentario_pagamento}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {(carregandoColegas || colegasEscala.length > 0) && (
-                  <div
-                    style={{
-                      paddingTop: "10px",
-                      paddingLeft: "10px",
-                      paddingRight: "10px",
-                    }}
-                  >
-                    <div style={{ color: "#a09e9e", fontSize: "12px" }}>
-                      Equipe de Serviço
-                    </div>
-                    {carregandoColegas ? (
-                      <div style={{ fontSize: 11, color: "#64748b" }}>
-                        Carregando...
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          overflowY: "scroll",
-                          borderRadius: "10px",
-                          border: "1px solid #ececec",
-                          padding: "10px",
-                        }}
-                      >
-                        {colegasEscala.slice(0, 3).map((c) => (
-                          <div
-                            key={c.id}
-                            style={{
-                              width: "100%",
-                              display: "flex",
-                              marginBottom: "6px",
-                            }}
-                          >
-                            <AvatarColega
-                              mat={c.mat_escala ?? c.mat_escala}
-                              nome={c.ng_escala ?? c.ng_escala}
-                            />
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                fontSize: "11px",
-                                borderBottom: "1px solid #ececec",
-                              }}
-                            >
-                              {c.pg_escala} {c.mat_escala} {c.ng_escala}{" "}
-                              {c.nomeome_escala} {c.phone} | {c.funcao}
-                            </div>
-                          </div>
-                        ))}
-
-                        {colegasEscala.length > 3 && (
-                          <div
-                            style={{
-                              fontSize: "11px",
-                              color: "#94a3b8",
-                              textAlign: "center",
-                              marginTop: "4px",
-                            }}
-                          >
-                            +{colegasEscala.length - 3} outro(s)
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="page">
@@ -841,7 +553,13 @@ export default function MinhasEscalasPage() {
             return (
               <div
                 key={chave}
-                onClick={() => temEscala && selecionarDia(escalasNoDia)}
+                onClick={() => {
+                  if (!temEscala) return; // não tem conteúdo -> não faz nada
+                  selecionarDia(escalasNoDia);
+                  if (escalasNoDia.length === 1) {
+                    setEscalaDetalhe(escalasNoDia[0]); // só 1 escala no dia -> abre direto
+                  }
+                }}
                 style={{
                   border: isSelecionado
                     ? "2px solid #1a56db"
@@ -908,10 +626,6 @@ export default function MinhasEscalasPage() {
           })}
         </div>
       )}
-
-      {escalasDoDiaSelecionado.map((escala) => (
-        <CardEscala key={escala.id} escala={escala} />
-      ))}
 
       <div
         style={{
@@ -1139,6 +853,22 @@ export default function MinhasEscalasPage() {
               </strong>
             </div>
           </div>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            paddingTop: "14px",
+            borderTop: "1px solid #f1f1f1",
+          }}
+        >
+          <span style={{ fontSize: "13px", color: "#4b5563", fontWeight: 600 }}>
+            Valor estimado a receber
+          </span>
+          <strong style={{ color: "#16a34a", fontSize: "20px" }}>
+            R$ {valorTotalEstimado.toFixed(2).replace(".", ",")}
+          </strong>
         </div>
       </div>
 
@@ -1620,6 +1350,24 @@ export default function MinhasEscalasPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {escalaDetalhe && (
+        <DetalhesEscalaModal
+          escala={escalaDetalhe}
+          colegas={colegas[escalaDetalhe.id] ?? []}
+          carregandoColegas={loadingColegas[escalaDetalhe.id] ?? false}
+          repasseAtivo={getRepasseAtivo(escalaDetalhe.id)}
+          expirado={isRepasseExpirado(escalaDetalhe)}
+          loadingCancelar={loadingCancelar}
+          onClose={() => setEscalaDetalhe(null)}
+          onRepassar={() => {
+            setEscalaDetalhe(null); // fecha o modal de detalhes
+            setEscalaSelecionadaParaRepasse(escalaDetalhe);
+            setModalRepasse(true); // abre o modal de repasse
+          }}
+          onCancelarRepasse={() => handleCancelarRepasse(escalaDetalhe)}
+        />
       )}
     </div>
   );
