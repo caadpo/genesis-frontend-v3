@@ -4,13 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  FaUniversity,
-  FaUser,
-  FaCar,
-  FaMapMarkerAlt,
-  FaInfo,
-} from "react-icons/fa";
+import { FaUniversity, FaUser, FaCar, FaMapMarkerAlt } from "react-icons/fa";
 import { FiLayers, FiGrid, FiSearch } from "react-icons/fi";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 
@@ -344,20 +338,20 @@ export default function SelectSystem() {
     {
       id: 1,
       logo: "/logo_dpo.png",
-      nome: "JUL | PJES PMPE",
-      dataHora: "07/08/2026 às 15:30",
+      nome: "AGO | PJES PMPE",
+      dataHora: "04/09/2026 às 19:30",
     },
     {
       id: 2,
       logo: "/pe_logo.png",
-      nome: "JUL | PJES PE",
-      dataHora: "07/08/2026 às 15:30",
+      nome: "AGO | PJES PE",
+      dataHora: "04/09/2026 às 19:30",
     },
     {
       id: 3,
       logo: "/mobi_logo.png",
-      nome: "JUL | PJES CTM(BRT)",
-      dataHora: "07/08/2026 às 15:30",
+      nome: "AGO | PJES CTM(BRT)",
+      dataHora: "04/09/2026 às 19:30",
     },
   ];
 
