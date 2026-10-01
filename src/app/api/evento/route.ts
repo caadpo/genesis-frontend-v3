@@ -4,25 +4,20 @@ import { buildApiResponse } from "@/src/lib/apiResponse";
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<NextResponse> {
   const token = (await cookies()).get("accessToken")?.value;
+  const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
   const { searchParams } = new URL(request.url);
+  const qs = searchParams.toString();
 
-  const params = new URLSearchParams();
-  const distribuicaoId = searchParams.get("distribuicaoId");
-  const omeId = searchParams.get("omeId");
-
-  if (distribuicaoId) params.set("distribuicaoId", distribuicaoId);
-  if (omeId) params.set("omeId", omeId);
-
-  const url = `${API_URL}/evento${params.size ? `?${params.toString()}` : ""}`;
-
-  const response = await fetch(url, {
+  const response = await fetch(`${API_URL}/evento${qs ? `?${qs}` : ""}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
 
-  return buildApiResponse(response);
+  const data = await response.json();
+  return NextResponse.json(data, { status: response.status });
 }
 
 export async function POST(request: Request) {

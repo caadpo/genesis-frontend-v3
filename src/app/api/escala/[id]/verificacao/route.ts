@@ -1,7 +1,10 @@
+// Salvar em: src/app/api/escala/[id]/verificacao/route.ts
+//
+// Recebe { numero: 1 | 2, observacao?: string, verificado?: boolean } e repassa
+// para PATCH /escala/:id/verificacao1 ou /escala/:id/verificacao2 no backend.
+
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-
-const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
 export async function PATCH(
   request: Request,
@@ -9,22 +12,22 @@ export async function PATCH(
 ) {
   const { id } = await context.params;
   const token = (await cookies()).get("accessToken")?.value;
+  const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
+  const { numero, ...body } = await request.json();
+
+  if (numero !== 1 && numero !== 2) {
     return NextResponse.json(
-      { message: "Corpo da requisição inválido" },
+      { message: "Informe numero 1 ou 2" },
       { status: 400 },
     );
   }
 
-  const response = await fetch(`${API_URL}/escala/${id}/presenca`, {
+  const response = await fetch(`${API_URL}/escala/${id}/verificacao${numero}`, {
     method: "PATCH",
     headers: {
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(body),
     cache: "no-store",

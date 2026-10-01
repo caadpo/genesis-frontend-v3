@@ -1,9 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import { FaInfo, FaPhone, FaUser } from "react-icons/fa";
-import { FiX, FiSearch, FiCalendar } from "react-icons/fi";
+import { useEffect, useRef, useState } from "react";
+import {
+  FaCheck,
+  FaCommentAlt,
+  FaHandPaper,
+  FaInfo,
+  FaMale,
+  FaPhone,
+  FaRegClock,
+  FaSignOutAlt,
+  FaUser,
+  FaUserCheck,
+} from "react-icons/fa";
+import { FiX, FiSearch, FiCalendar, FiFilter } from "react-icons/fi";
 import toast from "react-hot-toast";
+
+// ─── Ajustes de layout do topo fixo ──────────────────────────────────────────
+// Se o seu layout já tiver um header fixo/sticky (ex.: "GENESIS | DPO SEDE"),
+// coloque aqui a altura dele em px para o topo desta página grudar logo abaixo.
+const OFFSET_TOPO = 0;
+// O topo fixo precisa de um fundo opaco, senão a lista aparece por baixo.
+const FUNDO_PAGINA = "#fff";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,25 +48,84 @@ type Escala = {
   nomeEvento?: string;
   nomeOme?: string;
   viatura?: { patrimonio: string } | null;
+
+  // ── Presença (confirmada pelo próprio escalado) ───────────────────────
   presencaConfirmada?: boolean;
-  presencaObservacao?: string | null;
   presencaConfirmadaEm?: string | null;
+  presencaLatitude?: number | null;
+  presencaLongitude?: number | null;
   presencaConfirmadaPorNome?: string | null;
-  observacaoEscritaPorNome?: string | null;
-  observacaoEscritaEm?: string | null;
+
+  // ── 1ª verificação (fiscal) ───────────────────────────────────────────
+  primeiraVerificacao?: boolean;
+  idVerificador1?: number | null;
+  verificador1Nome?: string | null;
+  dataHoraVerificador1?: string | null;
+  obsVerificador1?: string | null;
+
+  // ── 2ª verificação (fiscal) ───────────────────────────────────────────
+  segundaVerificacao?: boolean;
+  idVerificador2?: number | null;
+  verificador2Nome?: string | null;
+  dataHoraVerificador2?: string | null;
+  obsVerificador2?: string | null;
+
+  // ── Saída de serviço ──────────────────────────────────────────────────
+  saidaConfirmada?: boolean;
+  saidaConfirmadaEm?: string | null;
+  saidaConfirmadaPorNome?: string | null;
+  saidaAutomatica?: boolean;
+
+  // ── Calculados pelo backend para o usuário logado (GET /escala/cod-op) ──
+  /** Qual ronda (1 ou 2) já pertence ao usuário logado, se houver. */
+  minhaVerificacao?: 1 | 2 | null;
+  /** true se o usuário logado é FISCAL nesta operação/data. */
+  podeVerificar?: boolean;
 };
 
-type ObsModalState = {
-  escala: Escala;
-  observacao: string;
-};
+type FiltroStatus = "PRESENTE" | "AUSENTE" | null;
+
+// ─── Modal "Filtrar por OME/Evento/Operação" ────────────────────────────────
+
+type OmeOption = { id: number; nomeOme: string };
+type EventoOption = { id: number; nome_evento: string };
+type OperacaoOption = { id: number; nome_operacao: string; cod_op: string };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const formatarData = (data: string) => {
-  const [, mes, dia] = data.split("-");
-  return `${dia}/${mes}`;
+  const [ano, mes, dia] = data.split("-");
+  return `${dia}/${mes}/${ano}`;
 };
+
+function formatarDataHora(valor?: string | null): string {
+  if (!valor) return "-";
+  return new Date(valor).toLocaleString("pt-BR");
+}
+
+function formatarHoraCurta(valor?: string | null): string {
+  if (!valor) return "-";
+  return new Date(valor).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Extrai a matrícula de textos no formato "PG MAT NOME_GUERRA" (para tentar a foto). */
+function matriculaDoNome(nome?: string | null): string {
+  return nome?.match(/\b\d{5,}\b/)?.[0] ?? "";
+}
+
+/**
+ * Qual ronda o usuário logado pode gravar nesta escala:
+ * a que já é dele, senão a primeira livre. null = as duas já são de outros fiscais.
+ */
+function resolverNumeroVerificacao(e: Escala): 1 | 2 | null {
+  if (e.minhaVerificacao) return e.minhaVerificacao;
+  if (e.idVerificador1 == null) return 1;
+  if (e.idVerificador2 == null) return 2;
+  return null;
+}
 
 const MESES_ABREV = [
   "JAN",
@@ -82,30 +159,61 @@ const isHoje = (data: string) => {
   return data === hojeStr;
 };
 
-const isAposHoraFim = (dataInicio: string, horaFim: string): boolean => {
-  if (!isHoje(dataInicio)) return false;
-  const agora = new Date();
-  const [h, m] = horaFim.split(":").map(Number);
-  const fim = new Date();
-  fim.setHours(h, m, 0, 0);
-  return agora > fim;
+/** Combina "AAAA-MM-DD" + "HH:mm" em um Date, no fuso local. */
+function combinarDataHora(data: string, hora: string): Date {
+  const [ano, mes, dia] = data.split("-").map(Number);
+  const [h, m] = hora.slice(0, 5).split(":").map(Number);
+  return new Date(ano, mes - 1, dia, h, m, 0, 0);
+}
+
+/**
+ * Calcula o instante real de término da escala. Escalas noturnas (horaFim
+ * menor ou igual à horaInicio, ex.: 21:30 às 03:00) terminam no dia seguinte
+ * — sem isso, a escala parecia "encerrada" assim que virava a meia-noite
+ * do próprio dataInicio, minutos depois de começar.
+ */
+function calcularFimEscala(
+  dataInicio: string,
+  horaInicio: string,
+  horaFim: string,
+): Date {
+  const inicio = combinarDataHora(dataInicio, horaInicio);
+  let fim = combinarDataHora(dataInicio, horaFim);
+  if (fim <= inicio) {
+    fim = new Date(fim.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return fim;
+}
+
+/** true quando o horário real de término (já considerando virada de dia) já passou. */
+const isServicoEncerrado = (
+  dataInicio: string,
+  horaInicio: string,
+  horaFim: string,
+): boolean => {
+  return new Date() > calcularFimEscala(dataInicio, horaInicio, horaFim);
 };
 
 /**
- * Retorna se os campos de edição (presença + observação) estão bloqueados.
- * Bloqueado = data passada OU (hoje mas horaFim já passou).
+ * Retorna se os campos de edição (observação do fiscal) estão bloqueados.
+ * Bloqueado = o horário real de término da escala já passou (considerando
+ * escalas que viram a madrugada).
  */
-const isEdicaoBloqueada = (dataInicio: string, horaFim: string): boolean => {
-  return isPassada(dataInicio) || isAposHoraFim(dataInicio, horaFim);
+const isEdicaoBloqueada = (
+  dataInicio: string,
+  horaInicio: string,
+  horaFim: string,
+): boolean => {
+  return isServicoEncerrado(dataInicio, horaInicio, horaFim);
 };
 
 /**
  * Cor do FaInfo — sempre clicável (nunca desabilitado) exceto para datas futuras.
  *
- * 🔵 Azul        → confirmado, sem observação
- * 🟠 Laranja     → confirmado + tem observação
- * 🔴 Vermelho    → não confirmado + tem observação
- * 🟢 Verde       → hoje/passada, sem nada ainda (só leitura ou editável)
+ * 🔵 Azul        → presença confirmada, sem observação de fiscal
+ * 🟠 Laranja     → presença confirmada + observação de fiscal
+ * 🔴 Vermelho    → sem presença + observação de fiscal
+ * 🟢 Verde       → hoje/passada, sem nada ainda
  * ⚫ Cinza       → data futura (desabilitado — ainda não chegou o dia)
  *
  * Tons claros quando a data já passou (passada ou horaFim passou hoje).
@@ -119,8 +227,7 @@ function corBotaoInfo(e: Escala): {
 } {
   const passada = isPassada(e.dataInicio);
   const hoje = isHoje(e.dataInicio);
-  const fimPassou = isAposHoraFim(e.dataInicio, e.horaFim);
-  const temObs = !!e.presencaObservacao?.trim();
+  const temObs = !!e.obsVerificador1?.trim() || !!e.obsVerificador2?.trim();
   const confirmado = !!e.presencaConfirmada;
 
   // Data futura → único caso realmente desabilitado
@@ -134,8 +241,9 @@ function corBotaoInfo(e: Escala): {
     };
   }
 
-  // A partir daqui sempre clicável (hoje com horaFim passada ou dias anteriores = só leitura na modal)
-  const dim = passada || fimPassou; // usa tons claros
+  // A partir daqui sempre clicável (serviço encerrado = só leitura na modal).
+  // Usa o horário real de término, considerando escalas que viram a madrugada.
+  const dim = isServicoEncerrado(e.dataInicio, e.horaInicio, e.horaFim); // tons claros
 
   if (confirmado && temObs) {
     return {
@@ -177,8 +285,1017 @@ function corBotaoInfo(e: Escala): {
     border: dim ? "#a3bfa3" : "#4f7a33",
     cursor: "pointer",
     disabled: false,
-    title: dim ? "Ver detalhes" : "Registrar presença / observação",
+    title: dim ? "Ver detalhes" : "Registrar observação",
   };
+}
+
+// ─── Sub-componentes (nível de módulo, para não perder estado a cada render) ─
+
+function AvatarPolicial({
+  mat,
+  nome,
+  tamanho = 34,
+  corFundo = "#e5e7eb",
+  corIcone = "#9ca3af",
+}: {
+  mat: string;
+  nome: string;
+  tamanho?: number;
+  corFundo?: string;
+  corIcone?: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  if (imgError || !mat) {
+    return (
+      <div
+        style={{
+          width: tamanho,
+          height: tamanho,
+          borderRadius: "50%",
+          background: corFundo,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+        title={nome}
+      >
+        <FaUser size={Math.round(tamanho * 0.47)} color={corIcone} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={`/avatares/${mat}.jpg`}
+      alt={nome}
+      title={nome}
+      onError={() => setImgError(true)}
+      style={{
+        width: tamanho,
+        height: tamanho,
+        borderRadius: "50%",
+        objectFit: "cover",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+/** Mão levantada com um risco diagonal — ícone de "ausente". */
+function IconeAusente({ size, color }: { size: number; color: string }) {
+  return (
+    <span
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <FaHandPaper size={size} color={color} />
+      <span
+        style={{
+          position: "absolute",
+          left: "-12%",
+          top: "50%",
+          width: "124%",
+          height: 2,
+          background: color,
+          transform: "rotate(-45deg)",
+          borderRadius: 1,
+        }}
+      />
+    </span>
+  );
+}
+
+/** Um dos três blocos do resumo (Total / Presente / Ausente). Também funciona como filtro. */
+function CardResumo({
+  icone,
+  valor,
+  rotulo,
+  cor,
+  ativo,
+  onClick,
+}: {
+  icone: React.ReactNode;
+  valor: number;
+  rotulo: string;
+  cor: string;
+  ativo: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={ativo}
+      title={ativo ? `Remover filtro "${rotulo}"` : `Filtrar por ${rotulo}`}
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
+        padding: "6px 4px",
+        borderRadius: 10,
+        border: `1.5px solid ${ativo ? cor : "transparent"}`,
+        background: ativo ? `${cor}14` : "transparent",
+        color: cor,
+        cursor: "pointer",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {icone}
+        <span style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>
+          {valor}
+        </span>
+      </div>
+      <span style={{ fontSize: 13, fontWeight: 600 }}>{rotulo}</span>
+    </button>
+  );
+}
+
+/** Nó circular cinza usado na timeline para ícones genéricos (relógio, saída). */
+function IconeTimeline({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        background: "#eef2f7",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Uma linha da timeline: ícone/avatar à esquerda, linha tracejada ligando ao próximo, conteúdo à direita. */
+function LinhaTimeline({
+  icone,
+  linhaAbaixo,
+  children,
+}: {
+  icone: React.ReactNode;
+  linhaAbaixo: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 10 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          width: 32,
+          flexShrink: 0,
+        }}
+      >
+        {icone}
+        {linhaAbaixo && (
+          <div
+            style={{
+              flex: 1,
+              width: 0,
+              borderLeft: "2px dashed #d1d5db",
+              minHeight: 16,
+              marginTop: 4,
+            }}
+          />
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, paddingBottom: 14 }}>{children}</div>
+    </div>
+  );
+}
+
+/** Conteúdo de uma ronda de fiscal: nome (ou "aguardando fiscal"), tag FISCAL e "observação – data/hora". */
+function ConteudoVerificador({
+  numero,
+  nome,
+  verificado,
+  dataHora,
+  observacao,
+}: {
+  numero: 1 | 2;
+  nome?: string | null;
+  verificado?: boolean;
+  dataHora?: string | null;
+  observacao?: string | null;
+}) {
+  const obs = observacao?.trim();
+  const partes: string[] = [];
+  if (obs) partes.push(obs);
+  else if (verificado) partes.push("Verificado");
+  if (partes.length > 0 && dataHora) partes.push(formatarDataHora(dataHora));
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          fontWeight: 700,
+          fontSize: 13,
+          color: "#111827",
+          marginBottom: 2,
+        }}
+      >
+        <span>{nome || `${numero}ª verificação — aguardando fiscal`}</span>
+        {verificado && (
+          <span
+            title="Verificação confirmada"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              background: "#16a34a",
+              flexShrink: 0,
+            }}
+          >
+            <FaCheck size={9} color="#fff" />
+          </span>
+        )}
+      </div>
+      <span
+        style={{
+          background: "#eef0fd",
+          color: "#4f46e5",
+          fontSize: 10.5,
+          fontWeight: 700,
+          borderRadius: 999,
+          padding: "2px 8px",
+        }}
+      >
+        FISCAL
+      </span>
+      {partes.length > 0 && (
+        <div
+          style={{
+            marginTop: 4,
+            fontSize: 12,
+            color: "#4b5563",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {partes.join(" – ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Mapa (OpenStreetMap) com o local onde o policial confirmou a presença. */
+function MapaPresenca({
+  latitude,
+  longitude,
+}: {
+  latitude: number;
+  longitude: number;
+}) {
+  const delta = 0.0015;
+  const bbox = [
+    longitude - delta,
+    latitude - delta,
+    longitude + delta,
+    latitude + delta,
+  ].join("%2C");
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude}%2C${longitude}`;
+  const linkMapa = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <a
+        href={linkMapa}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Abrir no mapa"
+        style={{ display: "block" }}
+      >
+        <iframe
+          src={src}
+          title="Local da confirmação de presença"
+          loading="lazy"
+          style={{
+            width: "100%",
+            height: 190,
+            border: "1px solid #d1d5db",
+            borderRadius: 14,
+            pointerEvents: "none", // o toque abre o mapa em vez de rolar dentro do iframe
+          }}
+        />
+      </a>
+      <div
+        style={{
+          textAlign: "center",
+          fontSize: 12.5,
+          color: "#374151",
+          marginTop: 4,
+        }}
+      >
+        {latitude.toFixed(6)}, {longitude.toFixed(6)}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Timeline somente leitura, no mesmo formato da DetalhesEscalaModal:
+ * início (presença) → 1ª verificação → 2ª verificação → saída.
+ */
+function TimelineServico({ escala }: { escala: Escala }) {
+  const confirmada = !!escala.presencaConfirmada;
+  const mostraV1 =
+    confirmada ||
+    !!escala.primeiraVerificacao ||
+    !!escala.obsVerificador1?.trim();
+  const mostraV2 =
+    confirmada ||
+    !!escala.segundaVerificacao ||
+    !!escala.obsVerificador2?.trim();
+  const mostraSaida = confirmada || !!escala.saidaConfirmada;
+
+  const textoTimeline: React.CSSProperties = {
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#4b5563",
+  };
+
+  return (
+    <div>
+      {/* Início do serviço (presença) */}
+      <LinhaTimeline
+        icone={
+          <IconeTimeline>
+            <FaRegClock size={14} color="#6b7280" />
+          </IconeTimeline>
+        }
+        linhaAbaixo={mostraV1 || mostraV2 || mostraSaida}
+      >
+        {confirmada ? (
+          <span style={textoTimeline}>
+            Início do Serviço às{" "}
+            {formatarHoraCurta(escala.presencaConfirmadaEm)}
+          </span>
+        ) : (
+          <span style={{ ...textoTimeline, color: "#9ca3af" }}>
+            Presença não confirmada
+          </span>
+        )}
+      </LinhaTimeline>
+
+      {/* 1ª verificação */}
+      {mostraV1 && (
+        <LinhaTimeline
+          icone={
+            <AvatarPolicial
+              mat={matriculaDoNome(escala.verificador1Nome)}
+              nome={escala.verificador1Nome ?? ""}
+              tamanho={32}
+              corFundo="#eef2ff"
+              corIcone="#6366f1"
+            />
+          }
+          linhaAbaixo={mostraV2 || mostraSaida}
+        >
+          <ConteudoVerificador
+            numero={1}
+            nome={escala.verificador1Nome}
+            verificado={escala.primeiraVerificacao}
+            dataHora={escala.dataHoraVerificador1}
+            observacao={escala.obsVerificador1}
+          />
+        </LinhaTimeline>
+      )}
+
+      {/* 2ª verificação */}
+      {mostraV2 && (
+        <LinhaTimeline
+          icone={
+            <AvatarPolicial
+              mat={matriculaDoNome(escala.verificador2Nome)}
+              nome={escala.verificador2Nome ?? ""}
+              tamanho={32}
+              corFundo="#eef2ff"
+              corIcone="#6366f1"
+            />
+          }
+          linhaAbaixo={mostraSaida}
+        >
+          <ConteudoVerificador
+            numero={2}
+            nome={escala.verificador2Nome}
+            verificado={escala.segundaVerificacao}
+            dataHora={escala.dataHoraVerificador2}
+            observacao={escala.obsVerificador2}
+          />
+        </LinhaTimeline>
+      )}
+
+      {/* Saída */}
+      {mostraSaida && (
+        <LinhaTimeline
+          icone={
+            <IconeTimeline>
+              <FaSignOutAlt size={14} color="#6b7280" />
+            </IconeTimeline>
+          }
+          linhaAbaixo={false}
+        >
+          {escala.saidaConfirmada ? (
+            <span style={textoTimeline}>
+              Serviço finalizado às{" "}
+              {formatarHoraCurta(escala.saidaConfirmadaEm)}
+              {escala.saidaAutomatica ? " (automático)" : ""}
+            </span>
+          ) : (
+            <span style={{ ...textoTimeline, color: "#9ca3af" }}>
+              Serviço em andamento
+            </span>
+          )}
+        </LinhaTimeline>
+      )}
+
+      {/* Mapa do local da presença */}
+      {escala.presencaLatitude != null && escala.presencaLongitude != null && (
+        <MapaPresenca
+          latitude={escala.presencaLatitude}
+          longitude={escala.presencaLongitude}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Modal "Presença/Observação": dados do escalado, anotações, observação do fiscal e timeline do serviço. */
+function ModalEscala({
+  escala,
+  salvando,
+  onClose,
+  onSalvar,
+}: {
+  escala: Escala;
+  salvando: boolean;
+  onClose: () => void;
+  onSalvar: (observacao: string, verificado: boolean) => void;
+}) {
+  const numeroVerificacao = resolverNumeroVerificacao(escala);
+
+  // Se a ronda já é do usuário logado, a observação e o "verificado" atuais vêm preenchidos
+  const original =
+    escala.minhaVerificacao === 1
+      ? (escala.obsVerificador1 ?? "")
+      : escala.minhaVerificacao === 2
+        ? (escala.obsVerificador2 ?? "")
+        : "";
+  const verificadoOriginal =
+    escala.minhaVerificacao === 1
+      ? !!escala.primeiraVerificacao
+      : escala.minhaVerificacao === 2
+        ? !!escala.segundaVerificacao
+        : false;
+
+  const [observacao, setObservacao] = useState(original);
+  const [verificado, setVerificado] = useState(verificadoOriginal);
+  const [mostrarInfoServico, setMostrarInfoServico] = useState(true);
+
+  // Usa o horário real de término (considera escalas que viram a madrugada,
+  // ex.: 21:30 às 03:00 — só bloqueia depois das 03:00 do dia seguinte).
+  const bloqueado = isEdicaoBloqueada(
+    escala.dataInicio,
+    escala.horaInicio,
+    escala.horaFim,
+  );
+  // Distingue a mensagem: escala de um dia claramente anterior vs. escala de
+  // hoje/ontem que só encerrou agora há pouco.
+  const dataAntiga = isPassada(escala.dataInicio);
+
+  const podeEditar =
+    !bloqueado && !!escala.podeVerificar && numeroVerificacao !== null;
+  const alterou =
+    observacao.trim() !== original.trim() || verificado !== verificadoOriginal;
+  const confirmada = !!escala.presencaConfirmada;
+
+  const avisoBase: React.CSSProperties = {
+    borderRadius: 6,
+    padding: "6px 10px",
+    marginBottom: 12,
+    fontSize: 11,
+  };
+
+  return (
+    <div className="modalOverlay" style={{ zIndex: 1100 }} onClick={onClose}>
+      <div
+        className="modalCard"
+        style={{
+          maxWidth: 420,
+          width: "94%",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}
+        onClick={(ev) => ev.stopPropagation()}
+      >
+        {/* Título */}
+        <div style={{ fontSize: 13, color: "#0a66c2", marginBottom: 12 }}>
+          Presença/Observação
+        </div>
+
+        {/* Escalado + status de presença */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <AvatarPolicial
+            mat={escala.mat_escala}
+            nome={escala.ng_escala}
+            tamanho={56}
+          />
+          <div style={{ flex: 1, minWidth: 0, fontSize: 13, lineHeight: 1.35 }}>
+            <div style={{ fontWeight: 700, color: "#111827" }}>
+              {escala.pg_escala} {escala.mat_escala} {escala.ng_escala}
+            </div>
+            <div style={{ color: "#4b5563" }}>
+              {formatarData(escala.dataInicio)}, {escala.horaInicio.slice(0, 5)}{" "}
+              às {escala.horaFim.slice(0, 5)}
+            </div>
+            <div style={{ color: "#4b5563" }}>{escala.funcao}</div>
+          </div>
+          <div
+            title={
+              confirmada ? "Presença confirmada" : "Presença não confirmada"
+            }
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 6,
+              border: `3px solid ${confirmada ? "#16a34a" : "#cbd5e1"}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            {confirmada && <FaCheck size={20} color="#16a34a" />}
+          </div>
+        </div>
+
+        {/* Anotações da escala */}
+        {escala.anotacoes && (
+          <div style={{ marginBottom: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                color: "#4f46e5",
+                fontWeight: 700,
+                fontSize: 11,
+                marginBottom: 6,
+              }}
+            >
+              <FaCommentAlt size={11} />
+              ANOTAÇÕES
+            </div>
+            <div
+              style={{
+                background: "#eef0fd",
+                borderRadius: 12,
+                padding: "12px 14px",
+                fontSize: 13,
+                color: "#1f2937",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {escala.anotacoes}
+            </div>
+          </div>
+        )}
+
+        <hr
+          style={{
+            border: "none",
+            borderTop: "1px solid #d3d6da",
+            margin: "12px 0",
+          }}
+        />
+
+        {/* Avisos */}
+        {bloqueado && (
+          <div
+            style={{
+              ...avisoBase,
+              background: "#fff3cd",
+              border: "1px solid #ffc107",
+              color: "#856404",
+            }}
+          >
+            {dataAntiga
+              ? "📅 Esta escala é de uma data anterior. Somente leitura."
+              : "⏰ O horário de término desta escala já passou. Somente leitura."}
+          </div>
+        )}
+        {!bloqueado && !escala.podeVerificar && (
+          <div
+            style={{ ...avisoBase, background: "#f3f4f6", color: "#6b7280" }}
+          >
+            Somente o fiscal escalado nesta operação e data pode registrar
+            observações.
+          </div>
+        )}
+        {!bloqueado && escala.podeVerificar && numeroVerificacao === null && (
+          <div
+            style={{ ...avisoBase, background: "#f3f4f6", color: "#6b7280" }}
+          >
+            As duas verificações desta escala já foram registradas por outros
+            fiscais.
+          </div>
+        )}
+
+        {/* Verificação e observação do fiscal (1ª ou 2ª ronda, conforme o usuário logado) */}
+        {podeEditar && (
+          <div style={{ marginBottom: 8 }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 10,
+                cursor: "pointer",
+                userSelect: "none",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={verificado}
+                onChange={(ev) => setVerificado(ev.target.checked)}
+                style={{
+                  width: 16,
+                  height: 16,
+                  accentColor: "#16a34a",
+                  cursor: "pointer",
+                }}
+              />
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>
+                Marcar {numeroVerificacao}ª verificação como realizada
+              </span>
+            </label>
+
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 13,
+                color: "#111827",
+                marginBottom: 6,
+              }}
+            >
+              Adicionar Observação
+            </div>
+            <textarea
+              value={observacao}
+              onChange={(ev) => setObservacao(ev.target.value)}
+              rows={3}
+              placeholder="Descreva alguma observação sobre esta escala..."
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                borderRadius: 6,
+                border: "1px solid #cbd5e1",
+                fontSize: 13,
+                resize: "vertical",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+        )}
+
+        <div
+          className="modalActions"
+          style={{ marginTop: 4, marginBottom: 14 }}
+        >
+          <button className="btnCancel" onClick={onClose}>
+            Fechar
+          </button>
+          {podeEditar && (
+            <button
+              className="btnSave"
+              onClick={() => onSalvar(observacao, verificado)}
+              disabled={salvando || !alterou}
+            >
+              {salvando ? "Salvando..." : "Salvar observação"}
+            </button>
+          )}
+        </div>
+
+        {/* Informações do Serviço */}
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            cursor: "pointer",
+            marginBottom: mostrarInfoServico ? 10 : 0,
+            userSelect: "none",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={mostrarInfoServico}
+            onChange={() => setMostrarInfoServico((v) => !v)}
+            style={{
+              width: 16,
+              height: 16,
+              accentColor: "#4f46e5",
+              cursor: "pointer",
+            }}
+          />
+          <span style={{ fontWeight: 700, fontSize: 13, color: "#111827" }}>
+            Informações do Serviço
+          </span>
+        </label>
+
+        {mostrarInfoServico && <TimelineServico escala={escala} />}
+      </div>
+    </div>
+  );
+}
+
+/** Estilo padrão dos <select> da modal de filtro. */
+const selectStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "9px 10px",
+  borderRadius: 8,
+  border: "1px solid #d1d5db",
+  fontSize: 13,
+  color: "#111827",
+  background: "#fff",
+  boxSizing: "border-box",
+};
+
+const labelFiltroStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 12,
+  fontWeight: 700,
+  color: "#111827",
+  marginBottom: 4,
+};
+
+/**
+ * Modal "Filtrar por OME/Evento/Operação": três selects em cascata.
+ * OMEs vêm todas de uma vez (lista pequena e estática); Eventos e Operações
+ * só são buscados depois que o select anterior é escolhido, para não pesar
+ * a navegação com listas que a pessoa talvez nem chegue a abrir.
+ */
+function ModalFiltro({
+  onClose,
+  onFiltrar,
+}: {
+  onClose: () => void;
+  onFiltrar: (codOp: string) => void;
+}) {
+  const [omes, setOmes] = useState<OmeOption[]>([]);
+  const [carregandoOmes, setCarregandoOmes] = useState(true);
+  const [omeId, setOmeId] = useState<number | "">("");
+
+  const [eventos, setEventos] = useState<EventoOption[]>([]);
+  const [carregandoEventos, setCarregandoEventos] = useState(false);
+  const [eventoId, setEventoId] = useState<number | "">("");
+
+  const [operacoes, setOperacoes] = useState<OperacaoOption[]>([]);
+  const [carregandoOperacoes, setCarregandoOperacoes] = useState(false);
+  const [operacaoId, setOperacaoId] = useState<number | "">("");
+
+  const [codOpSelecionado, setCodOpSelecionado] = useState("");
+
+  // Carrega as OMEs uma única vez, ao abrir a modal.
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/ome");
+        const data = await res.json();
+        if (!cancelado && res.ok) setOmes(data);
+      } finally {
+        if (!cancelado) setCarregandoOmes(false);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  async function handleSelecionarOme(valor: string) {
+    const id = valor ? Number(valor) : "";
+    setOmeId(id);
+    setEventoId("");
+    setOperacaoId("");
+    setEventos([]);
+    setOperacoes([]);
+    setCodOpSelecionado("");
+    if (!id) return;
+
+    setCarregandoEventos(true);
+    try {
+      const agora = new Date();
+      const mes = agora.getMonth() + 1;
+      const ano = agora.getFullYear();
+      const res = await fetch(`/api/evento?omeId=${id}&mes=${mes}&ano=${ano}`);
+      const data = await res.json();
+      if (res.ok) setEventos(data);
+    } finally {
+      setCarregandoEventos(false);
+    }
+  }
+
+  async function handleSelecionarEvento(valor: string) {
+    const id = valor ? Number(valor) : "";
+    setEventoId(id);
+    setOperacaoId("");
+    setOperacoes([]);
+    setCodOpSelecionado("");
+    if (!id) return;
+
+    setCarregandoOperacoes(true);
+    try {
+      const agora = new Date();
+      const mes = agora.getMonth() + 1;
+      const ano = agora.getFullYear();
+      const res = await fetch(
+        `/api/operacao?eventoId=${id}&mes=${mes}&ano=${ano}`,
+      );
+      const data = await res.json();
+      if (res.ok) setOperacoes(data);
+    } finally {
+      setCarregandoOperacoes(false);
+    }
+  }
+
+  function handleSelecionarOperacao(valor: string) {
+    const id = valor ? Number(valor) : "";
+    setOperacaoId(id);
+    const op = operacoes.find((o) => o.id === id);
+    setCodOpSelecionado(op?.cod_op ?? "");
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1100,
+        background: "rgba(15, 23, 42, 0.35)",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "flex-end",
+        padding: "70px 12px 0 0",
+      }}
+    >
+      <div
+        onClick={(ev) => ev.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 300,
+          background: "#fff",
+          borderRadius: 14,
+          boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+          padding: 16,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
+          <span style={{ fontWeight: 800, fontSize: 13, color: "#111827" }}>
+            FILTRAR POR OPERAÇÃO
+          </span>
+          <FiX size={16} style={{ cursor: "pointer" }} onClick={onClose} />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelFiltroStyle}>UNIDADE</label>
+          <select
+            value={omeId}
+            onChange={(ev) => handleSelecionarOme(ev.target.value)}
+            disabled={carregandoOmes}
+            style={selectStyle}
+          >
+            <option value="">
+              {carregandoOmes ? "Carregando..." : "Selecione a OME"}
+            </option>
+            {omes.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.nomeOme}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelFiltroStyle}>Evento</label>
+          <select
+            value={eventoId}
+            onChange={(ev) => handleSelecionarEvento(ev.target.value)}
+            disabled={!omeId || carregandoEventos}
+            style={selectStyle}
+          >
+            <option value="">
+              {!omeId
+                ? "Selecione a OME primeiro"
+                : carregandoEventos
+                  ? "Carregando..."
+                  : eventos.length === 0
+                    ? "Nenhum evento neste mês"
+                    : "Selecione o evento"}
+            </option>
+            {eventos.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.nome_evento}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelFiltroStyle}>Operação</label>
+          <select
+            value={operacaoId}
+            onChange={(ev) => handleSelecionarOperacao(ev.target.value)}
+            disabled={!eventoId || carregandoOperacoes}
+            style={selectStyle}
+          >
+            <option value="">
+              {!eventoId
+                ? "Selecione o evento primeiro"
+                : carregandoOperacoes
+                  ? "Carregando..."
+                  : operacoes.length === 0
+                    ? "Nenhuma operação neste mês"
+                    : "Selecione a operação"}
+            </option>
+            {operacoes.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.nome_operacao}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <input
+          type="text"
+          value={codOpSelecionado}
+          readOnly
+          placeholder="COP da operação selecionada"
+          style={{
+            ...selectStyle,
+            marginBottom: 16,
+            background: "#f9fafb",
+            color: "#4b5563",
+            fontWeight: 700,
+          }}
+        />
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button
+            onClick={() => codOpSelecionado && onFiltrar(codOpSelecionado)}
+            disabled={!codOpSelecionado}
+            style={{
+              background: codOpSelecionado ? "#16a34a" : "#9ca3af",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "10px 22px",
+              fontWeight: 800,
+              fontSize: 13,
+              letterSpacing: "0.03em",
+              cursor: codOpSelecionado ? "pointer" : "default",
+            }}
+          >
+            FILTRAR
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Página ───────────────────────────────────────────────────────────────────
@@ -191,13 +1308,39 @@ export default function OperacoesPage() {
   const [buscaRealizada, setBuscaRealizada] = useState(false);
 
   const [filtroHoje, setFiltroHoje] = useState(false);
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>(null);
   const [busca, setBusca] = useState("");
 
-  const [obsModal, setObsModal] = useState<ObsModalState | null>(null);
+  const [escalaModal, setEscalaModal] = useState<Escala | null>(null);
+  const [filtroAberto, setFiltroAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
-  const escalasFiltradas = escalas.filter((e) => {
-    if (filtroHoje && !isHoje(e.dataInicio)) return false;
+  // Altura do bloco de busca — usada como offset do segundo bloco fixo
+  const buscaRef = useRef<HTMLDivElement>(null);
+  const [alturaBusca, setAlturaBusca] = useState(0);
+
+  useEffect(() => {
+    const el = buscaRef.current;
+    if (!el) return;
+    const medir = () => setAlturaBusca(el.offsetHeight);
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // ── Base dos contadores: só respeita o filtro "Hoje" ─────────────────────
+  const escalasBase = escalas.filter(
+    (e) => !filtroHoje || isHoje(e.dataInicio),
+  );
+  const totalEscalados = escalasBase.length;
+  const totalPresentes = escalasBase.filter((e) => e.presencaConfirmada).length;
+  const totalAusentes = totalEscalados - totalPresentes;
+
+  // ── Lista: Hoje + Presente/Ausente + busca por texto ─────────────────────
+  const escalasFiltradas = escalasBase.filter((e) => {
+    if (filtroStatus === "PRESENTE" && !e.presencaConfirmada) return false;
+    if (filtroStatus === "AUSENTE" && e.presencaConfirmada) return false;
     if (busca.trim()) {
       const termo = busca.toLowerCase();
       if (
@@ -269,48 +1412,12 @@ export default function OperacoesPage() {
     }));
   }
 
-  function AvatarPolicial({ mat, nome }: { mat: string; nome: string }) {
-    const [imgError, setImgError] = useState(false);
-
-    if (imgError) {
-      return (
-        <div
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: "50%",
-            background: "#e5e7eb",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-          title={nome}
-        >
-          <FaUser size={16} color="#9ca3af" />
-        </div>
-      );
-    }
-
-    return (
-      <img
-        src={`/avatares/${mat}.jpg`}
-        alt={nome}
-        title={nome}
-        onError={() => setImgError(true)}
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: "50%",
-          objectFit: "cover",
-          flexShrink: 0,
-        }}
-      />
-    );
+  function alternarStatus(status: Exclude<FiltroStatus, null>) {
+    setFiltroStatus((prev) => (prev === status ? null : status));
   }
 
-  async function buscarPorCodOp() {
-    const cod = codOp.trim();
+  async function buscarPorCodOp(codOverride?: string) {
+    const cod = (codOverride ?? codOp).trim();
     if (!cod) return;
     setLoading(true);
     setErro(null);
@@ -318,6 +1425,7 @@ export default function OperacoesPage() {
     setBuscaRealizada(true);
     setBusca("");
     setFiltroHoje(false);
+    setFiltroStatus(null);
     try {
       const res = await fetch(`/api/escala/cod-op/${cod}`);
       const data = await res.json();
@@ -340,82 +1448,59 @@ export default function OperacoesPage() {
     setBuscaRealizada(false);
     setBusca("");
     setFiltroHoje(false);
+    setFiltroStatus(null);
   }
 
-  function abrirModal(escala: Escala) {
-    setObsModal({ escala, observacao: escala.presencaObservacao ?? "" });
-  }
-
-  function aplicarAtualizacao(atualizada: Escala) {
-    setEscalas((prev) =>
-      prev.map((e) => (e.id === atualizada.id ? atualizada : e)),
-    );
-    setObsModal((prev) =>
-      prev
-        ? {
-            ...prev,
-            escala: atualizada,
-            observacao: atualizada.presencaObservacao ?? "",
-          }
-        : prev,
-    );
-  }
-
-  async function handleToggleCheck() {
-    if (!obsModal) return;
-    const escala = obsModal.escala;
-    const novoValor = !escala.presencaConfirmada;
-    try {
-      const res = await fetch(`/api/escala/${escala.id}/presenca`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          confirmado: novoValor,
-          observacao: obsModal.observacao,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message ?? "Erro ao atualizar");
-      aplicarAtualizacao({
-        ...escala,
-        presencaConfirmada: data.presencaConfirmada,
-        presencaConfirmadaEm: data.presencaConfirmadaEm,
-        presencaConfirmadaPorNome: data.presencaConfirmadaPorNome,
-        presencaObservacao: data.presencaObservacao,
-        observacaoEscritaPorNome: data.observacaoEscritaPorNome,
-        observacaoEscritaEm: data.observacaoEscritaEm,
-      });
-      toast.success(
-        novoValor ? "Presença confirmada ✅" : "Presença desmarcada",
+  /** Grava verificado + observação do fiscal na 1ª ou 2ª verificação (PATCH /escala/:id/verificacao1|2). */
+  async function salvarObservacao(
+    escala: Escala,
+    observacao: string,
+    verificado: boolean,
+  ) {
+    const numero = resolverNumeroVerificacao(escala);
+    if (!numero) {
+      toast.error(
+        "As duas verificações já foram registradas por outros fiscais",
       );
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao atualizar presença");
+      return;
     }
-  }
 
-  async function handleSalvarObservacao() {
-    if (!obsModal) return;
     setSalvando(true);
     try {
-      const res = await fetch(`/api/escala/${obsModal.escala.id}/presenca`, {
+      const res = await fetch(`/api/escala/${escala.id}/verificacao`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          confirmado: obsModal.escala.presencaConfirmada ?? false,
-          observacao: obsModal.observacao,
-        }),
+        body: JSON.stringify({ numero, observacao, verificado }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.message ?? "Erro ao salvar");
-      aplicarAtualizacao({
-        ...obsModal.escala,
-        presencaConfirmada: data.presencaConfirmada,
-        presencaObservacao: data.presencaObservacao,
-        presencaConfirmadaEm: data.presencaConfirmadaEm,
-        presencaConfirmadaPorNome: data.presencaConfirmadaPorNome,
-        observacaoEscritaPorNome: data.observacaoEscritaPorNome,
-        observacaoEscritaEm: data.observacaoEscritaEm,
-      });
+      if (!res.ok) {
+        const msg = Array.isArray(data?.message)
+          ? data.message.join(", ")
+          : data?.message;
+        throw new Error(msg ?? "Erro ao salvar observação");
+      }
+
+      // A resposta do PATCH não traz operação/evento/podeVerificar,
+      // então só mesclamos os campos de verificação sobre a escala atual.
+      const atualizada: Escala = {
+        ...escala,
+        primeiraVerificacao: data.primeiraVerificacao,
+        idVerificador1: data.idVerificador1,
+        verificador1Nome: data.verificador1Nome,
+        dataHoraVerificador1: data.dataHoraVerificador1,
+        obsVerificador1: data.obsVerificador1,
+        segundaVerificacao: data.segundaVerificacao,
+        idVerificador2: data.idVerificador2,
+        verificador2Nome: data.verificador2Nome,
+        dataHoraVerificador2: data.dataHoraVerificador2,
+        obsVerificador2: data.obsVerificador2,
+        minhaVerificacao: numero,
+      };
+
+      setEscalas((prev) =>
+        prev.map((e) => (e.id === atualizada.id ? atualizada : e)),
+      );
+      setEscalaModal(atualizada);
       toast.success("Observação salva ✅");
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar observação");
@@ -426,37 +1511,71 @@ export default function OperacoesPage() {
 
   return (
     <div className="container" style={{ paddingBottom: 10 }}>
-      {/* ── Campo de busca ───────────────────────────────────────────────── */}
-      <div className="div-itens-sistema">
+      {/* ── Campo de busca (fixo no topo) ────────────────────────────────── */}
+      <div
+        ref={buscaRef}
+        className="div-itens-sistema"
+        style={{
+          position: "sticky",
+          top: OFFSET_TOPO,
+          zIndex: 31,
+          background: FUNDO_PAGINA,
+        }}
+      >
         <div className="titulo" style={{ marginBottom: 12 }}>
           <span>OPERAÇÕES</span>
         </div>
-        <div className="divInputBuscarUsuarioEIcones">
-          <input
-            className="inputBuscarUsuario"
-            type="text"
-            placeholder="Digite o COP da Operação"
-            value={codOp}
-            onChange={(e) => setCodOp(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") buscarPorCodOp();
-            }}
-          />
-          {buscaRealizada && (
-            <FiX
-              size={20}
-              color="#e53e3e"
-              style={{ cursor: "pointer", marginRight: 4 }}
-              onClick={limparBusca}
-              title="Limpar busca"
+        <div
+          className="divInputBuscarUsuarioEIcones"
+          style={{ display: "flex", alignItems: "center", gap: 8 }}
+        >
+          <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
+            <input
+              className="inputBuscarUsuario"
+              type="text"
+              placeholder="Digite o COP da Operação"
+              value={codOp}
+              onChange={(e) => setCodOp(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") buscarPorCodOp();
+              }}
             />
-          )}
-          <FiSearch
-            size={25}
-            color="green"
-            style={{ cursor: "pointer" }}
-            onClick={buscarPorCodOp}
-          />
+            {buscaRealizada && (
+              <FiX
+                size={20}
+                color="#e53e3e"
+                style={{ cursor: "pointer", marginRight: 4 }}
+                onClick={limparBusca}
+                title="Limpar busca"
+              />
+            )}
+            <FiSearch
+              size={25}
+              color="green"
+              style={{ cursor: "pointer" }}
+              onClick={() => buscarPorCodOp()}
+            />
+          </div>
+
+          <button
+            onClick={() => setFiltroAberto(true)}
+            title="Filtrar por OME / Evento / Operação"
+            style={{
+              width: 36,
+              height: 36,
+              flexShrink: 0,
+              borderRadius: 10,
+              border: "none",
+              background: "#16a34a",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            <FiFilter size={17} />
+          </button>
         </div>
       </div>
 
@@ -474,73 +1593,123 @@ export default function OperacoesPage() {
       {/* ── Resultado ────────────────────────────────────────────────────── */}
       {!loading && !erro && escalas.length > 0 && (
         <div className="divOperacaoPrincipal">
-          <div className="divOperacaoOme">
-            <div style={{ color: "#8a8a8a", fontWeight: 600, fontSize: 18 }}>
-              {escalas[0]?.nomeOme}
+          {/* Cabeçalho da operação + resumo + filtros (fixo logo abaixo da busca) */}
+          <div
+            style={{
+              position: "sticky",
+              top: OFFSET_TOPO + alturaBusca,
+              zIndex: 30,
+              background: FUNDO_PAGINA,
+              paddingBottom: 6,
+            }}
+          >
+            <div className="divOperacaoOme">
+              <div style={{ color: "#8a8a8a", fontWeight: 600, fontSize: 18 }}>
+                {escalas[0]?.nomeOme}
+              </div>
             </div>
-          </div>
-          <div className="divOperacaoNomeEvento">
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2b2b" }}>
-              {escalas[0]?.nomeEvento} | {escalas[0]?.nomeOperacao}
+            <div className="divOperacaoNomeEvento">
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2b2b" }}>
+                {escalas[0]?.nomeEvento} | {escalas[0]?.nomeOperacao}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#4d78da" }}>
+                COP: {codOp}
+              </div>
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#4d78da" }}>
-              COP: {codOp}
+            <div className="divOperacaoTituloEscala">
+              ESCALA DE SERVIÇO | {escalas[0]?.sistema}
             </div>
-          </div>
-          <div className="divOperacaoTituloEscala">
-            ESCALA DE SERVIÇO | {escalas[0]?.sistema}
-          </div>
 
-          {/* Filtros */}
-          <div className="divOperacaoHoje">
-            <button
-              onClick={() => setFiltroHoje((prev) => !prev)}
+            {/* Resumo: Total / Presente / Ausente (também são filtros) */}
+            <div
               style={{
                 display: "flex",
-                alignItems: "center",
+                alignItems: "stretch",
                 gap: 4,
-                padding: "5px 10px",
-                borderRadius: 6,
-                border: "1px solid #4d78da",
-                background: filtroHoje ? "#4d78da" : "transparent",
-                color: filtroHoje ? "#fff" : "#4d78da",
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
+                margin: "8px 0",
+                padding: 4,
+                background: "#fff",
+                border: "1px solid #d9dee7",
+                borderRadius: 12,
               }}
             >
-              <FiCalendar size={12} /> Hoje
-            </button>
-            <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
-              <FiSearch
-                size={12}
-                style={{
-                  position: "absolute",
-                  left: 8,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#999",
-                }}
+              <CardResumo
+                icone={<FaMale size={28} />}
+                valor={totalEscalados}
+                rotulo="Total"
+                cor="#16a34a"
+                ativo={filtroStatus === null}
+                onClick={() => setFiltroStatus(null)}
               />
-              <input
-                type="text"
-                placeholder="Buscar por matrícula ou nome de guerra"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
+              <CardResumo
+                icone={<FaUserCheck size={26} />}
+                valor={totalPresentes}
+                rotulo="Presente"
+                cor="#2563eb"
+                ativo={filtroStatus === "PRESENTE"}
+                onClick={() => alternarStatus("PRESENTE")}
+              />
+              <CardResumo
+                icone={<IconeAusente size={24} color="#dc2626" />}
+                valor={totalAusentes}
+                rotulo="Ausente"
+                cor="#dc2626"
+                ativo={filtroStatus === "AUSENTE"}
+                onClick={() => alternarStatus("AUSENTE")}
+              />
+            </div>
+
+            {/* Filtros */}
+            <div className="divOperacaoHoje">
+              <button
+                onClick={() => setFiltroHoje((prev) => !prev)}
+                aria-pressed={filtroHoje}
                 style={{
-                  width: "100%",
-                  padding: "5px 8px 5px 26px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "5px 10px",
                   borderRadius: 6,
-                  border: "1px solid #ccc",
+                  border: "1px solid #4d78da",
+                  background: filtroHoje ? "#4d78da" : "transparent",
+                  color: filtroHoje ? "#fff" : "#4d78da",
                   fontSize: 11,
-                  boxSizing: "border-box",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
                 }}
-              />
+              >
+                <FiCalendar size={12} /> Hoje
+              </button>
+              <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
+                <FiSearch
+                  size={12}
+                  style={{
+                    position: "absolute",
+                    left: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#999",
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Buscar por matrícula ou nome de guerra"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "5px 8px 5px 26px",
+                    borderRadius: 6,
+                    border: "1px solid #ccc",
+                    fontSize: 11,
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Tabela */}
           {/* Lista de escalas */}
           <div
             style={{
@@ -554,7 +1723,11 @@ export default function OperacoesPage() {
           >
             {grupos.map((grupo) => {
               const { dia, mes } = diaMesAbrev(grupo.dataInicio);
-              const passadaGrupo = isPassada(grupo.dataInicio);
+              const passadaGrupo = isServicoEncerrado(
+                grupo.dataInicio,
+                grupo.horaInicio,
+                grupo.horaFim,
+              );
 
               return (
                 <div
@@ -711,8 +1884,24 @@ export default function OperacoesPage() {
                                   </div>
                                 </div>
 
+                                {/* Status de presença */}
+                                <span
+                                  title={
+                                    e.presencaConfirmada
+                                      ? "Presente"
+                                      : "Ausente"
+                                  }
+                                  style={{ display: "flex", flexShrink: 0 }}
+                                >
+                                  {e.presencaConfirmada ? (
+                                    <FaUserCheck size={16} color="#2563eb" />
+                                  ) : (
+                                    <IconeAusente size={16} color="#dc2626" />
+                                  )}
+                                </span>
+
                                 <button
-                                  onClick={() => !disabled && abrirModal(e)}
+                                  onClick={() => !disabled && setEscalaModal(e)}
                                   disabled={disabled}
                                   title={title}
                                   style={{
@@ -766,407 +1955,28 @@ export default function OperacoesPage() {
       )}
 
       {/* ── Modal ────────────────────────────────────────────────────────── */}
-      {obsModal &&
-        (() => {
-          const bloqueado = isEdicaoBloqueada(
-            obsModal.escala.dataInicio,
-            obsModal.escala.horaFim,
-          );
-          const fimPassou = isAposHoraFim(
-            obsModal.escala.dataInicio,
-            obsModal.escala.horaFim,
-          );
-          const passada = isPassada(obsModal.escala.dataInicio);
+      {escalaModal && (
+        <ModalEscala
+          key={escalaModal.id}
+          escala={escalaModal}
+          salvando={salvando}
+          onClose={() => setEscalaModal(null)}
+          onSalvar={(obs, verificado) =>
+            salvarObservacao(escalaModal, obs, verificado)
+          }
+        />
+      )}
 
-          return (
-            <div
-              className="modalOverlay"
-              style={{ zIndex: 1100 }}
-              onClick={() => setObsModal(null)}
-            >
-              <div
-                className="modalCard"
-                style={{ maxWidth: 420, width: "94%", gap: "1px" }}
-                onClick={(ev) => ev.stopPropagation()}
-              >
-                {/* Título */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 12,
-                  }}
-                >
-                  <h2 style={{ fontSize: 15, margin: 0 }}>
-                    {bloqueado ? "Detalhes da Escala" : "Presença / Observação"}
-                  </h2>
-                  <FiX
-                    size={16}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setObsModal(null)}
-                  />
-                </div>
-
-                {/* Info do policial */}
-                <div
-                  style={{
-                    background: "#f4f6fb",
-                    borderRadius: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    paddingTop: "5px",
-                    paddingLeft: "25px",
-                    marginBottom: "10px",
-                    fontSize: 13,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <FaUser
-                      size={30}
-                      color="gray"
-                      style={{
-                        borderRadius: "50%",
-                        border: "solid 1px #b8b3b3",
-                        width: "50px",
-                        height: "50px",
-                        padding: "3px",
-                      }}
-                    />
-                  </div>
-                  <div
-                    style={{
-                      padding: "8px 10px",
-                    }}
-                  >
-                    <div>
-                      <strong>
-                        {obsModal.escala.pg_escala} {obsModal.escala.mat_escala}{" "}
-                        {obsModal.escala.ng_escala}
-                      </strong>
-                    </div>
-                    <div style={{ color: "#555" }}>
-                      {formatarData(obsModal.escala.dataInicio)} &nbsp;|&nbsp;
-                      {obsModal.escala.horaInicio.slice(0, 5)} às{" "}
-                      {obsModal.escala.horaFim.slice(0, 5)}
-                    </div>
-                    <div style={{ color: "#555" }}>
-                      {obsModal.escala.funcao}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Aviso somente leitura */}
-                {bloqueado && (
-                  <div
-                    style={{
-                      background: "#fff3cd",
-                      border: "1px solid #ffc107",
-                      borderRadius: 6,
-                      padding: "6px 10px",
-                      marginBottom: 12,
-                      fontSize: 11,
-                      color: "#856404",
-                    }}
-                  >
-                    {fimPassou && !passada
-                      ? "⏰ O horário de término desta escala já passou. Somente leitura."
-                      : "📅 Esta escala é de uma data anterior. Somente leitura."}
-                  </div>
-                )}
-
-                <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      height: "40px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        width: "75%",
-                        padding: "8px 10px",
-                        borderRadius: 6,
-
-                        opacity: bloqueado ? 0.7 : 1,
-                      }}
-                    >
-                      <div
-                        style={{
-                          alignItems: "center",
-                          padding: "8px 10px",
-                          borderRadius: 6,
-                          width: "100%",
-                          border: "1px solid #d1d5db",
-                        }}
-                      >
-                        {" "}
-                        <input
-                          type="checkbox"
-                          id="chk-presenca"
-                          checked={obsModal.escala.presencaConfirmada ?? false}
-                          onChange={bloqueado ? undefined : handleToggleCheck}
-                          disabled={bloqueado}
-                          style={{
-                            width: 16,
-                            height: 16,
-                            marginRight: "4px",
-                            cursor: bloqueado ? "default" : "pointer",
-                          }}
-                        />
-                        <label
-                          htmlFor="chk-presenca"
-                          style={{
-                            fontSize: 18,
-                            cursor: bloqueado ? "default" : "pointer",
-                            userSelect: "none",
-                          }}
-                        >
-                          {obsModal.escala.presencaConfirmada
-                            ? "Presença confirmada ✅"
-                            : "Presença não confirmada"}
-                        </label>
-                      </div>
-                    </div>
-
-                    {obsModal.escala.presencaConfirmadaPorNome && (
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "#555",
-                          marginBottom: 10,
-                          width: "25%",
-                          paddingLeft: 4,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <FaUser
-                            size={30}
-                            color="gray"
-                            style={{
-                              borderRadius: "50%",
-                              border: "solid 1px #b8b3b3",
-                              width: "34px",
-                              height: "34px",
-                              padding: "3px",
-                            }}
-                          />
-                        </div>
-
-                        <div
-                          style={{
-                            fontSize: 9,
-                            color: "#777",
-                            marginTop: 4,
-                            display: "flex",
-                            paddingLeft: 2,
-                            textAlign: "center",
-                            fontStyle: "italic",
-                          }}
-                        >
-                          <strong>
-                            {obsModal.escala.presencaConfirmadaPorNome}
-                          </strong>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "#777",
-                      paddingLeft: "10px",
-                      textAlign: "left",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    {obsModal.escala.presencaConfirmadaEm && (
-                      <>
-                        {new Date(
-                          obsModal.escala.presencaConfirmadaEm,
-                        ).toLocaleString("pt-BR")}
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <hr
-                  style={{
-                    marginTop: "20px",
-                    marginBottom: "20px",
-                    border: "solid 1px #d3d6da",
-                  }}
-                ></hr>
-
-                <div
-                  style={{
-                    display: "flex",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "25%",
-                      display: "flex",
-                      justifyContent: "center",
-                      marginTop: "10px",
-                    }}
-                  >
-                    {obsModal.escala.observacaoEscritaPorNome && (
-                      <div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <FaUser
-                            size={30}
-                            color="gray"
-                            style={{
-                              borderRadius: "50%",
-                              border: "solid 1px #b8b3b3",
-                              width: "34px",
-                              height: "34px",
-                              padding: "3px",
-                            }}
-                          />
-                        </div>
-
-                        <div
-                          style={{
-                            fontSize: 9,
-                            color: "#777",
-                            marginTop: 4,
-                            marginRight: 4,
-                            display: "flex",
-                            paddingLeft: 2,
-                            textAlign: "center",
-                            fontStyle: "italic",
-                          }}
-                        >
-                          <strong>
-                            {obsModal.escala.observacaoEscritaPorNome}
-                          </strong>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div
-                    style={{
-                      width: "75%",
-                    }}
-                  >
-                    <span style={{ fontSize: "10px", color: "#888282" }}>
-                      Anotação
-                    </span>
-                    <textarea
-                      value={obsModal.observacao}
-                      onChange={(ev) =>
-                        !bloqueado &&
-                        setObsModal((prev) =>
-                          prev
-                            ? { ...prev, observacao: ev.target.value }
-                            : prev,
-                        )
-                      }
-                      readOnly={bloqueado}
-                      rows={4}
-                      placeholder={
-                        bloqueado
-                          ? obsModal.escala.presencaObservacao
-                            ? ""
-                            : "Nenhuma observação registrada."
-                          : "Descreva alguma observação sobre a presença..."
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "8px 10px",
-                        borderRadius: 6,
-                        border: "1px solid #ccc",
-                        fontSize: 10,
-                        resize: bloqueado ? "none" : "vertical",
-                        boxSizing: "border-box",
-                        background: bloqueado ? "#f5f5f5" : "#fff",
-                        color: bloqueado ? "#555" : "inherit",
-                        cursor: bloqueado ? "default" : "text",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Quem escreveu a observação */}
-                {obsModal.escala.observacaoEscritaPorNome && (
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "#777",
-                      paddingLeft: 2,
-                      textAlign: "right",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    {obsModal.escala.observacaoEscritaEm && (
-                      <>
-                        {new Date(
-                          obsModal.escala.observacaoEscritaEm,
-                        ).toLocaleString("pt-BR")}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                <div className="modalActions" style={{ marginTop: 12 }}>
-                  <button
-                    className="btnCancel"
-                    onClick={() => setObsModal(null)}
-                  >
-                    Fechar
-                  </button>
-                  {!bloqueado && (
-                    <button
-                      className="btnSave"
-                      onClick={handleSalvarObservacao}
-                      disabled={salvando}
-                    >
-                      {salvando ? "Salvando..." : "Salvar observação"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+      {filtroAberto && (
+        <ModalFiltro
+          onClose={() => setFiltroAberto(false)}
+          onFiltrar={(cod) => {
+            setCodOp(cod);
+            setFiltroAberto(false);
+            buscarPorCodOp(cod);
+          }}
+        />
+      )}
     </div>
   );
 }
-
-const th: React.CSSProperties = {
-  padding: "4px 6px",
-  border: "1px solid #d1d5db",
-  fontSize: 10,
-  textAlign: "center",
-  fontWeight: 600,
-};
-
-const td: React.CSSProperties = {
-  padding: "1px 2px",
-  border: "1px solid #d1d5db",
-  fontSize: 10,
-  textAlign: "center",
-  lineHeight: 1.1,
-};

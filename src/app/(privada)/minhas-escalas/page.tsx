@@ -49,10 +49,28 @@ type Escala = {
   somaCotaFinal: number;
   pagamento: string;
   phone?: string | null;
+
+  // ── Presença ──────────────────────────────────────────────────────────
   presencaConfirmada?: boolean;
-  presencaObservacao?: string | null;
   presencaConfirmadaEm?: string | null;
   presencaConfirmadaPorNome?: string | null;
+
+  // ── Saída de serviço ──────────────────────────────────────────────────
+  saidaConfirmada?: boolean;
+  saidaConfirmadaEm?: string | null;
+  saidaConfirmadaPorNome?: string | null;
+
+  // ── Verificação por fiscal (1ª e 2ª ronda) ───────────────────────────────
+  primeiraVerificacao?: boolean;
+  verificador1Nome?: string | null;
+  dataHoraVerificador1?: string | null;
+  obsVerificador1?: string | null;
+
+  segundaVerificacao?: boolean;
+  verificador2Nome?: string | null;
+  dataHoraVerificador2?: string | null;
+  obsVerificador2?: string | null;
+
   comentario_pagamento: string | null;
   valorIndividual?: number;
 
@@ -99,6 +117,8 @@ const MESES = [
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+const MINUTOS_ANTECEDENCIA_PRESENCA = 15;
+
 function formatarHora(hora: string): string {
   return hora?.slice(0, 5) ?? "-";
 }
@@ -112,6 +132,56 @@ function formatarData(data: string): string {
 function abreviarNomeEvento(nome?: string): string {
   if (!nome) return "-";
   return nome.length > 7 ? `${nome.slice(0, 7)}.` : nome;
+}
+
+type Coordenadas = { latitude: number; longitude: number };
+
+function obterPosicao(): Promise<Coordenadas> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      return reject(new Error("Seu dispositivo não suporta geolocalização."));
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) =>
+        resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        }),
+      (err) => {
+        const mensagens: Record<number, string> = {
+          1: "Permissão de localização negada. Libere o acesso à localização nas configurações do navegador e tente novamente.",
+          2: "Não foi possível obter sua localização. Verifique se o GPS está ligado.",
+          3: "Tempo esgotado ao obter a localização. Tente novamente.",
+        };
+        reject(new Error(mensagens[err.code] ?? "Erro ao obter localização."));
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  });
+}
+
+/**
+ * Calcula a janela de confirmação de presença de uma escala:
+ * abre 15 min antes do início e fecha no término (trata escala noturna,
+ * quando horaFim <= horaInicio, como terminando no dia seguinte).
+ * É só uma dica visual — a validação de verdade é sempre feita no backend.
+ */
+function calcularJanelaPresenca(escala: Escala): { abertura: Date; fim: Date } {
+  const [ano, mes, dia] = escala.dataInicio.split("-").map(Number);
+  const [h, m] = formatarHora(escala.horaInicio).split(":").map(Number);
+  const inicio = new Date(ano, mes - 1, dia, h, m, 0, 0);
+
+  const [hf, mf] = formatarHora(escala.horaFim).split(":").map(Number);
+  let fim = new Date(ano, mes - 1, dia, hf, mf, 0, 0);
+  if (fim <= inicio) {
+    fim = new Date(fim.getTime() + 24 * 60 * 60 * 1000);
+  }
+
+  const abertura = new Date(
+    inicio.getTime() - MINUTOS_ANTECEDENCIA_PRESENCA * 60 * 1000,
+  );
+
+  return { abertura, fim };
 }
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
@@ -147,8 +217,30 @@ export default function MinhasEscalasPage() {
     {},
   );
 
-  const { data: escalas, loading } = useApi<Escala[]>("/api/escala/minhas", []);
+  const { data: escalasApi, loading } = useApi<Escala[]>(
+    "/api/escala/minhas",
+    [],
+  );
+
+  // Cópia local e mutável das escalas, sincronizada com o hook. Permite
+  // atualizar uma escala específica (ex: após confirmar presença) sem
+  // depender de um "refetch" do useApi.
+  const [escalas, setEscalas] = useState<Escala[]>([]);
+  useEffect(() => {
+    if (escalasApi) setEscalas(escalasApi);
+  }, [escalasApi]);
+
   const [meusRepasses, setMeusRepasses] = useState<Repasse[] | null>(null);
+
+  // ✅ NOVO — confirmação de presença
+  const [confirmandoPresencaId, setConfirmandoPresencaId] = useState<
+    number | null
+  >(null);
+
+  // ✅ NOVO — confirmação de saída
+  const [confirmandoSaidaId, setConfirmandoSaidaId] = useState<number | null>(
+    null,
+  );
 
   // ✅ NOVO — impede envio com matrícula digitada mas não confirmada na lista
   const destinatarioAmbiguo =
@@ -194,6 +286,73 @@ export default function MinhasEscalasPage() {
     setDestinatarioSelecionado(null);
     setMatDestinatario("");
     setSugestoes([]);
+  }
+
+  // Atualiza uma escala em todos os lugares onde ela aparece na tela
+  function aplicarAtualizacaoEscala(id: number, patch: Partial<Escala>) {
+    const atualizar = (lista: Escala[]) =>
+      lista.map((e) => (e.id === id ? { ...e, ...patch } : e));
+
+    setEscalas((prev) => atualizar(prev));
+    setEscalasDoDiaSelecionado((prev) => atualizar(prev));
+    setEscalaDetalhe((prev) =>
+      prev && prev.id === id ? { ...prev, ...patch } : prev,
+    );
+  }
+
+  // ─── Confirmar presença ───────────────────────────────────────────────────────
+  async function handleConfirmarPresenca(escala: Escala) {
+    setConfirmandoPresencaId(escala.id);
+    try {
+      const coords = await obterPosicao();
+      const response = await fetch(`/api/escala/${escala.id}/presenca`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(coords),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : data?.message || "Não foi possível confirmar a presença",
+        );
+      }
+
+      toast.success("Presença confirmada!");
+      aplicarAtualizacaoEscala(escala.id, data);
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao confirmar presença");
+    } finally {
+      setConfirmandoPresencaId(null);
+    }
+  }
+
+  // ─── Confirmar saída ──────────────────────────────────────────────────────────
+  async function handleConfirmarSaida(escala: Escala) {
+    setConfirmandoSaidaId(escala.id);
+    try {
+      const response = await fetch(`/api/escala/${escala.id}/saida`, {
+        method: "PATCH",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : data?.message || "Não foi possível registrar a saída",
+        );
+      }
+
+      toast.success("Saída registrada!");
+      aplicarAtualizacaoEscala(escala.id, data);
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao registrar saída");
+    } finally {
+      setConfirmandoSaidaId(null);
+    }
   }
 
   // ─── Resumo financeiro ───────────────────────────────────────────────────────
@@ -624,6 +783,63 @@ export default function MinhasEscalasPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ─── Mais de uma escala no dia: lista simples pra escolher qual abrir ─── */}
+      {escalasDoDiaSelecionado.length > 1 && (
+        <div
+          style={{
+            width: "100%",
+            marginTop: "10px",
+            background: "#ffffff",
+            padding: "18px",
+            borderRadius: "20px",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+            border: "1px solid #ececec",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "11px",
+              color: "#9ca3af",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            Escalas do dia — {tituloContexto}
+          </span>
+
+          {escalasDoDiaSelecionado.map((escala) => (
+            <button
+              key={escala.id}
+              onClick={() => setEscalaDetalhe(escala)}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                textAlign: "left",
+                border: "1px solid #f1f1f1",
+                borderRadius: "12px",
+                padding: "10px 14px",
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              <span style={{ fontSize: "13px", color: "#111827" }}>
+                <strong>{escala.funcao}</strong> ·{" "}
+                {formatarHora(escala.horaInicio)} às{" "}
+                {formatarHora(escala.horaFim)} — {escala.nomeEvento}
+              </span>
+              {escala.presencaConfirmada && (
+                <span style={{ color: "#16a34a", fontSize: "13px" }}>✔</span>
+              )}
+            </button>
+          ))}
         </div>
       )}
 
@@ -1367,6 +1583,15 @@ export default function MinhasEscalasPage() {
             setModalRepasse(true); // abre o modal de repasse
           }}
           onCancelarRepasse={() => handleCancelarRepasse(escalaDetalhe)}
+          onConfirmarPresenca={() => handleConfirmarPresenca(escalaDetalhe)}
+          confirmandoPresenca={confirmandoPresencaId === escalaDetalhe.id}
+          podeConfirmarPresenca={(() => {
+            const { abertura, fim } = calcularJanelaPresenca(escalaDetalhe);
+            const agora = new Date();
+            return agora >= abertura && agora <= fim;
+          })()}
+          onConfirmarSaida={() => handleConfirmarSaida(escalaDetalhe)}
+          confirmandoSaida={confirmandoSaidaId === escalaDetalhe.id}
         />
       )}
     </div>

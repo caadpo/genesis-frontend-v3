@@ -3,30 +3,19 @@ import { cookies } from "next/headers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
+// Salvar como: src/app/api/escala/[id]/saida/route.ts
 export async function PATCH(
-  request: Request,
+  _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
   const token = (await cookies()).get("accessToken")?.value;
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { message: "Corpo da requisição inválido" },
-      { status: 400 },
-    );
-  }
-
-  const response = await fetch(`${API_URL}/escala/${id}/presenca`, {
+  const response = await fetch(`${API_URL}/escala/${id}/saida`, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
     cache: "no-store",
   });
 

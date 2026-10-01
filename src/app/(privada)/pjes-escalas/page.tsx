@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 
 import { useApi } from "@/src/hooks/useApi";
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
+import { UserType } from "@/src/lib/userType";
 import { FiArrowLeft, FiChevronUp, FiRefreshCcw, FiStar } from "react-icons/fi";
 import {
   FaBarcode,
@@ -15,11 +17,13 @@ import {
   FaLock,
   FaLockOpen,
   FaPhone,
+  FaRegClock,
   FaTrash,
   FaUser,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { UploadEscalaPlanilha } from "@/src/components/ui/UploadEscalaPlanilha";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -69,6 +73,8 @@ type EscalaOperacaoResponse = {
   totalCotasPracas: number;
 };
 
+type FiltroStatus = "PRESENTE" | "AUSENTE" | null;
+
 type Escala = {
   id: number;
   sistema: string;
@@ -93,10 +99,30 @@ type Escala = {
   viaturaId?: number | null;
   viatura?: Viatura | null;
   phone?: string | null;
+
+  // ── Presença (confirmada pelo próprio escalado) ───────────────────────
   presencaConfirmada?: boolean;
-  presencaObservacao?: string | null;
   presencaConfirmadaEm?: string | null;
   presencaConfirmadaPorNome?: string | null;
+
+  // ── Saída de serviço ──────────────────────────────────────────────────
+  saidaConfirmada?: boolean;
+  saidaConfirmadaEm?: string | null;
+  saidaConfirmadaPorNome?: string | null;
+  /** true quando o sistema fechou a saída automaticamente (cron) */
+  saidaAutomatica?: boolean;
+
+  // ── 1ª verificação (fiscal) ───────────────────────────────────────────
+  primeiraVerificacao?: boolean;
+  verificador1Nome?: string | null;
+  dataHoraVerificador1?: string | null;
+  obsVerificador1?: string | null;
+
+  // ── 2ª verificação (fiscal) ───────────────────────────────────────────
+  segundaVerificacao?: boolean;
+  verificador2Nome?: string | null;
+  dataHoraVerificador2?: string | null;
+  obsVerificador2?: string | null;
 
   conta?: {
     banco: string;
@@ -104,6 +130,131 @@ type Escala = {
     conta: string;
   } | null;
 };
+
+// ─── Helpers de formatação de data/hora curtas para as colunas de status ─────
+
+function formatarDataHoraCurta(valor?: string | null): string {
+  if (!valor) return "";
+  return new Date(valor).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// ─── Célula de status (usada nas colunas Presença/Saída/1ª e 2ª verif.) ──────
+
+function StatusCell({
+  confirmado,
+  nome,
+  dataHora,
+  obs,
+  extra,
+}: {
+  confirmado?: boolean;
+  nome?: string | null;
+  dataHora?: string | null;
+  obs?: string | null;
+  extra?: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
+        minWidth: 92,
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={!!confirmado}
+        readOnly
+        style={{ width: 11, height: 11, cursor: "default" }}
+      />
+      {nome && (
+        <div
+          style={{
+            fontSize: 9,
+            color: "#555",
+            textAlign: "center",
+            lineHeight: 1.2,
+          }}
+        >
+          {nome}
+        </div>
+      )}
+      {dataHora && (
+        <div style={{ fontSize: 8.5, color: "#999" }}>
+          {formatarDataHoraCurta(dataHora)}
+          {extra ? ` (${extra})` : ""}
+        </div>
+      )}
+      {obs && (
+        <div
+          title={obs}
+          style={{
+            fontSize: 8.5,
+            color: "#888",
+            fontStyle: "italic",
+            maxWidth: 110,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {obs}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Caixinha de contagem (Total/Presente/Ausente), também usada como filtro ─
+
+function ResumoBox({
+  label,
+  valor,
+  cor,
+  ativo,
+  onClick,
+}: {
+  label: string;
+  valor: number;
+  cor: string;
+  ativo: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={ativo}
+      title={ativo ? `Remover filtro "${label}"` : `Filtrar por ${label}`}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "6px 16px",
+        borderRadius: 8,
+        border: `1.5px solid ${ativo ? cor : "#e0e0e0"}`,
+        background: ativo ? `${cor}14` : "#fff",
+        cursor: "pointer",
+        minWidth: 74,
+      }}
+    >
+      <span
+        style={{ fontSize: 18, fontWeight: 800, color: cor, lineHeight: 1 }}
+      >
+        {valor}
+      </span>
+      <span style={{ fontSize: 10, fontWeight: 700, color: cor, marginTop: 2 }}>
+        {label}
+      </span>
+    </button>
+  );
+}
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
@@ -115,6 +266,7 @@ function PjesEscalasContent() {
   const tetoId = Number(params?.get("tetoId"));
   const operacaoId = Number(params?.get("operacaoId"));
   const [editandoEscala, setEditandoEscala] = useState<Escala | null>(null);
+  const { user: usuarioLogado } = useCurrentUser();
 
   // ─── Constantes PJES ────────────────────────────────────────────────────────
   const MESES = [
@@ -190,7 +342,20 @@ function PjesEscalasContent() {
   const [tabelaEscalas, setTabelaEscalas] = useState<Escala[]>([]);
   const isEditandoRef = useRef(false);
   const isLimpandoAposAdicionarRef = useRef(false);
+  const localApresentacaoAtualRef = useRef("");
+  const situacaoAtualRef = useRef("");
+  useEffect(() => {
+    localApresentacaoAtualRef.current = localApresentacao;
+  }, [localApresentacao]);
+
+  useEffect(() => {
+    situacaoAtualRef.current = situacao;
+  }, [situacao]);
   const [gerandoPdf, setGerandoPdf] = useState(false);
+
+  // ── Contadores/filtros no topo da tabela ──────────────────────────────────
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>(null);
+  const [filtro24h, setFiltro24h] = useState(false);
 
   const { data: escalasData } = useApi<EscalaOperacaoResponse>(
     operacaoId ? `/api/escala?operacaoId=${operacaoId}` : "",
@@ -257,8 +422,25 @@ function PjesEscalasContent() {
     !!selectedCargo &&
     !loadingUsuario;
 
+  // ── Base da tabela: aplica o filtro "somente 24h" antes de tudo ───────────
+  // Uma escala é considerada de 24h quando horaInicio === horaFim (mesma
+  // convenção já usada em cotaEscala, acima).
+  const escalasBase = filtro24h
+    ? tabelaEscalas.filter(
+        (e) => !!e.horaInicio && !!e.horaFim && e.horaInicio === e.horaFim,
+      )
+    : tabelaEscalas;
+
+  const totalEscalados = escalasBase.length;
+  const totalPresentes = escalasBase.filter((e) => e.presencaConfirmada).length;
+  const totalAusentes = totalEscalados - totalPresentes;
+
   // ✅ busca agora usa dadosSgp.pgSgp, dadosSgp.nomeGuerraSgp, dadosSgp.cpfSgp, phone
-  const filteredEscalas = tabelaEscalas.filter((escala) => {
+  // (e também as observações registradas pelo fiscal na 1ª/2ª verificação)
+  const filteredEscalas = escalasBase.filter((escala) => {
+    if (filtroStatus === "PRESENTE" && !escala.presencaConfirmada) return false;
+    if (filtroStatus === "AUSENTE" && escala.presencaConfirmada) return false;
+
     if (!searchText.trim()) return true;
     const term = searchText.toLowerCase();
     return [
@@ -276,6 +458,8 @@ function PjesEscalasContent() {
       escala.funcao,
       escala.situacao,
       escala.anotacoes || "",
+      escala.obsVerificador1 || "",
+      escala.obsVerificador2 || "",
     ]
       .map((value) => String(value).toLowerCase())
       .some((value) => value.includes(term));
@@ -291,7 +475,7 @@ function PjesEscalasContent() {
     }, new Map<string, Escala[]>()),
   ).map(([data, escalas]) => ({ data, escalas }));
 
-  const totalRegistros = tabelaEscalas.length;
+  const totalRegistros = escalasBase.length;
   const totalFiltrado = filteredEscalas.length;
 
   useEffect(() => {
@@ -346,15 +530,20 @@ function PjesEscalasContent() {
         if (!found || !found.id) {
           setUsuario(null);
           setBuscaUsuarioError("Usuário não encontrado");
-          setLocalApresentacao("");
-          setSituacao("");
+          if (!localApresentacaoAtualRef.current.trim())
+            setLocalApresentacao("");
+          if (!situacaoAtualRef.current.trim()) setSituacao("");
           return;
         }
 
         setUsuario(found);
         if (!isEditandoRef.current) {
-          setLocalApresentacao(found.localApresentacao ?? "");
-          setSituacao(found.situacao ?? "");
+          if (!localApresentacaoAtualRef.current.trim()) {
+            setLocalApresentacao(found.localApresentacao ?? "");
+          }
+          if (!situacaoAtualRef.current.trim()) {
+            setSituacao(found.situacao ?? "");
+          }
         }
         isEditandoRef.current = false;
       } catch (error: any) {
@@ -362,8 +551,8 @@ function PjesEscalasContent() {
         setBuscaUsuarioError(
           error?.message || "Matricula não existe ou está errada",
         );
-        setLocalApresentacao("");
-        setSituacao("");
+        if (!localApresentacaoAtualRef.current.trim()) setLocalApresentacao("");
+        if (!situacaoAtualRef.current.trim()) setSituacao("");
       } finally {
         setLoadingUsuario(false);
       }
@@ -447,6 +636,7 @@ function PjesEscalasContent() {
         setTabelaEscalas((prev) => [data, ...prev]);
         toast.success("Escala adicionada com sucesso!");
         isLimpandoAposAdicionarRef.current = true;
+
         setMatricula("");
       }
     } catch (error: any) {
@@ -533,6 +723,12 @@ function PjesEscalasContent() {
       setGerandoPdf(false);
     }
   }
+
+  const formatarHora = (hora: string) => {
+    if (!hora) return "-";
+
+    return hora.substring(0, 5);
+  };
 
   return (
     <div className="page" style={{ overflow: "hidden" }}>
@@ -888,6 +1084,7 @@ function PjesEscalasContent() {
               <button
                 className="botaoCancelarEscala"
                 type="button"
+                // botão Cancelar
                 onClick={() => {
                   setEditandoEscala(null);
                   setMatricula("");
@@ -934,7 +1131,7 @@ function PjesEscalasContent() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {searchText.trim()
+                {totalFiltrado !== totalRegistros
                   ? `${totalFiltrado} de ${totalRegistros} registro${totalRegistros !== 1 ? "s" : ""}`
                   : `${totalRegistros} registro${totalRegistros !== 1 ? "s" : ""}`}
               </span>
@@ -965,8 +1162,79 @@ function PjesEscalasContent() {
                 <FaFilePdf style={{ fontSize: "16px" }} />
                 {gerandoPdf ? "Gerando..." : "Gerar PDF"}
               </button>
+
+              {usuarioLogado?.typeUser === UserType.MASTER && (
+                <UploadEscalaPlanilha
+                  onSucesso={() => window.location.reload()}
+                />
+              )}
             </div>
           </div>
+
+          {/* ── Contadores (Total/Presente/Ausente) + filtro "somente 24h" ── */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "wrap",
+              margin: "4px 0 12px",
+            }}
+          >
+            <ResumoBox
+              label="Total"
+              valor={totalEscalados}
+              cor="#16a34a"
+              ativo={filtroStatus === null}
+              onClick={() => setFiltroStatus(null)}
+            />
+            <ResumoBox
+              label="Presente"
+              valor={totalPresentes}
+              cor="#2563eb"
+              ativo={filtroStatus === "PRESENTE"}
+              onClick={() =>
+                setFiltroStatus((prev) =>
+                  prev === "PRESENTE" ? null : "PRESENTE",
+                )
+              }
+            />
+            <ResumoBox
+              label="Ausente"
+              valor={totalAusentes}
+              cor="#dc2626"
+              ativo={filtroStatus === "AUSENTE"}
+              onClick={() =>
+                setFiltroStatus((prev) =>
+                  prev === "AUSENTE" ? null : "AUSENTE",
+                )
+              }
+            />
+
+            <button
+              onClick={() => setFiltro24h((v) => !v)}
+              aria-pressed={filtro24h}
+              title="Mostrar só serviços de 24h (hora de início = hora de término)"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 14px",
+                borderRadius: 8,
+                border: "1px solid #9c71e7",
+                background: filtro24h ? "#7c3aed" : "transparent",
+                color: filtro24h ? "#fff" : "#7c3aed",
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <FaRegClock />
+              24h
+            </button>
+          </div>
+
           <div className="tabelaEscalasWrapper">
             <table className="tabelaEscalas">
               <thead className="tabelaEscalasThead">
@@ -979,11 +1247,10 @@ function PjesEscalasContent() {
                   <th>FUNÇÃO | COTA</th>
                   <th>VIATURA</th>
                   <th>ANOTAÇÕES</th>
-                  <th>
-                    <FaCheckSquare size={16} />
-                  </th>
-                  <th style={{ textAlign: "right" }}>ALTERAÇÃO</th>
-                  <th></th>
+                  <th>PRESENÇA</th>
+                  <th>SAÍDA</th>
+                  <th>1ª VERIF.</th>
+                  <th>2ª VERIF.</th>
                   <th>AÇÕES</th>
                 </tr>
               </thead>
@@ -1018,8 +1285,10 @@ function PjesEscalasContent() {
                         <td>{formatarTelefone(escala.phone)}</td>
 
                         <td>
-                          {escala.horaInicio} às {escala.horaFim}
+                          {formatarHora(escala.horaInicio)} às{" "}
+                          {formatarHora(escala.horaFim)}
                         </td>
+
                         <td>{escala.localApresentacao}</td>
                         <td>
                           {escala.funcao} | {escala.cota_escala} Ct
@@ -1031,48 +1300,45 @@ function PjesEscalasContent() {
                         </td>
                         <td>{escala.anotacoes || "-"}</td>
                         <td>
-                          <input
-                            style={{
-                              width: "10px",
-                              height: "10px",
-                              cursor: "pointer",
-                            }}
-                            type="checkbox"
-                            checked={escala.presencaConfirmada ?? false}
-                            readOnly
+                          <StatusCell
+                            confirmado={escala.presencaConfirmada}
+                            nome={escala.presencaConfirmadaPorNome}
+                            dataHora={escala.presencaConfirmadaEm}
                           />
                         </td>
-                        <td style={{ textAlign: "right" }}>
-                          {escala.presencaConfirmadaPorNome}
+                        <td>
+                          <StatusCell
+                            confirmado={escala.saidaConfirmada}
+                            nome={escala.saidaConfirmadaPorNome}
+                            dataHora={escala.saidaConfirmadaEm}
+                            extra={
+                              escala.saidaAutomatica ? "automático" : undefined
+                            }
+                          />
                         </td>
-                        <td style={{ textAlign: "left" }}>
-                          {escala.presencaConfirmadaPorNome ? (
-                            <>
-                              {escala.presencaConfirmadaEm && (
-                                <div style={{ color: "#666", fontSize: 10 }}>
-                                  {new Date(
-                                    escala.presencaConfirmadaEm,
-                                  ).toLocaleString("pt-BR")}
-                                </div>
-                              )}
-                              {escala.presencaObservacao && (
-                                <div
-                                  style={{ color: "#888", fontStyle: "italic" }}
-                                >
-                                  {escala.presencaObservacao}
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <span style={{ color: "#bbb" }}>—</span>
-                          )}
+                        <td>
+                          <StatusCell
+                            confirmado={escala.primeiraVerificacao}
+                            nome={escala.verificador1Nome}
+                            dataHora={escala.dataHoraVerificador1}
+                            obs={escala.obsVerificador1}
+                          />
                         </td>
-                        <td className="acoesTabelaEscalas">
+                        <td>
+                          <StatusCell
+                            confirmado={escala.segundaVerificacao}
+                            nome={escala.verificador2Nome}
+                            dataHora={escala.dataHoraVerificador2}
+                            obs={escala.obsVerificador2}
+                          />
+                        </td>
+                        <td style={{ padding: "3px" }}>
                           <FiRefreshCcw
-                            size={12}
+                            size={15}
                             color={escala.isRepasse ? "blue" : "#ccc"}
                             style={{
                               cursor: escala.isRepasse ? "pointer" : "default",
+                              marginRight: "3px",
                             }}
                             title={
                               escala.isRepasse
@@ -1089,15 +1355,23 @@ function PjesEscalasContent() {
                             }}
                           />
                           <FaEdit
-                            size={12}
+                            size={15}
                             color="orange"
-                            style={{ cursor: "pointer" }}
+                            style={{
+                              cursor: "pointer",
+                              alignItems: "center",
+                              marginRight: "3px",
+                            }}
                             onClick={() => handleEditarEscala(escala)}
                           />
                           <FaTrash
-                            size={12}
+                            size={15}
                             color="red"
-                            style={{ cursor: "pointer" }}
+                            style={{
+                              cursor: "pointer",
+                              alignItems: "center",
+                              marginRight: "3px",
+                            }}
                             onClick={() => handleExcluirEscala(escala.id)}
                           />
                         </td>
@@ -1107,7 +1381,7 @@ function PjesEscalasContent() {
                 ) : (
                   <tr className="tabelaLinhaEscalas">
                     <td
-                      colSpan={12}
+                      colSpan={13}
                       style={{ textAlign: "center", padding: "18px" }}
                     >
                       Nenhuma escala cadastrada

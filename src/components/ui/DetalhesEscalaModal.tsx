@@ -17,6 +17,8 @@ import {
   FaPhoneAlt,
   FaInfoCircle,
   FaWhatsapp,
+  FaRegClock,
+  FaSignOutAlt,
 } from "react-icons/fa";
 import { useState } from "react";
 import toast from "react-hot-toast";
@@ -61,10 +63,6 @@ type Escala = {
   somaCotaFinal: number;
   pagamento: string;
   phone?: string | null;
-  presencaConfirmada?: boolean;
-  presencaObservacao?: string | null;
-  presencaConfirmadaEm?: string | null;
-  presencaConfirmadaPorNome?: string | null;
   comentario_pagamento: string | null;
   valorIndividual?: number;
   conta?: {
@@ -72,6 +70,27 @@ type Escala = {
     agencia: string;
     conta: string;
   } | null;
+
+  // ── Presença ──────────────────────────────────────────────────────────
+  presencaConfirmada?: boolean;
+  presencaConfirmadaEm?: string | null;
+  presencaConfirmadaPorNome?: string | null;
+
+  // ── Saída de serviço ──────────────────────────────────────────────────
+  saidaConfirmada?: boolean;
+  saidaConfirmadaEm?: string | null;
+  saidaConfirmadaPorNome?: string | null;
+
+  // ── Verificação por fiscal (1ª e 2ª ronda) ───────────────────────────────
+  primeiraVerificacao?: boolean;
+  verificador1Nome?: string | null;
+  dataHoraVerificador1?: string | null;
+  obsVerificador1?: string | null;
+
+  segundaVerificacao?: boolean;
+  verificador2Nome?: string | null;
+  dataHoraVerificador2?: string | null;
+  obsVerificador2?: string | null;
 };
 
 type Repasse = {
@@ -93,6 +112,15 @@ type DetalhesEscalaModalProps = {
   onClose: () => void;
   onRepassar: () => void;
   onCancelarRepasse: () => void;
+
+  // ✅ NOVO — presença, verificação e saída
+  onConfirmarPresenca: () => void;
+  confirmandoPresenca: boolean;
+  /** Janela de 15 min antes do início até o término da escala (dica visual; o backend valida de verdade) */
+  podeConfirmarPresenca: boolean;
+
+  onConfirmarSaida: () => void;
+  confirmandoSaida: boolean;
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -105,6 +133,19 @@ function formatarData(data: string): string {
   if (!data) return "-";
   const [ano, mes, dia] = data.split("-");
   return `${dia}/${mes}/${ano}`;
+}
+
+function formatarDataHora(valor?: string | null): string {
+  if (!valor) return "-";
+  return new Date(valor).toLocaleString("pt-BR");
+}
+
+function formatarHoraCurta(valor?: string | null): string {
+  if (!valor) return "-";
+  return new Date(valor).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 // Monta um link do WhatsApp a partir do telefone salvo no cadastro.
@@ -128,14 +169,22 @@ function situacaoCor(situacao: string): { cor: string; bg: string } {
 
 // ─── Sub-componentes ────────────────────────────────────────────────────────
 
-function Avatar({ mat, nome }: { mat: string; nome: string }) {
+function Avatar({
+  mat,
+  nome,
+  tamanho = 44,
+}: {
+  mat: string;
+  nome: string;
+  tamanho?: number;
+}) {
   const [erro, setErro] = useState(false);
   if (erro || !mat)
     return (
       <div
         style={{
-          width: 44,
-          height: 44,
+          width: tamanho,
+          height: tamanho,
           borderRadius: "50%",
           backgroundColor: "#eef2ff",
           display: "flex",
@@ -144,7 +193,7 @@ function Avatar({ mat, nome }: { mat: string; nome: string }) {
           flexShrink: 0,
         }}
       >
-        <FaUser size={18} color="#6366f1" />
+        <FaUser size={Math.round(tamanho * 0.4)} color="#6366f1" />
       </div>
     );
   return (
@@ -153,8 +202,8 @@ function Avatar({ mat, nome }: { mat: string; nome: string }) {
       alt={nome}
       onError={() => setErro(true)}
       style={{
-        width: 44,
-        height: 44,
+        width: tamanho,
+        height: tamanho,
         borderRadius: "50%",
         objectFit: "cover",
         flexShrink: 0,
@@ -212,6 +261,188 @@ function InfoRow({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Nó circular cinza usado na timeline para ícones genéricos (relógio, saída). */
+function IconeTimeline({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        background: "#eef2f7",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Uma linha da timeline: ícone/avatar à esquerda, linha tracejada conectando ao próximo, conteúdo à direita. */
+function LinhaTimeline({
+  icone,
+  linhaAbaixo,
+  children,
+}: {
+  icone: React.ReactNode;
+  linhaAbaixo: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 10 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          width: 32,
+          flexShrink: 0,
+        }}
+      >
+        {icone}
+        {linhaAbaixo && (
+          <div
+            style={{
+              flex: 1,
+              width: 0,
+              borderLeft: "2px dashed #d1d5db",
+              minHeight: 16,
+              marginTop: 4,
+            }}
+          />
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, paddingBottom: 14 }}>{children}</div>
+    </div>
+  );
+}
+
+/** Conteúdo de uma linha de verificador (nome, tag FISCAL e os botões de observação/check). */
+function ConteudoVerificador({
+  numero,
+  nome,
+  verificado,
+  dataHora,
+  observacao,
+}: {
+  numero: 1 | 2;
+  nome?: string | null;
+  verificado?: boolean;
+  dataHora?: string | null;
+  observacao?: string | null;
+}) {
+  const [aberto, setAberto] = useState<"check" | "obs" | null>(null);
+  const temObservacao = !!observacao;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: 13,
+              color: "#111827",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {nome || `${numero}ª verificação — aguardando fiscal`}
+          </div>
+          <span
+            style={{
+              background: "#eef0fd",
+              color: "#4f46e5",
+              fontSize: 10.5,
+              fontWeight: 700,
+              borderRadius: 999,
+              padding: "2px 8px",
+            }}
+          >
+            FISCAL
+          </span>
+        </div>
+
+        {/* Ícone de comentário: só fica colorido quando existe observação */}
+        <button
+          onClick={() => setAberto((prev) => (prev === "obs" ? null : "obs"))}
+          title={temObservacao ? "Ver observação do fiscal" : "Sem observação"}
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            border: "none",
+            background: temObservacao ? "#fb923c" : "#e5e7eb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <FaCommentAlt size={14} color={temObservacao ? "#fff" : "#9ca3af"} />
+        </button>
+
+        <button
+          onClick={() =>
+            setAberto((prev) => (prev === "check" ? null : "check"))
+          }
+          title="Ver data/hora da verificação"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            border: `2px solid ${verificado ? "#16a34a" : "#e5e7eb"}`,
+            background: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <FaCheckCircle size={16} color={verificado ? "#16a34a" : "#cbd5e1"} />
+        </button>
+      </div>
+
+      {aberto === "check" && (
+        <div
+          style={{
+            fontSize: 12,
+            color: verificado ? "#166534" : "#9ca3af",
+            background: verificado ? "#f0fdf4" : "#f9fafb",
+            borderRadius: 10,
+            padding: "8px 12px",
+          }}
+        >
+          {verificado
+            ? `✔ Verificado em ${formatarDataHora(dataHora)}`
+            : "Ainda não verificado por este fiscal"}
+        </div>
+      )}
+
+      {aberto === "obs" && (
+        <div
+          style={{
+            fontSize: 12,
+            color: "#374151",
+            background: "#fff7ed",
+            borderRadius: 10,
+            padding: "8px 12px",
+            fontStyle: observacao ? "normal" : "italic",
+          }}
+        >
+          {observacao || "Nenhuma observação registrada"}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Componente principal ───────────────────────────────────────────────────
 
 export default function DetalhesEscalaModal({
@@ -224,10 +455,17 @@ export default function DetalhesEscalaModal({
   onClose,
   onRepassar,
   onCancelarRepasse,
+  onConfirmarPresenca,
+  confirmandoPresenca,
+  podeConfirmarPresenca,
+  onConfirmarSaida,
+  confirmandoSaida,
 }: DetalhesEscalaModalProps) {
   const situacao = situacaoCor(escala.situacao);
   const colegasVisiveis = colegas.slice(0, 3);
   const colegasOcultos = colegas.length - colegasVisiveis.length;
+
+  const [mostrarInfoServico, setMostrarInfoServico] = useState(true);
 
   return (
     <div
@@ -444,7 +682,7 @@ export default function DetalhesEscalaModal({
             </InfoRow>
           </div>
 
-          {/* Sistema / Operação / Função / Local / Cota / Detalhes */}
+          {/* Sistema+Cota / Função · Operação (100%) · Local (100%) */}
           <div
             style={{
               background: "#fff",
@@ -458,8 +696,15 @@ export default function DetalhesEscalaModal({
               <InfoItem
                 icon={<FaDesktop size={16} />}
                 label="SISTEMA"
-                value={escala.sistema}
+                value={`${escala.sistema} | ${escala.cota_escala} Cota(s)`}
               />
+              <InfoItem
+                icon={<FaUserFriends size={16} />}
+                label="FUNÇÃO"
+                value={escala.funcao}
+              />
+            </InfoRow>
+            <InfoRow>
               <InfoItem
                 icon={<FaShieldAlt size={16} />}
                 label="OPERAÇÃO"
@@ -468,26 +713,9 @@ export default function DetalhesEscalaModal({
             </InfoRow>
             <InfoRow>
               <InfoItem
-                icon={<FaUserFriends size={16} />}
-                label="FUNÇÃO"
-                value={escala.funcao}
-              />
-              <InfoItem
                 icon={<FaMapMarkerAlt size={16} />}
                 label="LOCAL"
                 value={escala.localApresentacao}
-              />
-            </InfoRow>
-            <InfoRow>
-              <InfoItem
-                icon={<FaUsers size={16} />}
-                label="TOTAL DE COTA"
-                value={escala.cota_escala}
-              />
-              <InfoItem
-                icon={<FaClipboardList size={16} />}
-                label="DETALHES"
-                value={escala.presencaObservacao}
               />
             </InfoRow>
           </div>
@@ -541,6 +769,218 @@ export default function DetalhesEscalaModal({
               {escala.comentario_pagamento}
             </div>
           )}
+
+          {/* ─── Informações do Serviço: presença, verificação e saída ─── */}
+          <div style={{ marginBottom: 14 }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+                marginBottom: mostrarInfoServico ? 10 : 0,
+                userSelect: "none",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={mostrarInfoServico}
+                onChange={() => setMostrarInfoServico((v) => !v)}
+                style={{
+                  width: 16,
+                  height: 16,
+                  accentColor: "#4f46e5",
+                  cursor: "pointer",
+                }}
+              />
+              <span style={{ fontWeight: 700, fontSize: 13, color: "#111827" }}>
+                Informações do Serviço
+              </span>
+            </label>
+
+            {mostrarInfoServico && (
+              <div>
+                {(() => {
+                  function confirmarEProsseguir(
+                    mensagem: string,
+                    acao: () => void,
+                  ) {
+                    if (window.confirm(mensagem)) acao();
+                  }
+
+                  // ── Ainda não confirmou presença: mostra só o botão grande.
+                  // Depois de confirmar, o botão some e entra a timeline de
+                  // sempre (início, verificações do fiscal e saída).
+                  if (!escala.presencaConfirmada) {
+                    return (
+                      <button
+                        onClick={() =>
+                          confirmarEProsseguir(
+                            "Deseja realmente confirmar sua presença?",
+                            onConfirmarPresenca,
+                          )
+                        }
+                        disabled={confirmandoPresenca || !podeConfirmarPresenca}
+                        style={{
+                          width: "100%",
+                          padding: "14px 16px",
+                          borderRadius: 12,
+                          border: "none",
+                          background: !podeConfirmarPresenca
+                            ? "#9ca3af"
+                            : "#16a34a",
+                          color: "#fff",
+                          fontWeight: 800,
+                          fontSize: 15,
+                          letterSpacing: "0.03em",
+                          cursor:
+                            confirmandoPresenca || !podeConfirmarPresenca
+                              ? "default"
+                              : "pointer",
+                        }}
+                      >
+                        {confirmandoPresenca
+                          ? "CONFIRMANDO..."
+                          : podeConfirmarPresenca
+                            ? "CONFIRMAR PRESENÇA"
+                            : "Presença ainda indisponivel"}
+                      </button>
+                    );
+                  }
+
+                  const mostraVerificador1 =
+                    !!escala.primeiraVerificacao || !!escala.obsVerificador1;
+                  const mostraVerificador2 =
+                    !!escala.segundaVerificacao || !!escala.obsVerificador2;
+                  const mostraSaida = true; // presença já confirmada nesta ramificação
+
+                  return (
+                    <>
+                      {/* Início do serviço (presença) */}
+                      <LinhaTimeline
+                        icone={
+                          <IconeTimeline>
+                            <FaRegClock size={14} color="#6b7280" />
+                          </IconeTimeline>
+                        }
+                        linhaAbaixo={
+                          mostraVerificador1 ||
+                          mostraVerificador2 ||
+                          mostraSaida
+                        }
+                      >
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "#4b5563",
+                          }}
+                        >
+                          Início do Serviço às{" "}
+                          {formatarHoraCurta(escala.presencaConfirmadaEm)}
+                        </span>
+                      </LinhaTimeline>
+
+                      {/* 1ª verificação */}
+                      {mostraVerificador1 && (
+                        <LinhaTimeline
+                          icone={
+                            <Avatar
+                              mat=""
+                              nome={escala.verificador1Nome ?? ""}
+                              tamanho={32}
+                            />
+                          }
+                          linhaAbaixo={mostraVerificador2 || mostraSaida}
+                        >
+                          <ConteudoVerificador
+                            numero={1}
+                            nome={escala.verificador1Nome}
+                            verificado={escala.primeiraVerificacao}
+                            dataHora={escala.dataHoraVerificador1}
+                            observacao={escala.obsVerificador1}
+                          />
+                        </LinhaTimeline>
+                      )}
+
+                      {/* 2ª verificação */}
+                      {mostraVerificador2 && (
+                        <LinhaTimeline
+                          icone={
+                            <Avatar
+                              mat=""
+                              nome={escala.verificador2Nome ?? ""}
+                              tamanho={32}
+                            />
+                          }
+                          linhaAbaixo={mostraSaida}
+                        >
+                          <ConteudoVerificador
+                            numero={2}
+                            nome={escala.verificador2Nome}
+                            verificado={escala.segundaVerificacao}
+                            dataHora={escala.dataHoraVerificador2}
+                            observacao={escala.obsVerificador2}
+                          />
+                        </LinhaTimeline>
+                      )}
+
+                      {/* Saída */}
+                      {mostraSaida && (
+                        <LinhaTimeline
+                          icone={
+                            <IconeTimeline>
+                              <FaSignOutAlt size={14} color="#6b7280" />
+                            </IconeTimeline>
+                          }
+                          linhaAbaixo={false}
+                        >
+                          {escala.saidaConfirmada ? (
+                            <span
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: "#4b5563",
+                              }}
+                            >
+                              Serviço finalizado às{" "}
+                              {formatarHoraCurta(escala.saidaConfirmadaEm)}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                confirmarEProsseguir(
+                                  "Deseja realmente finalizar o serviço?",
+                                  onConfirmarSaida,
+                                )
+                              }
+                              disabled={confirmandoSaida}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                padding: 0,
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: "#f97316",
+                                cursor: confirmandoSaida
+                                  ? "default"
+                                  : "pointer",
+                                textAlign: "left",
+                              }}
+                            >
+                              {confirmandoSaida
+                                ? "Registrando saída..."
+                                : "Clique para Finalizar"}
+                            </button>
+                          )}
+                        </LinhaTimeline>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
 
           {/* Equipe de serviço */}
           <div style={{ marginBottom: 20 }}>
