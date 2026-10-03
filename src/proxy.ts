@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken, validateToken } from "@/src/lib/auth";
 
-const publicRoutes = ["/login"];
+const publicRoutes = ["/login", "/solicitar-acesso"];
 const AUTH_HOME = "/select-system";
 
 const ROTAS_BLOQUEADAS_TIPO_1 = [

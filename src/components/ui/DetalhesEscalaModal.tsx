@@ -12,7 +12,6 @@ import {
   FaUserFriends,
   FaMapMarkerAlt,
   FaUsers,
-  FaClipboardList,
   FaCommentAlt,
   FaPhoneAlt,
   FaInfoCircle,
@@ -74,6 +73,8 @@ type Escala = {
   // ── Presença ──────────────────────────────────────────────────────────
   presencaConfirmada?: boolean;
   presencaConfirmadaEm?: string | null;
+  presencaLatitude?: number | null;
+  presencaLongitude?: number | null;
   presencaConfirmadaPorNome?: string | null;
 
   // ── Saída de serviço ──────────────────────────────────────────────────
@@ -225,20 +226,20 @@ function InfoItem({
     <div
       style={{ display: "flex", alignItems: "flex-start", gap: 10, flex: 1 }}
     >
-      <div style={{ color: "#4f46e5", marginTop: 2 }}>{icon}</div>
+      <div style={{ color: "#20667cb6", marginTop: 2 }}>{icon}</div>
       <div>
         <div
           style={{
             fontSize: 10,
             fontWeight: 700,
-            color: "#4f46e5",
+            color: "#20667cb6",
             letterSpacing: "0.04em",
             marginBottom: 2,
           }}
         >
           {label}
         </div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
           {value || "—"}
         </div>
       </div>
@@ -252,7 +253,7 @@ function InfoRow({ children }: { children: React.ReactNode }) {
       style={{
         display: "flex",
         gap: 12,
-        padding: "10px 15px",
+        padding: "7px 11px",
         borderBottom: "1px solid #f1f5f9",
       }}
     >
@@ -316,6 +317,60 @@ function LinhaTimeline({
         )}
       </div>
       <div style={{ flex: 1, minWidth: 0, paddingBottom: 14 }}>{children}</div>
+    </div>
+  );
+}
+
+/** Mapa (OpenStreetMap) com o local onde o policial confirmou a presença. */
+function MapaPresenca({
+  latitude,
+  longitude,
+}: {
+  latitude: number;
+  longitude: number;
+}) {
+  const delta = 0.0015;
+  const bbox = [
+    longitude - delta,
+    latitude - delta,
+    longitude + delta,
+    latitude + delta,
+  ].join("%2C");
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude}%2C${longitude}`;
+  const linkMapa = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+  return (
+    <div>
+      <a
+        href={linkMapa}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Abrir no mapa"
+        style={{ display: "block" }}
+      >
+        <iframe
+          src={src}
+          title="Local da confirmação de presença"
+          loading="lazy"
+          style={{
+            width: "100%",
+            height: 190,
+            border: "1px solid #d1d5db",
+            borderRadius: 14,
+            pointerEvents: "none", // o toque abre o mapa em vez de rolar dentro do iframe
+          }}
+        />
+      </a>
+      <div
+        style={{
+          textAlign: "center",
+          fontSize: 12.5,
+          color: "#374151",
+          marginTop: 4,
+        }}
+      >
+        {latitude.toFixed(6)}, {longitude.toFixed(6)}
+      </div>
     </div>
   );
 }
@@ -493,7 +548,7 @@ export default function DetalhesEscalaModal({
         style={{
           width: "100%",
           maxWidth: 480,
-          height: "88vh",
+          height: "95vh",
           maxHeight: "calc(100vh - 24px)",
           backgroundColor: "#f4f5f7",
           borderRadius: "20px 20px 0 0",
@@ -507,12 +562,8 @@ export default function DetalhesEscalaModal({
         {/* ─── Alça de puxar ─── */}
         <div
           style={{
-            width: 40,
-            height: 4,
-            borderRadius: 2,
             backgroundColor: "#d1d5db",
-            margin: "10px auto 0 auto",
-            flexShrink: 0,
+            margin: "5px auto 0 auto",
           }}
         />
 
@@ -521,8 +572,8 @@ export default function DetalhesEscalaModal({
           style={{
             background: "#482cad",
             borderRadius: "16px 16px 0 0",
-            margin: "5px 12px 0 5px",
-            padding: "8px 10px",
+            margin: "2px 8px 0 5px",
+            padding: "3px 5px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -554,10 +605,10 @@ export default function DetalhesEscalaModal({
               title="Clique para copiar o código da operação"
               style={{ cursor: escala.cod_op ? "pointer" : "default" }}
             >
-              <div style={{ color: "#fff", fontSize: 20, fontWeight: 800 }}>
+              <div style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>
                 {escala.nomeEvento || escala.nomeOperacao || "SERVIÇO"}
               </div>
-              <div style={{ color: "#ffffff", fontSize: 14, fontWeight: 600 }}>
+              <div style={{ color: "#ffffff", fontSize: 13, fontWeight: 600 }}>
                 {escala.nomeOme} - COP {escala.cod_op ?? "-"}
               </div>
             </div>
@@ -575,7 +626,7 @@ export default function DetalhesEscalaModal({
                 color: "#fff",
                 border: "none",
                 borderRadius: 10,
-                padding: "10px 14px",
+                padding: "5px 10px",
                 fontWeight: 700,
                 fontSize: 12,
                 cursor: loadingCancelar ? "not-allowed" : "pointer",
@@ -598,9 +649,9 @@ export default function DetalhesEscalaModal({
                 color: "#fff",
                 border: "none",
                 borderRadius: 10,
-                padding: "10px 14px",
+                padding: "5px 10px",
                 fontWeight: 700,
-                fontSize: 12,
+                fontSize: 11,
                 cursor: expirado ? "not-allowed" : "pointer",
                 whiteSpace: "nowrap",
               }}
@@ -627,7 +678,7 @@ export default function DetalhesEscalaModal({
             style={{
               background: "#fff",
               borderRadius: 16,
-              marginBottom: 8,
+              marginBottom: 3,
               boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
             }}
           >
@@ -637,14 +688,14 @@ export default function DetalhesEscalaModal({
                 label=""
                 value={
                   <div>
-                    <div style={{ fontSize: 18 }}>
+                    <div style={{ fontSize: 14 }}>
                       {formatarData(escala.dataInicio)}
                     </div>
                     <div
                       style={{
                         fontSize: 13,
                         fontWeight: 600,
-                        color: "#4f46e5",
+                        color: "#494949",
                       }}
                     >
                       {formatarHora(escala.horaInicio)} às{" "}
@@ -658,7 +709,7 @@ export default function DetalhesEscalaModal({
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
-                    color: "#4f46e5",
+                    color: "#20667cb6",
                     letterSpacing: "0.04em",
                     marginBottom: 6,
                   }}
@@ -728,13 +779,13 @@ export default function DetalhesEscalaModal({
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  color: "#4f46e5",
+                  color: "#e77e06",
                   fontWeight: 700,
-                  fontSize: 12,
+                  fontSize: 13,
                   marginBottom: 8,
                 }}
               >
-                <FaCommentAlt size={13} />
+                <FaCommentAlt size={20} />
                 ANOTAÇÕES
               </div>
               <div
@@ -787,14 +838,14 @@ export default function DetalhesEscalaModal({
                 checked={mostrarInfoServico}
                 onChange={() => setMostrarInfoServico((v) => !v)}
                 style={{
-                  width: 16,
-                  height: 16,
-                  accentColor: "#4f46e5",
+                  width: 20,
+                  height: 20,
+                  accentColor: "#3f9705",
                   cursor: "pointer",
                 }}
               />
-              <span style={{ fontWeight: 700, fontSize: 13, color: "#111827" }}>
-                Informações do Serviço
+              <span style={{ fontWeight: 700, fontSize: 13, color: "#378504" }}>
+                INFORMAÇÕES DO SERVIÇO
               </span>
             </label>
 
@@ -843,7 +894,7 @@ export default function DetalhesEscalaModal({
                           ? "CONFIRMANDO..."
                           : podeConfirmarPresenca
                             ? "CONFIRMAR PRESENÇA"
-                            : "Presença ainda indisponivel"}
+                            : "Presença (15 min antes do início)"}
                       </button>
                     );
                   }
@@ -982,8 +1033,36 @@ export default function DetalhesEscalaModal({
             )}
           </div>
 
+          {/* Mapa do local da presença (só aparece se o usuário deu a presença) */}
+          {escala.presencaConfirmada &&
+            escala.presencaLatitude != null &&
+            escala.presencaLongitude != null && (
+              <div style={{ marginBottom: 14 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: "#118333",
+                    fontWeight: 700,
+                    fontSize: 12,
+                    marginBottom: 8,
+                  }}
+                >
+                  <FaMapMarkerAlt size={13} />
+                  LOCAL DA PRESENÇA
+                </div>
+                <MapaPresenca
+                  latitude={escala.presencaLatitude}
+                  longitude={escala.presencaLongitude}
+                />
+              </div>
+            )}
+
           {/* Equipe de serviço */}
-          <div style={{ marginBottom: 20 }}>
+
+          {/* Equipe de serviço */}
+          <div style={{ marginTop: 30, marginBottom: 20 }}>
             <div
               style={{
                 display: "flex",
@@ -1002,7 +1081,7 @@ export default function DetalhesEscalaModal({
                   fontSize: 13,
                 }}
               >
-                <FaUsers size={14} />
+                <FaUsers size={20} />
                 EQUIPE DE SERVIÇO
               </div>
               <span

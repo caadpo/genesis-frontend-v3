@@ -13,7 +13,7 @@ import {
   FaUser,
   FaUserCheck,
 } from "react-icons/fa";
-import { FiX, FiSearch, FiCalendar, FiFilter } from "react-icons/fi";
+import { FiX, FiSearch, FiCalendar, FiFilter, FiClock } from "react-icons/fi";
 import toast from "react-hot-toast";
 
 // ─── Ajustes de layout do topo fixo ──────────────────────────────────────────
@@ -127,6 +127,18 @@ function resolverNumeroVerificacao(e: Escala): 1 | 2 | null {
   return null;
 }
 
+/** true se a escala ainda não tem NENHUM registro de verificação (1ª ou 2ª). */
+function semNenhumaVerificacao(e: Escala): boolean {
+  return (
+    !e.primeiraVerificacao &&
+    !e.segundaVerificacao &&
+    e.idVerificador1 == null &&
+    e.idVerificador2 == null &&
+    !e.obsVerificador1?.trim() &&
+    !e.obsVerificador2?.trim()
+  );
+}
+
 const MESES_ABREV = [
   "JAN",
   "FEV",
@@ -224,6 +236,8 @@ function corBotaoInfo(e: Escala): {
   cursor: string;
   disabled: boolean;
   title: string;
+  naoVerificado: boolean;
+  bordaAlerta: string;
 } {
   const passada = isPassada(e.dataInicio);
   const hoje = isHoje(e.dataInicio);
@@ -238,12 +252,16 @@ function corBotaoInfo(e: Escala): {
       cursor: "not-allowed",
       disabled: true,
       title: "Disponível apenas no dia da escala",
+      naoVerificado: false,
+      bordaAlerta: "#ccc",
     };
   }
 
   // A partir daqui sempre clicável (serviço encerrado = só leitura na modal).
   // Usa o horário real de término, considerando escalas que viram a madrugada.
   const dim = isServicoEncerrado(e.dataInicio, e.horaInicio, e.horaFim); // tons claros
+  const naoVerificado = semNenhumaVerificacao(e);
+  const bordaAlerta = confirmado ? "#ff6a00" : "#e60000";
 
   if (confirmado && temObs) {
     return {
@@ -254,6 +272,8 @@ function corBotaoInfo(e: Escala): {
       title: dim
         ? "Ver presença confirmada com observação"
         : "Confirmado com observação",
+      naoVerificado,
+      bordaAlerta,
     };
   }
 
@@ -264,6 +284,8 @@ function corBotaoInfo(e: Escala): {
       cursor: "pointer",
       disabled: false,
       title: dim ? "Ver presença confirmada" : "Presença confirmada",
+      naoVerificado,
+      bordaAlerta,
     };
   }
 
@@ -276,16 +298,20 @@ function corBotaoInfo(e: Escala): {
       title: dim
         ? "Ver observação registrada (sem confirmação)"
         : "Observação registrada sem confirmação",
+      naoVerificado,
+      bordaAlerta,
     };
   }
 
   // Neutro — sem obs, sem confirmação
   return {
-    bg: dim ? "#a3bfa3" : "#4f7a33",
-    border: dim ? "#a3bfa3" : "#4f7a33",
+    bg: dim ? "#fca5a5" : "#dc2626",
+    border: dim ? "#fca5a5" : "#dc2626",
     cursor: "pointer",
     disabled: false,
     title: dim ? "Ver detalhes" : "Registrar observação",
+    naoVerificado,
+    bordaAlerta,
   };
 }
 
@@ -1318,6 +1344,7 @@ export default function OperacoesPage() {
   // Altura do bloco de busca — usada como offset do segundo bloco fixo
   const buscaRef = useRef<HTMLDivElement>(null);
   const [alturaBusca, setAlturaBusca] = useState(0);
+  const [filtroHora, setFiltroHora] = useState("");
 
   useEffect(() => {
     const el = buscaRef.current;
@@ -1330,8 +1357,22 @@ export default function OperacoesPage() {
   }, []);
 
   // ── Base dos contadores: só respeita o filtro "Hoje" ─────────────────────
-  const escalasBase = escalas.filter(
+  // ── Etapa 1: filtro "Hoje" ───────────────────────────────────────────────
+  const escalasHoje = escalas.filter(
     (e) => !filtroHoje || isHoje(e.dataInicio),
+  );
+
+  // ── Horários disponíveis (respeitam o filtro "Hoje") ─────────────────────
+  const horariosDisponiveis = Array.from(
+    new Set(escalasHoje.map((e) => e.horaInicio.slice(0, 5))),
+  ).sort();
+
+  // Se o horário escolhido deixou de existir (ex.: ligou "Hoje"), ignora-o
+  const horaAtiva = horariosDisponiveis.includes(filtroHora) ? filtroHora : "";
+
+  // ── Base dos contadores: Hoje + Horário ──────────────────────────────────
+  const escalasBase = escalasHoje.filter(
+    (e) => !horaAtiva || e.horaInicio.slice(0, 5) === horaAtiva,
   );
   const totalEscalados = escalasBase.length;
   const totalPresentes = escalasBase.filter((e) => e.presencaConfirmada).length;
@@ -1449,6 +1490,7 @@ export default function OperacoesPage() {
     setBusca("");
     setFiltroHoje(false);
     setFiltroStatus(null);
+    setFiltroHora("");
   }
 
   /** Grava verificado + observação do fiscal na 1ª ou 2ª verificação (PATCH /escala/:id/verificacao1|2). */
@@ -1522,13 +1564,10 @@ export default function OperacoesPage() {
           background: FUNDO_PAGINA,
         }}
       >
-        <div className="titulo" style={{ marginBottom: 12 }}>
+        <div className="titulo" style={{ marginBottom: 5 }}>
           <span>OPERAÇÕES</span>
         </div>
-        <div
-          className="divInputBuscarUsuarioEIcones"
-          style={{ display: "flex", alignItems: "center", gap: 8 }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
             <input
               className="inputBuscarUsuario"
@@ -1681,6 +1720,43 @@ export default function OperacoesPage() {
               >
                 <FiCalendar size={12} /> Hoje
               </button>
+
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <FiClock
+                  size={12}
+                  style={{
+                    position: "absolute",
+                    left: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#999",
+                    pointerEvents: "none",
+                  }}
+                />
+                <select
+                  value={horaAtiva}
+                  onChange={(e) => setFiltroHora(e.target.value)}
+                  title="Filtrar por hora de início"
+                  style={{
+                    padding: "5px 6px 5px 26px",
+                    borderRadius: 6,
+                    border: `1px solid ${horaAtiva ? "#4d78da" : "#ccc"}`,
+                    fontSize: 11,
+                    background: "#fff",
+                    color: horaAtiva ? "#4d78da" : "#374151",
+                    fontWeight: horaAtiva ? 600 : 400,
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">Horário</option>
+                  {horariosDisponiveis.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
                 <FiSearch
                   size={12}
@@ -1694,7 +1770,7 @@ export default function OperacoesPage() {
                 />
                 <input
                   type="text"
-                  placeholder="Buscar por matrícula ou nome de guerra"
+                  placeholder="Matrícula ou nome de guerra"
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
                   style={{
@@ -1818,8 +1894,15 @@ export default function OperacoesPage() {
                           )}
 
                           {sub.escalas.map((e, idx) => {
-                            const { bg, border, cursor, disabled, title } =
-                              corBotaoInfo(e);
+                            const {
+                              bg,
+                              border,
+                              cursor,
+                              disabled,
+                              title,
+                              naoVerificado,
+                              bordaAlerta,
+                            } = corBotaoInfo(e);
                             return (
                               <div
                                 key={e.id}
@@ -1903,7 +1986,11 @@ export default function OperacoesPage() {
                                 <button
                                   onClick={() => !disabled && setEscalaModal(e)}
                                   disabled={disabled}
-                                  title={title}
+                                  title={
+                                    naoVerificado && !disabled
+                                      ? `${title} — sem verificação`
+                                      : title
+                                  }
                                   style={{
                                     display: "flex",
                                     alignItems: "center",
@@ -1912,7 +1999,9 @@ export default function OperacoesPage() {
                                     height: 26,
                                     padding: "0 12px",
                                     borderRadius: 999,
-                                    border: `1.5px solid ${border}`,
+                                    border: naoVerificado
+                                      ? `2px solid ${bordaAlerta}`
+                                      : `1.5px solid ${border}`,
                                     background: "#fff",
                                     color: bg,
                                     cursor,

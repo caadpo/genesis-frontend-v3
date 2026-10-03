@@ -1,3 +1,4 @@
+import CardHeader from "@/src/components/layout/CardHeader";
 import "../globals.css";
 import "./layout.css";
 
@@ -27,18 +28,8 @@ export default function PublicLayout({
       {/* Conteúdo central */}
       <main className="main-container_login">
         <div className="card_login">
-          {/* Cabeçalho do card */}
-          <div className="card-header_login">
-            <div className="logo-ring_login">
-              <img
-                src="/logo_dpo.png"
-                alt="Logo DPO"
-                className="logo-img_login"
-              />
-            </div>
-            <h1 className="card-title_login">GÊNESIS 1.1</h1>
-            <span className="card-badge_login">PMPE · DPO</span>
-          </div>
+          {/* Cabeçalho do card (muda conforme a rota) */}
+          <CardHeader />
 
           {/* Formulário (children = page.tsx) */}
           {children}

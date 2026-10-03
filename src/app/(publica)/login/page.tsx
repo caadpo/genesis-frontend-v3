@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { FaEye, FaEyeSlash, FaLock, FaUser } from "react-icons/fa";
 import { z } from "zod";
+import Link from "next/link";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Usuário obrigatório"),
@@ -113,6 +114,9 @@ export default function LoginPage() {
             {loading ? "Verificando..." : "Acessar o Sistema"}
           </button>
         </form>
+        <Link href="/solicitar-acesso" className="link-btn_login">
+          Primeiro acesso ou esqueceu a senha? Solicite aqui
+        </Link>
       </div>
 
       <div className="card-footer_login">

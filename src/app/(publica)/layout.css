@@ -338,3 +338,170 @@
   color: #aab4cc;
   letter-spacing: 0.5px;
 }
+
+/* ───────────────────────────────
+   ADICIONAR ao final do layout.css
+─────────────────────────────── */
+
+/* Texto informativo */
+.info-text_login {
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #155a9b;
+  text-align: center;
+  margin: -8px 0 20px;
+}
+
+/* Select estilizado igual aos inputs */
+.select_login {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238899bb' stroke-width='1.5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+/* Linha com dois botões */
+.btn-row_login {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn-row_login .btn_login {
+  margin-top: 0;
+}
+
+.btn-secondary_login {
+  background: #ffffff;
+  color: #0d3260;
+  border: 1.5px solid #dde3ef;
+}
+
+.btn-secondary_login:hover:not(:disabled) {
+  background: #eef0f5;
+}
+
+/* Botão-link na tela de login */
+.link-btn_login {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 8px;
+  background: none;
+  border: none;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  color: #155a9b;
+  text-align: center;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-btn_login:hover {
+  color: #0d3260;
+}
+
+/* ───────────────────────────────
+   ADICIONAR ao final do layout.css
+   Cabeçalho da tela de solicitação
+─────────────────────────────── */
+.hs-header_login {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 22px 14px 20px;
+}
+
+.hs-brand_login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.hs-logo-ring_login {
+  width: 78px;
+  height: 78px;
+  margin-bottom: 8px;
+}
+
+.hs-logo-ring_login .logo-img_login {
+  width: 64px;
+  height: 64px;
+}
+
+.hs-title_login {
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin: 0 0 2px;
+  white-space: nowrap;
+}
+
+.hs-badge_login {
+  font-size: 8px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+/* Linha vertical separadora */
+.hs-divider_login {
+  align-self: stretch;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.75);
+  flex-shrink: 0;
+}
+
+/* Lista de seções */
+.hs-list_login {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+/* Seta */
+.hs-arrow_login {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+/* Bloco SJES / ícone / texto */
+.hs-target_login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.hs-target_login strong {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.hs-target-icon_login {
+  color: #ffffff;
+  font-size: 24px;
+}
+
+.hs-target_login span {
+  font-family: "DM Sans", sans-serif;
+  font-size: 11px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.85);
+}

@@ -11,10 +11,10 @@ import { FiArrowLeft, FiChevronUp, FiRefreshCcw, FiStar } from "react-icons/fi";
 import {
   FaBarcode,
   FaCar,
-  FaCheckSquare,
   FaEdit,
   FaFilePdf,
   FaLock,
+  FaMapMarkerAlt,
   FaLockOpen,
   FaPhone,
   FaRegClock,
@@ -24,6 +24,9 @@ import {
 import toast from "react-hot-toast";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { UploadEscalaPlanilha } from "@/src/components/ui/UploadEscalaPlanilha";
+import MapaPresencasModal, {
+  PontoPresenca,
+} from "@/src/components/ui/MapaPresencasModal";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -103,6 +106,8 @@ type Escala = {
   // ── Presença (confirmada pelo próprio escalado) ───────────────────────
   presencaConfirmada?: boolean;
   presencaConfirmadaEm?: string | null;
+  presencaLatitude?: number | null;
+  presencaLongitude?: number | null;
   presencaConfirmadaPorNome?: string | null;
 
   // ── Saída de serviço ──────────────────────────────────────────────────
@@ -353,6 +358,35 @@ function PjesEscalasContent() {
   }, [situacao]);
   const [gerandoPdf, setGerandoPdf] = useState(false);
 
+  const [mapa, setMapa] = useState<{
+    titulo: string;
+    pontos: PontoPresenca[];
+  } | null>(null);
+
+  function escalaParaPonto(e: Escala): PontoPresenca | null {
+    if (e.presencaLatitude == null || e.presencaLongitude == null) return null;
+    return {
+      id: e.id,
+      nome: `${e.pg_escala} ${e.ng_escala}`,
+      latitude: e.presencaLatitude,
+      longitude: e.presencaLongitude,
+      hora: e.presencaConfirmadaEm
+        ? new Date(e.presencaConfirmadaEm).toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : null,
+    };
+  }
+
+  function abrirMapaIndividual(e: Escala) {
+    const ponto = escalaParaPonto(e);
+    if (!ponto) return;
+    setMapa({ titulo: "Local da presença", pontos: [ponto] });
+  }
+
   // ── Contadores/filtros no topo da tabela ──────────────────────────────────
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>(null);
   const [filtro24h, setFiltro24h] = useState(false);
@@ -464,6 +498,15 @@ function PjesEscalasContent() {
       .map((value) => String(value).toLowerCase())
       .some((value) => value.includes(term));
   });
+
+  // Respeita os filtros ativos (Presente/Ausente, 24h e busca)
+  const pontosDaTabela = filteredEscalas
+    .map(escalaParaPonto)
+    .filter((p): p is PontoPresenca => p !== null);
+
+  function abrirMapaGeral() {
+    setMapa({ titulo: "Locais das presenças", pontos: pontosDaTabela });
+  }
 
   // Agrupa mantendo a ordem em que vieram do backend (Map preserva inserção)
   const gruposPorData = Array.from(
@@ -731,7 +774,7 @@ function PjesEscalasContent() {
   };
 
   return (
-    <div className="page" style={{ overflow: "hidden" }}>
+    <div className="page" style={{ overflowX: "hidden", overflowY: "auto" }}>
       <div
         style={{
           width: "100%",
@@ -1162,6 +1205,30 @@ function PjesEscalasContent() {
                 <FaFilePdf style={{ fontSize: "16px" }} />
                 {gerandoPdf ? "Gerando..." : "Gerar PDF"}
               </button>
+              <button
+                onClick={abrirMapaGeral}
+                disabled={pontosDaTabela.length === 0}
+                title="Ver no mapa onde cada policial deu a presença"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 14px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  border: "1px solid #2563eb",
+                  marginBottom: "3px",
+                  background: "#fff",
+                  color: pontosDaTabela.length === 0 ? "#aaa" : "#2563eb",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor:
+                    pontosDaTabela.length === 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                <FaMapMarkerAlt style={{ fontSize: "16px" }} />
+                Mapa ({pontosDaTabela.length})
+              </button>
 
               {usuarioLogado?.typeUser === UserType.MASTER && (
                 <UploadEscalaPlanilha
@@ -1248,9 +1315,9 @@ function PjesEscalasContent() {
                   <th>VIATURA</th>
                   <th>ANOTAÇÕES</th>
                   <th>PRESENÇA</th>
+                  <th>1º FISCAL</th>
+                  <th>2º FISCAL</th>
                   <th>SAÍDA</th>
-                  <th>1ª VERIF.</th>
-                  <th>2ª VERIF.</th>
                   <th>AÇÕES</th>
                 </tr>
               </thead>
@@ -1306,16 +1373,7 @@ function PjesEscalasContent() {
                             dataHora={escala.presencaConfirmadaEm}
                           />
                         </td>
-                        <td>
-                          <StatusCell
-                            confirmado={escala.saidaConfirmada}
-                            nome={escala.saidaConfirmadaPorNome}
-                            dataHora={escala.saidaConfirmadaEm}
-                            extra={
-                              escala.saidaAutomatica ? "automático" : undefined
-                            }
-                          />
-                        </td>
+
                         <td>
                           <StatusCell
                             confirmado={escala.primeiraVerificacao}
@@ -1332,7 +1390,38 @@ function PjesEscalasContent() {
                             obs={escala.obsVerificador2}
                           />
                         </td>
+                        <td>
+                          <StatusCell
+                            confirmado={escala.saidaConfirmada}
+                            nome={escala.saidaConfirmadaPorNome}
+                            dataHora={escala.saidaConfirmadaEm}
+                            extra={
+                              escala.saidaAutomatica ? "automático" : undefined
+                            }
+                          />
+                        </td>
                         <td style={{ padding: "3px" }}>
+                          <FaMapMarkerAlt
+                            size={15}
+                            color={
+                              escala.presencaLatitude != null
+                                ? "#2563eb"
+                                : "#ccc"
+                            }
+                            style={{
+                              cursor:
+                                escala.presencaLatitude != null
+                                  ? "pointer"
+                                  : "default",
+                              marginRight: "3px",
+                            }}
+                            title={
+                              escala.presencaLatitude != null
+                                ? "Ver local da presença"
+                                : "Sem localização registrada"
+                            }
+                            onClick={() => abrirMapaIndividual(escala)}
+                          />
                           <FiRefreshCcw
                             size={15}
                             color={escala.isRepasse ? "blue" : "#ccc"}
@@ -1395,7 +1484,8 @@ function PjesEscalasContent() {
           <style jsx>{`
             .tabelaEscalasWrapper {
               width: 100%;
-              max-height: 70vh;
+              max-height: calc(100vh - 320px);
+              min-height: 300px;
               overflow: auto;
               border: 1px solid #e0e0e0;
               border-radius: 8px;
@@ -1454,6 +1544,13 @@ function PjesEscalasContent() {
         </div>
       </div>
       {/* fim escalas */}
+
+      <MapaPresencasModal
+        open={!!mapa}
+        titulo={mapa?.titulo ?? ""}
+        pontos={mapa?.pontos ?? []}
+        onClose={() => setMapa(null)}
+      />
     </div>
   );
 }
