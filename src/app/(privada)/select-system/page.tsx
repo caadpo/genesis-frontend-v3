@@ -338,20 +338,27 @@ export default function SelectSystem() {
     {
       id: 1,
       logo: "/logo_dpo.png",
-      nome: "AGO | PJES PMPE",
-      dataHora: "04/09/2026 às 19:30",
+      nome: "SET | PJES PMPE",
+      dataHora: "06/10/2026 às 16:40",
     },
     {
       id: 2,
       logo: "/pe_logo.png",
-      nome: "AGO | PJES PE",
-      dataHora: "04/09/2026 às 19:30",
+      nome: "SET | PJES PE",
+      dataHora: "06/10/2026 às 16:40",
     },
     {
       id: 3,
       logo: "/mobi_logo.png",
-      nome: "AGO | PJES CTM(BRT)",
-      dataHora: "04/09/2026 às 19:30",
+      nome: "SET | PJES CTM(BRT)",
+      dataHora: "06/10/2026 às 16:40",
+    },
+
+    {
+      id: 4,
+      logo: "/brasil_logo.png",
+      nome: "SET | PJES FEDERAL",
+      dataHora: "06/10/2026 às 16:40",
     },
   ];
 

@@ -52,7 +52,6 @@ export default function MapaPresencasModal({
       });
 
       // Com muitos pontos, o nome aparece só ao passar o mouse/tocar (evita sobreposição)
-      const nomeFixo = pontos.length <= 15;
 
       pontos.forEach((p) => {
         const rotulo = document.createElement("div");
@@ -66,10 +65,15 @@ export default function MapaPresencasModal({
 
         L.marker([p.latitude, p.longitude], { icon: icone })
           .addTo(map)
-          .bindTooltip(rotulo, {
-            permanent: nomeFixo,
+          // Aparece ao passar o mouse por cima
+          .bindTooltip(rotulo.cloneNode(true) as HTMLElement, {
             direction: "top",
             offset: [0, -8],
+          })
+          // Aparece ao clicar (ou tocar) no ícone
+          .bindPopup(rotulo, {
+            offset: [0, -8],
+            closeButton: false,
           });
       });
 

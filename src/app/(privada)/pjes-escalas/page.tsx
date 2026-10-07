@@ -1230,11 +1230,18 @@ function PjesEscalasContent() {
                 Mapa ({pontosDaTabela.length})
               </button>
 
+              {<UploadEscalaPlanilha />}
+
+              {/* DESCOMENTAR E APAGAR O DE CIMA QUANDO TUDO ESTIVER PRONTO */}
+              {/*
+                
               {usuarioLogado?.typeUser === UserType.MASTER && (
                 <UploadEscalaPlanilha
                   onSucesso={() => window.location.reload()}
                 />
               )}
+
+              */}
             </div>
           </div>
 
