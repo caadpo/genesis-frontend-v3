@@ -390,7 +390,7 @@ textarea {
 }
 
 .divPjesEscalas {
-  margin-top: 1px;
+  margin-top: 15px;
   display: flex;
   gap: 5px;
   padding: 10px;
@@ -476,6 +476,21 @@ textarea {
   height: 25px;
   margin-top: 4px;
   padding: 2px;
+  color: #858585;
+  background: #ffffff;
+  border: 1px solid #cfd3cd;
+  outline: none;
+}
+
+.inputBuscarEscalaPrincipal {
+  font-size: 14px;
+  border-radius: 5px;
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  box-sizing: border-box;
   color: #858585;
   background: #ffffff;
   border: 1px solid #cfd3cd;

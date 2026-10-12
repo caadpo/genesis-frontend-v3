@@ -5,8 +5,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaUniversity, FaUser, FaCar, FaMapMarkerAlt } from "react-icons/fa";
-import { FiLayers, FiGrid, FiSearch } from "react-icons/fi";
+import { FiLayers, FiGrid } from "react-icons/fi";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
+import {
+  Aviso,
+  AvisoLogo,
+  formatarDataHoraAviso,
+} from "@/src/components/ui/AvisoLogo";
 
 // ─── Interfaces & Types ───────────────────────────────────────────────────────
 
@@ -275,6 +280,8 @@ export default function SelectSystem() {
 
   // ─── State ─────────────────────────────────────────────────────────────
 
+  const [avisos, setAvisos] = useState<Aviso[]>([]);
+
   const [escalas, setEscalas] = useState<Escala[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorEscalas, setErrorEscalas] = useState<string | null>(null);
@@ -297,6 +304,13 @@ export default function SelectSystem() {
   const totalFuturas = totalEscalasFuturas(escalas);
 
   // ─── Effects ───────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    fetch("/api/aviso?limit=4", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => setAvisos(Array.isArray(data) ? data : []))
+      .catch(() => setAvisos([]));
+  }, []);
 
   useEffect(() => {
     async function fetchEscalas() {
@@ -329,156 +343,6 @@ export default function SelectSystem() {
       .catch(() => {})
       .finally(() => setLoadingPagamentos(false));
   }, []);
-
-  {
-    /* ATENÇÃO AJUSTAR APENAS OS DADOS MOKADOS */
-  }
-
-  const prestacoesMock = [
-    {
-      id: 1,
-      logo: "/logo_dpo.png",
-      nome: "SET | PJES PMPE",
-      dataHora: "06/10/2026 às 16:40",
-    },
-    {
-      id: 2,
-      logo: "/pe_logo.png",
-      nome: "SET | PJES PE",
-      dataHora: "06/10/2026 às 16:40",
-    },
-    {
-      id: 3,
-      logo: "/mobi_logo.png",
-      nome: "SET | PJES CTM(BRT)",
-      dataHora: "06/10/2026 às 16:40",
-    },
-
-    {
-      id: 4,
-      logo: "/brasil_logo.png",
-      nome: "SET | PJES FEDERAL",
-      dataHora: "06/10/2026 às 16:40",
-    },
-  ];
-
-  function PrestacaoContasList() {
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 3,
-          marginBottom: " 20px",
-        }}
-      >
-        {prestacoesMock.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              backgroundColor: "#ffffff",
-              border: "1px solid #e6e8e6",
-              borderRadius: 10,
-              padding: "5px 8px",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-            }}
-          >
-            {/* Logo */}
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 8,
-                backgroundColor: "#f4f6f4",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                overflow: "hidden",
-              }}
-            >
-              <img
-                src={item.logo}
-                alt={item.nome}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                  padding: 4,
-                }}
-              />
-            </div>
-
-            {/* Texto */}
-            <div
-              style={{
-                flex: 1,
-                minWidth: 0,
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#1a1a1a",
-                }}
-              >
-                {item.nome}
-              </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  color: "#6b7280",
-                }}
-              >
-                Prestação de contas concluída
-              </span>
-            </div>
-
-            {/* Badge de status */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-end",
-                flexShrink: 0,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: "#0c832f",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
-                  marginBottom: 2,
-                }}
-              >
-                ✓ Concluída
-              </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: "#374151",
-                  backgroundColor: "#eef1ee",
-                  borderRadius: 6,
-                  padding: "2px 8px",
-                }}
-              >
-                {item.dataHora}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   {
     /* ATENÇÃO AJUSTAR APENAS OS DADOS MOKADOS */
@@ -567,22 +431,16 @@ export default function SelectSystem() {
         </div>
       </div>
 
-      {/* ── Avisos ───────────────────────────────────────────────── */}
+      {/* ── Avisos ── */}
       <div className="div-itens-sistema">
         <div>
           <div className="header-escalas">
             <div className="titulo">
-              <span
-                style={{
-                  fontSize: 14,
-                }}
-              >
-                AVISOS
-              </span>
-              <div className="badge">1</div>
+              <span style={{ fontSize: 14 }}>AVISOS</span>
+              <div className="badge">{avisos.length}</div>
             </div>
             <div
-              onClick={() => router.push("/minhas-escalas")}
+              onClick={() => router.push("/avisos")}
               className="verTodas-badge"
             >
               Ver todos
@@ -591,7 +449,62 @@ export default function SelectSystem() {
           <span className="tituloProximas">Em destaque</span>
         </div>
 
-        <PrestacaoContasList />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 3,
+            marginBottom: 20,
+          }}
+        >
+          {avisos.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                backgroundColor: "#fff",
+                border: "1px solid #e6e8e6",
+                borderRadius: 10,
+                padding: "5px 8px",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+              }}
+            >
+              <AvisoLogo src={item.imagemUrl} nome={item.nome} />
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <span
+                  style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}
+                >
+                  {item.nome}
+                </span>
+                <span style={{ fontSize: 11, color: "#6b7280" }}>
+                  {item.descricao}
+                </span>
+              </div>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: "#374151",
+                  backgroundColor: "#eef1ee",
+                  borderRadius: 6,
+                  padding: "2px 8px",
+                  flexShrink: 0,
+                }}
+              >
+                {formatarDataHoraAviso(item.dataHora)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Minhas Escalas ───────────────────────────────────────────────── */}

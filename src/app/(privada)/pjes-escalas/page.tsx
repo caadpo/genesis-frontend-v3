@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 
@@ -217,6 +217,219 @@ function StatusCell({
   );
 }
 
+// ─── Ocupação da viatura (visualização) ──────────────────────────────────────
+
+const FUNCOES_VTR = ["FISCAL", "CMT", "MOT", "PAT"];
+
+type GrupoVtr = "COMANDO" | "MOT" | "PAT";
+
+const CAPACIDADE: Record<GrupoVtr, number> = { COMANDO: 1, MOT: 1, PAT: 2 };
+
+const NOME_GRUPO: Record<GrupoVtr, string> = {
+  COMANDO: "FISCAL/CMT",
+  MOT: "MOT",
+  PAT: "PAT",
+};
+
+function grupoDaFuncao(funcao?: string | null): GrupoVtr | null {
+  if (funcao === "FISCAL" || funcao === "CMT") return "COMANDO";
+  if (funcao === "MOT") return "MOT";
+  if (funcao === "PAT") return "PAT";
+  return null;
+}
+
+/** Converte data + hora início/fim em um intervalo absoluto [ini, fim) em minutos.
+ *  Trata 24h (início === fim) e serviços que viram a noite. */
+function intervaloEmMinutos(
+  data?: string,
+  horaIni?: string,
+  horaFim?: string,
+): [number, number] | null {
+  if (!data || !horaIni || !horaFim) return null;
+  const [a, m, d] = data.split("-").map(Number);
+  if (!a || !m || !d) return null;
+  const base = Date.UTC(a, m - 1, d) / 60000;
+  const toMin = (h: string) => {
+    const [H, M] = h.substring(0, 5).split(":").map(Number);
+    return H * 60 + M;
+  };
+  const ini = toMin(horaIni);
+  let dur = (toMin(horaFim) - ini + 1440) % 1440;
+  if (dur === 0) dur = 1440;
+  return [base + ini, base + ini + dur];
+}
+
+type SeatState = "ocupado" | "novo" | "conflito" | "livre";
+
+function Seat({
+  label,
+  texto,
+  estado,
+}: {
+  label: string;
+  texto: string;
+  estado: SeatState;
+}) {
+  const cores: Record<
+    SeatState,
+    { bg: string; border: string; color: string }
+  > = {
+    ocupado: { bg: "#e8f5e9", border: "#16a34a", color: "#14532d" },
+    novo: { bg: "#eff6ff", border: "#2563eb", color: "#1e40af" },
+    conflito: { bg: "#fef2f2", border: "#dc2626", color: "#991b1b" },
+    livre: { bg: "#fafafa", border: "#d4d4d4", color: "#999" },
+  };
+  const c = cores[estado];
+  return (
+    <div
+      style={{
+        minWidth: 130,
+        padding: "4px 8px",
+        borderRadius: 8,
+        background: c.bg,
+        border: `1.5px ${estado === "novo" || estado === "livre" ? "dashed" : "solid"} ${c.border}`,
+        color: c.color,
+        textAlign: "center",
+        lineHeight: 1.2,
+      }}
+    >
+      <div style={{ fontSize: 9, fontWeight: 700, opacity: 0.8 }}>{label}</div>
+      <div style={{ fontSize: 9, fontWeight: 700 }}>{texto}</div>
+    </div>
+  );
+}
+
+function VtrOcupacao({
+  ocupantes,
+  cargo,
+  novoNome,
+  patrimonio,
+}: {
+  ocupantes: Escala[];
+  cargo: string;
+  novoNome: string;
+  patrimonio?: string;
+}) {
+  const grupoNovo = grupoDaFuncao(cargo);
+  const nome = (e: Escala) => `${e.pg_escala} ${e.ng_escala}`;
+
+  // Cargo fora de FISCAL/CMT/MOT/PAT: só lista quem já está na viatura
+  if (!grupoNovo) {
+    if (ocupantes.length === 0) return null;
+    return (
+      <div style={{ fontSize: 10, color: "#555", marginTop: 8 }}>
+        <strong>Já na viatura {patrimonio} neste horário:</strong>
+        {ocupantes.map((e) => (
+          <div key={e.id}>
+            {e.funcao} — {nome(e)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const porGrupo: Record<GrupoVtr, Escala[]> = {
+    COMANDO: [],
+    MOT: [],
+    PAT: [],
+  };
+  ocupantes.forEach((e) => {
+    const g = grupoDaFuncao(e.funcao);
+    if (g) porGrupo[g].push(e);
+  });
+
+  const lotado = porGrupo[grupoNovo].length >= CAPACIDADE[grupoNovo];
+
+  // Estado de cada assento. O "novo" ocupa a primeira vaga livre do seu grupo;
+  // se o grupo já está lotado, marca conflito no(s) assento(s) do grupo.
+  function seat(grupo: GrupoVtr, idx: number, label: string) {
+    const ocupante = porGrupo[grupo][idx];
+    if (ocupante) {
+      const conflito = grupo === grupoNovo && lotado;
+      return (
+        <Seat
+          label={label}
+          texto={`${ocupante.funcao} ${nome(ocupante)}`}
+          estado={conflito ? "conflito" : "ocupado"}
+        />
+      );
+    }
+    if (grupo === grupoNovo && !lotado && idx === porGrupo[grupo].length) {
+      return (
+        <Seat label={label} texto={`➜ ${novoNome} (${cargo})`} estado="novo" />
+      );
+    }
+    return <Seat label={label} texto="Livre" estado="livre" />;
+  }
+
+  const excedentes = Math.max(
+    0,
+    porGrupo[grupoNovo].length - CAPACIDADE[grupoNovo],
+  );
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          color: "#444",
+          marginBottom: 6,
+        }}
+      >
+        Viatura {patrimonio} neste horário
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "auto auto auto",
+          gridTemplateRows: "auto auto",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "10px 12px",
+        }}
+      >
+        <div style={{ gridColumn: 1, gridRow: 1 }}>
+          {seat("MOT", 0, "MOT (motorista)")}
+        </div>
+        <div style={{ gridColumn: 2, gridRow: "1 / span 2" }}>
+          <img
+            src="/vtr_icon.png"
+            alt="Viatura"
+            style={{ width: 50, height: 80, display: "block" }}
+          />
+        </div>
+        <div style={{ gridColumn: 3, gridRow: 1 }}>
+          {seat("COMANDO", 0, "FISCAL / CMT")}
+        </div>
+        <div style={{ gridColumn: 1, gridRow: 2 }}>
+          {seat("PAT", 0, "PAT 1")}
+        </div>
+        <div style={{ gridColumn: 3, gridRow: 2 }}>
+          {seat("PAT", 1, "PAT 2")}
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: 8,
+          fontSize: 9,
+          fontWeight: 700,
+          textAlign: "center",
+          color: lotado ? "#dc2626" : "#16a34a",
+        }}
+      >
+        {lotado
+          ? `⚠️ Vagas de ${NOME_GRUPO[grupoNovo]} já preenchidas nesta viatura${
+              excedentes > 0 ? ` (${excedentes} acima do limite)` : ""
+            }`
+          : `✔ Há vaga para ${NOME_GRUPO[grupoNovo]}`}
+      </div>
+    </div>
+  );
+}
+
 // ─── Caixinha de contagem (Total/Presente/Ausente), também usada como filtro ─
 
 function ResumoBox({
@@ -241,16 +454,16 @@ function ResumoBox({
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "6px 16px",
+        padding: "6px 10px",
         borderRadius: 8,
         border: `1.5px solid ${ativo ? cor : "#e0e0e0"}`,
         background: ativo ? `${cor}14` : "#fff",
         cursor: "pointer",
-        minWidth: 74,
+        minWidth: 65,
       }}
     >
       <span
-        style={{ fontSize: 18, fontWeight: 800, color: cor, lineHeight: 1 }}
+        style={{ fontSize: 14, fontWeight: 800, color: cor, lineHeight: 1 }}
       >
         {valor}
       </span>
@@ -400,6 +613,31 @@ function PjesEscalasContent() {
     operacaoId ? `/api/viatura?operacaoId=${operacaoId}` : "",
     [operacaoId],
   );
+
+  // ── Quem já ocupa a viatura escolhida em horário que sobrepõe o do formulário ──
+  const ocupantesViatura = useMemo(() => {
+    if (!selectedViatura) return null;
+    const novo = intervaloEmMinutos(dataInicio, horaInicio, horaFim);
+    if (!novo) return null;
+
+    return tabelaEscalas.filter((e) => {
+      if ((e.viaturaId ?? e.viatura?.id) !== selectedViatura) return false;
+      if (editandoEscala && e.id === editandoEscala.id) return false;
+      const iv = intervaloEmMinutos(e.dataInicio, e.horaInicio, e.horaFim);
+      return !!iv && iv[0] < novo[1] && novo[0] < iv[1];
+    });
+  }, [
+    selectedViatura,
+    dataInicio,
+    horaInicio,
+    horaFim,
+    tabelaEscalas,
+    editandoEscala,
+  ]);
+
+  const patrimonioSelecionado = viaturas?.find(
+    (v) => v.id === selectedViatura,
+  )?.patrimonio;
 
   const SISTEMA = "PJES";
   const minDate =
@@ -1144,14 +1382,19 @@ function PjesEscalasContent() {
                 CANCELAR
               </button>
             )}
-            <input
-              className="inputBuscarEscala"
-              type="text"
-              placeholder="Buscar"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
           </div>
+          {ocupantesViatura && (
+            <VtrOcupacao
+              ocupantes={ocupantesViatura}
+              cargo={selectedCargo}
+              novoNome={
+                usuario
+                  ? `${usuario.pg} ${usuario.nomeGuerra}`
+                  : "Novo policial"
+              }
+              patrimonio={patrimonioSelecionado}
+            />
+          )}
         </div>
       </div>
 
@@ -1162,99 +1405,19 @@ function PjesEscalasContent() {
             <div className="divCriarEscala">
               <h4>ESCALA DE SERVIÇO</h4>
             </div>
-            <div
-              className="divCriarEscala"
-              style={{ display: "flex", alignItems: "center", gap: "12px" }}
-            >
-              <span
-                style={{
-                  fontSize: "16px",
-                  fontWeight: 600,
-                  color: "#555",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {totalFiltrado !== totalRegistros
-                  ? `${totalFiltrado} de ${totalRegistros} registro${totalRegistros !== 1 ? "s" : ""}`
-                  : `${totalRegistros} registro${totalRegistros !== 1 ? "s" : ""}`}
-              </span>
-              <button
-                onClick={handleDownloadPdf}
-                disabled={gerandoPdf}
-                title="Baixar PDF da escala"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 14px",
-                  height: "32px",
-                  borderRadius: "8px",
-                  border: "1px solid #e53935",
-                  marginBottom: "3px",
-                  background: gerandoPdf ? "#f5f5f5" : "#fff",
-                  color: gerandoPdf ? "#aaa" : "#e53935",
-                  fontWeight: 600,
-                  fontSize: "13px",
-                  cursor: gerandoPdf ? "not-allowed" : "pointer",
-                  transition: "all 0.2s",
-                  boxShadow: gerandoPdf
-                    ? "none"
-                    : "0 1px 4px rgba(229,57,53,0.15)",
-                }}
-              >
-                <FaFilePdf style={{ fontSize: "16px" }} />
-                {gerandoPdf ? "Gerando..." : "Gerar PDF"}
-              </button>
-              <button
-                onClick={abrirMapaGeral}
-                disabled={pontosDaTabela.length === 0}
-                title="Ver no mapa onde cada policial deu a presença"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 14px",
-                  height: "32px",
-                  borderRadius: "8px",
-                  border: "1px solid #2563eb",
-                  marginBottom: "3px",
-                  background: "#fff",
-                  color: pontosDaTabela.length === 0 ? "#aaa" : "#2563eb",
-                  fontWeight: 600,
-                  fontSize: "13px",
-                  cursor:
-                    pontosDaTabela.length === 0 ? "not-allowed" : "pointer",
-                }}
-              >
-                <FaMapMarkerAlt style={{ fontSize: "16px" }} />
-                Mapa ({pontosDaTabela.length})
-              </button>
-
-              {<UploadEscalaPlanilha />}
-
-              {/* DESCOMENTAR E APAGAR O DE CIMA QUANDO TUDO ESTIVER PRONTO */}
-              {/*
-                
-              {usuarioLogado?.typeUser === UserType.MASTER && (
-                <UploadEscalaPlanilha
-                  onSucesso={() => window.location.reload()}
-                />
-              )}
-
-              */}
-            </div>
           </div>
-
-          {/* ── Contadores (Total/Presente/Ausente) + filtro "somente 24h" ── */}
+          {/* ── Contadores + filtro 24h + busca + ações ── */}
           <div
             style={{
               display: "flex",
+              width: "100%",
               alignItems: "center",
-              gap: 10,
-              flexWrap: "wrap",
-              margin: "4px 0 12px",
+              gap: 7,
+              flexWrap: "nowrap",
+              margin: "4px 0 5px",
             }}
           >
+            {/* Contadores */}
             <ResumoBox
               label="Total"
               valor={totalEscalados}
@@ -1262,6 +1425,7 @@ function PjesEscalasContent() {
               ativo={filtroStatus === null}
               onClick={() => setFiltroStatus(null)}
             />
+
             <ResumoBox
               label="Presente"
               valor={totalPresentes}
@@ -1273,6 +1437,7 @@ function PjesEscalasContent() {
                 )
               }
             />
+
             <ResumoBox
               label="Ausente"
               valor={totalAusentes}
@@ -1285,6 +1450,7 @@ function PjesEscalasContent() {
               }
             />
 
+            {/* Filtro 24h */}
             <button
               onClick={() => setFiltro24h((v) => !v)}
               aria-pressed={filtro24h}
@@ -1292,6 +1458,7 @@ function PjesEscalasContent() {
               style={{
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 6,
                 padding: "8px 14px",
                 borderRadius: 8,
@@ -1302,13 +1469,138 @@ function PjesEscalasContent() {
                 fontSize: 12,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
+                flexShrink: 0,
               }}
             >
               <FaRegClock />
               24h
             </button>
-          </div>
 
+            {/* Busca: ocupa o espaço disponível no centro */}
+            <div
+              style={{
+                flex: "1 1 0",
+                minWidth: 50,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <input
+                className="inputBuscarEscalaPrincipal"
+                type="text"
+                placeholder="Buscar"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+              />
+            </div>
+
+            {/* Total de registros + ações: alinhados à direita */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: 5,
+                marginLeft: "auto",
+                flexShrink: 0,
+              }}
+            >
+              {/* Total de registros */}
+              <span
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#555",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {totalFiltrado !== totalRegistros
+                  ? `${totalFiltrado} de ${totalRegistros} registro${
+                      totalRegistros !== 1 ? "s" : ""
+                    }`
+                  : `${totalRegistros} registro${
+                      totalRegistros !== 1 ? "s" : ""
+                    }`}
+              </span>
+
+              {/* Gerar PDF */}
+              <button
+                onClick={handleDownloadPdf}
+                disabled={gerandoPdf}
+                title="Baixar PDF da escala"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 14px",
+                  height: 32,
+                  boxSizing: "border-box",
+                  borderRadius: 8,
+                  border: "1px solid #e53935",
+                  background: gerandoPdf ? "#f5f5f5" : "#fff",
+                  color: gerandoPdf ? "#aaa" : "#e53935",
+                  fontWeight: 600,
+                  fontSize: 10,
+                  cursor: gerandoPdf ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                  boxShadow: gerandoPdf
+                    ? "none"
+                    : "0 1px 4px rgba(229,57,53,0.15)",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}
+              >
+                <FaFilePdf style={{ fontSize: 16 }} />
+                {gerandoPdf ? "Gerando..." : "Gerar PDF"}
+              </button>
+
+              {/* Mapa */}
+              <button
+                onClick={abrirMapaGeral}
+                disabled={pontosDaTabela.length === 0}
+                title="Ver no mapa onde cada policial deu a presença"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 14px",
+                  height: 32,
+                  boxSizing: "border-box",
+                  borderRadius: 8,
+                  border: "1px solid #2563eb",
+                  background: "#fff",
+                  color: pontosDaTabela.length === 0 ? "#aaa" : "#2563eb",
+                  fontWeight: 600,
+                  fontSize: 10,
+                  cursor:
+                    pontosDaTabela.length === 0 ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}
+              >
+                <FaMapMarkerAlt style={{ fontSize: 16 }} />
+                Mapa ({pontosDaTabela.length})
+              </button>
+
+              {/* Upload da planilha */}
+              <div
+                style={{ flexShrink: 0, display: "flex", alignItems: "center" }}
+              >
+                <UploadEscalaPlanilha />
+              </div>
+
+              {/*
+      DESCOMENTAR QUANDO TUDO ESTIVER PRONTO:
+
+      {usuarioLogado?.typeUser === UserType.MASTER && (
+        <UploadEscalaPlanilha
+          onSucesso={() => window.location.reload()}
+        />
+      )}
+    */}
+            </div>
+          </div>
           <div className="tabelaEscalasWrapper">
             <table className="tabelaEscalas">
               <thead className="tabelaEscalasThead">
@@ -1487,7 +1779,6 @@ function PjesEscalasContent() {
               </tbody>
             </table>
           </div>
-
           <style jsx>{`
             .tabelaEscalasWrapper {
               width: 100%;

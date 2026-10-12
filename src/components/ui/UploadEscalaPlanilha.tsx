@@ -95,7 +95,7 @@ export function UploadEscalaPlanilha({
           background: enviando ? "#f5f5f5" : "#fff",
           color: enviando ? "#aaa" : "#1f7a3f",
           fontWeight: 600,
-          fontSize: "13px",
+          fontSize: "10px",
           cursor: enviando ? "not-allowed" : "pointer",
         }}
       >
@@ -113,7 +113,7 @@ export function UploadEscalaPlanilha({
             borderRadius: 8,
             padding: 10,
             background: "#fff5f5",
-            fontSize: 12,
+            fontSize: 10,
           }}
         >
           <strong>Erros encontrados (nada foi importado):</strong>

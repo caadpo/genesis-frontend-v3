@@ -1936,34 +1936,33 @@ export default function OperacoesPage() {
                                       <span
                                         style={{
                                           fontWeight: 500,
-                                          color: "#6b7280",
                                         }}
                                       >
                                         {" "}
-                                        · {e.nomeome_escala}
+                                        {e.nomeome_escala}
                                       </span>
-                                    )}
+                                    )}{" "}
+                                    | {e.funcao}
                                     <br />
                                     {e.phone && (
                                       <span
                                         style={{
                                           fontWeight: 500,
-                                          color: "#9ca3af",
                                         }}
                                       >
                                         {" "}
                                         <FaPhone /> {e.phone}
                                       </span>
                                     )}
-                                  </div>
-                                  <div
-                                    style={{ fontSize: 11, color: "#6b7280" }}
-                                  >
-                                    {e.funcao}
                                     {!mostrarLabelViatura &&
                                     e.viatura?.patrimonio
-                                      ? ` · VTR ${e.viatura.patrimonio}`
+                                      ? `  VTR ${e.viatura.patrimonio}`
                                       : ""}
+                                  </div>
+                                  <div
+                                    style={{ fontSize: 9, color: "#9ca3af" }}
+                                  >
+                                    <FaInfo /> {e.anotacoes}
                                   </div>
                                 </div>
 
