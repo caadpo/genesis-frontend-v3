@@ -245,13 +245,14 @@ export default function PerfilDrawer() {
     }
   }
 
-  if (!open) return null;
-
   return (
     <>
       <div
         className={`modalPerfilOverlay ${open ? "open" : ""}`}
-        onClick={() => setOpen(false)}
+        onClick={() => {
+          setOpen(false);
+          window.dispatchEvent(new Event("perfilDrawerClosed"));
+        }}
       />
 
       <div className={`modalPerfilDrawer ${open ? "open" : ""}`}>

@@ -33,15 +33,10 @@ type Viatura = {
   statusVtr: "DISPONIVEL" | "INDISPONIVEL";
 };
 
-type Escala = {
+export type Escala = {
   id: number;
   sistema: string;
-  mat_escala: string;
-  pg_escala: string;
-  ng_escala: string;
-  cpf_escala: string;
   tipo_escala: string;
-  nomeome_escala: string;
   dataInicio: string;
   horaInicio: string;
   horaFim: string;
@@ -50,39 +45,30 @@ type Escala = {
   funcao: string;
   situacao: string;
   anotacoes?: string;
-  viaturaId?: number | null;
-  viatura?: Viatura | null;
+
   operacaoId?: number;
   nomeOperacao?: string;
   cod_op?: string;
   nomeEvento?: string;
   nomeOme?: string;
-  status_teto?: string;
-  somacota_escala: number;
-  somaCotaFinal: number;
+
+  // ── Financeiro ──
   pagamento: string;
-  phone?: string | null;
   comentario_pagamento: string | null;
   valorIndividual?: number;
-  conta?: {
-    banco: string;
-    agencia: string;
-    conta: string;
-  } | null;
 
-  // ── Presença ──────────────────────────────────────────────────────────
+  // ── Presença ──
   presencaConfirmada?: boolean;
   presencaConfirmadaEm?: string | null;
   presencaLatitude?: number | null;
   presencaLongitude?: number | null;
-  presencaConfirmadaPorNome?: string | null;
 
-  // ── Saída de serviço ──────────────────────────────────────────────────
+  // ── Saída de serviço ──
   saidaConfirmada?: boolean;
   saidaConfirmadaEm?: string | null;
-  saidaConfirmadaPorNome?: string | null;
+  saidaAutomatica?: boolean;
 
-  // ── Verificação por fiscal (1ª e 2ª ronda) ───────────────────────────────
+  // ── Verificação por fiscal (1ª e 2ª ronda) ──
   primeiraVerificacao?: boolean;
   verificador1Nome?: string | null;
   dataHoraVerificador1?: string | null;
@@ -103,9 +89,21 @@ type Repasse = {
   motivo?: string | null;
 };
 
+// Retorno enxuto de GET /escala/:id/colegas
+export type Colega = {
+  id: number;
+  pg_escala: string | null;
+  mat_escala: string | null;
+  ng_escala: string | null;
+  tipo_escala: string;
+  funcao: string;
+  viaturaId: number | null;
+  phone: string | null;
+};
+
 type DetalhesEscalaModalProps = {
   escala: Escala;
-  colegas: Escala[];
+  colegas: Colega[];
   carregandoColegas: boolean;
   repasseAtivo: Repasse | null;
   expirado: boolean;
@@ -201,6 +199,7 @@ function Avatar({
     <img
       src={`/avatares/${mat}.jpg`}
       alt={nome}
+      loading="lazy"
       onError={() => setErro(true)}
       style={{
         width: tamanho,
@@ -1123,7 +1122,10 @@ export default function DetalhesEscalaModal({
                         boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                       }}
                     >
-                      <Avatar mat={c.mat_escala} nome={c.nomeome_escala} />
+                      <Avatar
+                        mat={c.mat_escala ?? ""}
+                        nome={c.ng_escala ?? ""}
+                      />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{

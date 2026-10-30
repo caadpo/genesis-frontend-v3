@@ -7,20 +7,21 @@ export async function GET(request: Request) {
   const token = (await cookies()).get("accessToken")?.value;
   const { searchParams } = new URL(request.url);
   const tipo = searchParams.get("tipo");
+  const status = searchParams.get("status");
 
   const endpoint =
     tipo === "meus"
-      ? `${API_URL}/repasse/meus`
+      ? `${API_URL}/repasse/meus${status ? `?status=${encodeURIComponent(status)}` : ""}`
       : tipo === "disponiveis"
         ? `${API_URL}/repasse/disponiveis`
-        : `${API_URL}/repasse`; // sem tipo → lista todos
+        : `${API_URL}/repasse`;
 
   const response = await fetch(endpoint, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => null);
   return NextResponse.json(data, { status: response.status });
 }
 

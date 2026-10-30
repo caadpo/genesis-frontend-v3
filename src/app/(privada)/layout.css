@@ -296,8 +296,8 @@
 
 .modalPerfilDrawer {
   position: fixed;
-  top: 55px; /* altura real do header */
-  height: calc(100vh - 40px);
+  top: 48px; /* altura real do header */
+  height: calc(100vh - 48px);
   left: 65px;
   width: 40vw;
   max-width: 600px;
@@ -313,6 +313,7 @@
 
 .modalPerfilDrawer.open {
   transform: translateX(0);
+  border-right: 1px solid #dfdfdf;
 }
 
 /* Header */

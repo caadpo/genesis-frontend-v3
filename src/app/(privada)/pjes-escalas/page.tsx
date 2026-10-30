@@ -12,7 +12,9 @@ import {
   FaBarcode,
   FaCar,
   FaEdit,
+  FaExchangeAlt,
   FaFilePdf,
+  FaLink,
   FaLock,
   FaMapMarkerAlt,
   FaLockOpen,
@@ -20,6 +22,7 @@ import {
   FaRegClock,
   FaTrash,
   FaUser,
+  FaUserPlus,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { FaTriangleExclamation } from "react-icons/fa6";
@@ -36,6 +39,7 @@ type Evento = {
   nome_evento: string;
   teto?: Teto;
   status_evento: string;
+  ome?: { id: number; nomeOme: string };
 };
 type Operacao = {
   id: number;
@@ -76,15 +80,15 @@ type EscalaOperacaoResponse = {
   totalCotasPracas: number;
 };
 
-type FiltroStatus = "PRESENTE" | "AUSENTE" | null;
+type FiltroStatus = "PRESENTE" | "AUSENTE" | "VAGA" | null;
 
 type Escala = {
   id: number;
   sistema: string;
-  mat_escala: string;
-  pg_escala: string;
-  ng_escala: string;
-  cpf_escala: string;
+  mat_escala: string | null;
+  pg_escala: string | null;
+  ng_escala: string | null;
+  cpf_escala: string | null;
   tipo_escala: string;
   nomeome_escala: string;
   dataInicio: string;
@@ -102,6 +106,10 @@ type Escala = {
   viaturaId?: number | null;
   viatura?: Viatura | null;
   phone?: string | null;
+  isVagaAberta?: boolean;
+  omeDestinoId?: number | null;
+  omeDestinoNome?: string | null;
+  preenchidaEm?: string | null;
 
   // ── Presença (confirmada pelo próprio escalado) ───────────────────────
   presencaConfirmada?: boolean;
@@ -541,6 +549,30 @@ function PjesEscalasContent() {
 
   const teto = tetos?.find((t) => t.id === tetoId);
   const tetoReferencia = operacao?.evento?.teto || teto;
+  // ── Compartilhamento: quem sou eu nesta operação? ──────────────────────────
+  const { data: omesCompartilhadas } = useApi<
+    { id: number; nomeOme: string }[]
+  >(operacaoId ? `/api/operacao/${operacaoId}/compartilhamento` : "", [
+    operacaoId,
+  ]);
+  const compartilhadas = omesCompartilhadas ?? [];
+
+  const tipoUsuario = Number(usuarioLogado?.typeUser);
+  // Se o seu useCurrentUser tipar o usuário sem omeId, acrescente omeId no tipo dele.
+  const minhaOmeId = Number((usuarioLogado as any)?.omeId);
+  const ehAdmin =
+    tipoUsuario === UserType.MASTER || tipoUsuario === UserType.TECNICO;
+  const omeDonaId = operacao?.evento?.ome?.id;
+  const ehDono = ehAdmin || (omeDonaId != null && minhaOmeId === omeDonaId);
+  const ehParticipante =
+    !ehDono && compartilhadas.some((o) => o.id === minhaOmeId);
+  const eventoAberto = operacao?.evento?.status_evento === "CRIADO";
+
+  const podePreencher = (e: Escala) =>
+    !!e.isVagaAberta &&
+    (ehDono || (ehParticipante && e.omeDestinoId === minhaOmeId));
+  const podeSubstituir = (e: Escala) =>
+    !e.isVagaAberta && ehParticipante && e.omeDestinoId === minhaOmeId;
 
   const [matricula, setMatricula] = useState("");
   const [usuario, setUsuario] = useState<Usuario | null>(null);
@@ -558,6 +590,24 @@ function PjesEscalasContent() {
   const [anotacoes, setAnotacoes] = useState("");
   const [searchText, setSearchText] = useState("");
   const [tabelaEscalas, setTabelaEscalas] = useState<Escala[]>([]);
+  // ── Vagas em aberto ────────────────────────────────────────────────────────
+  const [modoVaga, setModoVaga] = useState(false); // criando vaga nova (dono)
+  const [vagaOmeDestino, setVagaOmeDestino] = useState<number | "">("");
+  const [vagaTipo, setVagaTipo] = useState<"O" | "P" | "">("");
+  const [escalaAcao, setEscalaAcao] = useState<{
+    tipo: "preencher" | "substituir";
+    escala: Escala;
+  } | null>(null);
+
+  const editandoVaga = !!editandoEscala?.isVagaAberta;
+  const emVaga = modoVaga || editandoVaga; // formulário sem matrícula
+  const emAcao = !!escalaAcao; // preencher/substituir: só matrícula (+ viatura)
+  const formSomenteLeitura = ehParticipante && !emAcao;
+  const camposTravados = emAcao || formSomenteLeitura;
+  const viaturaHabilitada =
+    !emVaga && !formSomenteLeitura && escalaAcao?.tipo !== "substituir";
+  const podeUsarVaga =
+    ehDono && compartilhadas.length > 0 && !editandoEscala && !emAcao;
   const isEditandoRef = useRef(false);
   const isLimpandoAposAdicionarRef = useRef(false);
   const localApresentacaoAtualRef = useRef("");
@@ -676,7 +726,12 @@ function PjesEscalasContent() {
 
   const camposObrigatoriosFaltando = (): string[] => {
     const faltando: string[] = [];
-    if (!usuario && !editandoEscala) faltando.push("Matrícula");
+    if (modoVaga) {
+      if (!vagaOmeDestino) faltando.push("OME de destino");
+      if (!vagaTipo) faltando.push("Tipo da vaga (Oficial/Praça)");
+    } else if (!usuario && !editandoEscala) {
+      faltando.push("Matrícula");
+    }
     if (!dataInicio) faltando.push("Data de Início");
     if (!horaInicio) faltando.push("Hora de Início");
     if (!horaFim) faltando.push("Hora de Término");
@@ -686,13 +741,14 @@ function PjesEscalasContent() {
   };
 
   const canAddEscala =
-    (!!usuario || !!editandoEscala) &&
+    (!!usuario || !!editandoEscala || modoVaga) &&
     !!dataInicio &&
     !!horaInicio &&
     !!horaFim &&
     !!localApresentacao &&
     !!selectedCargo &&
-    !loadingUsuario;
+    !loadingUsuario &&
+    !formSomenteLeitura;
 
   // ── Base da tabela: aplica o filtro "somente 24h" antes de tudo ───────────
   // Uma escala é considerada de 24h quando horaInicio === horaFim (mesma
@@ -703,13 +759,22 @@ function PjesEscalasContent() {
       )
     : tabelaEscalas;
 
-  const totalEscalados = escalasBase.length;
-  const totalPresentes = escalasBase.filter((e) => e.presencaConfirmada).length;
+  const preenchidasBase = escalasBase.filter((e) => !e.isVagaAberta);
+  const totalVagas = escalasBase.length - preenchidasBase.length;
+  const totalEscalados = preenchidasBase.length;
+  const totalPresentes = preenchidasBase.filter(
+    (e) => e.presencaConfirmada,
+  ).length;
   const totalAusentes = totalEscalados - totalPresentes;
 
   // ✅ busca agora usa dadosSgp.pgSgp, dadosSgp.nomeGuerraSgp, dadosSgp.cpfSgp, phone
   // (e também as observações registradas pelo fiscal na 1ª/2ª verificação)
   const filteredEscalas = escalasBase.filter((escala) => {
+    if (filtroStatus === "VAGA") {
+      if (!escala.isVagaAberta) return false;
+    } else if (filtroStatus && escala.isVagaAberta) {
+      return false;
+    }
     if (filtroStatus === "PRESENTE" && !escala.presencaConfirmada) return false;
     if (filtroStatus === "AUSENTE" && escala.presencaConfirmada) return false;
 
@@ -732,6 +797,8 @@ function PjesEscalasContent() {
       escala.anotacoes || "",
       escala.obsVerificador1 || "",
       escala.obsVerificador2 || "",
+      escala.omeDestinoNome ?? "",
+      escala.isVagaAberta ? "vaga em aberto" : "",
     ]
       .map((value) => String(value).toLowerCase())
       .some((value) => value.includes(term));
@@ -765,30 +832,21 @@ function PjesEscalasContent() {
     if (raw.length === 0) {
       setUsuario(null);
       setBuscaUsuarioError(null);
-
+      setSituacao(""); // situação sempre acompanha o usuário
       if (!isLimpandoAposAdicionarRef.current) {
         setLocalApresentacao("");
-        setSituacao("");
       }
       isLimpandoAposAdicionarRef.current = false;
       return;
     }
 
-    // ainda digitando, menos de 6 dígitos: não busca
-    if (raw.length < 6) {
+    if (raw.length < 6 || raw.length > 7) {
       setUsuario(null);
       setBuscaUsuarioError(null);
+      setSituacao("");
       return;
     }
 
-    // mais de 7 dígitos não faz sentido: não busca
-    if (raw.length > 7) {
-      setUsuario(null);
-      setBuscaUsuarioError(null);
-      return;
-    }
-
-    // se tiver 6 dígitos, completa com 0 na frente -> sempre busca com 7
     const matriculaBusca = raw.length === 6 ? `0${raw}` : raw;
 
     const timeout = setTimeout(async () => {
@@ -810,30 +868,30 @@ function PjesEscalasContent() {
 
         if (!found || !found.id) {
           setUsuario(null);
+          setSituacao("");
           setBuscaUsuarioError("Usuário não encontrado");
           if (!localApresentacaoAtualRef.current.trim())
             setLocalApresentacao("");
-          if (!situacaoAtualRef.current.trim()) setSituacao("");
           return;
         }
 
         setUsuario(found);
+
+        // Situação: sempre a do SGP, exceto ao editar (mantém a gravada na escala)
         if (!isEditandoRef.current) {
+          setSituacao(found.situacao ?? "");
           if (!localApresentacaoAtualRef.current.trim()) {
             setLocalApresentacao(found.localApresentacao ?? "");
-          }
-          if (!situacaoAtualRef.current.trim()) {
-            setSituacao(found.situacao ?? "");
           }
         }
         isEditandoRef.current = false;
       } catch (error: any) {
         setUsuario(null);
+        setSituacao("");
         setBuscaUsuarioError(
           error?.message || "Matricula não existe ou está errada",
         );
         if (!localApresentacaoAtualRef.current.trim()) setLocalApresentacao("");
-        if (!situacaoAtualRef.current.trim()) setSituacao("");
       } finally {
         setLoadingUsuario(false);
       }
@@ -841,8 +899,11 @@ function PjesEscalasContent() {
 
     return () => clearTimeout(timeout);
   }, [matricula]);
-
   async function handleAddEscala() {
+    if (formSomenteLeitura) {
+      toast.error("Você só pode preencher vagas destinadas à sua OME");
+      return;
+    }
     const faltando = camposObrigatoriosFaltando();
     if (faltando.length > 0) {
       toast.error(`Preencha os campos obrigatórios: ${faltando.join(", ")}`);
@@ -850,6 +911,8 @@ function PjesEscalasContent() {
     }
 
     if (!operacaoId || !operacao) return;
+    if (escalaAcao) return handleAcaoVaga();
+    if (modoVaga) return handleCriarVaga();
 
     const isEdicao = !!editandoEscala;
     const url = isEdicao ? `/api/escala/${editandoEscala.id}` : "/api/escala";
@@ -865,7 +928,7 @@ function PjesEscalasContent() {
           situacao,
           anotacoes,
           viaturaId: selectedViatura ?? null,
-          ...(usuario && { usuarioId: usuario.id }),
+          ...(usuario && !editandoVaga && { usuarioId: usuario.id }),
         }
       : {
           sistema: SISTEMA,
@@ -925,6 +988,138 @@ function PjesEscalasContent() {
     }
   }
 
+  function limparMatriculaPreservandoCampos() {
+    // O efeito da matrícula apaga local/situação quando ela fica vazia.
+    // Este marcador evita isso quando a limpeza é intencional.
+    if (matricula !== "") isLimpandoAposAdicionarRef.current = true;
+    setMatricula("");
+  }
+
+  function resetarFormulario() {
+    setEditandoEscala(null);
+    setEscalaAcao(null);
+    setModoVaga(false);
+    setVagaOmeDestino("");
+    setVagaTipo("");
+    setMatricula("");
+    setDataInicio("");
+    setHoraInicio("");
+    setHoraFim("");
+    setSelectedCargo("");
+    setSelectedViatura(null);
+    setLocalApresentacao("");
+    setSituacao("");
+    setAnotacoes("");
+  }
+
+  function mensagemDeErro(data: any, padrao: string) {
+    if (Array.isArray(data?.message)) return data.message.join(", ");
+    return data?.message || padrao;
+  }
+
+  async function handleCriarVaga() {
+    if (!operacaoId) return;
+
+    try {
+      const response = await fetch("/api/escala/vaga", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sistema: SISTEMA,
+          operacaoId,
+          omeDestinoId: vagaOmeDestino,
+          tipoEscala: vagaTipo,
+          dataInicio,
+          horaInicio,
+          horaFim,
+          localApresentacao,
+          funcao: selectedCargo,
+          situacao: situacao || undefined,
+          anotacoes: anotacoes || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(mensagemDeErro(data, "Erro ao criar vaga"));
+      }
+
+      setTabelaEscalas((prev) => [data, ...prev]);
+      toast.success("Vaga criada com sucesso!");
+    } catch (error: any) {
+      toast.error(error?.message || "Não foi possível criar a vaga");
+    }
+  }
+
+  function iniciarAcaoVaga(escala: Escala, tipo: "preencher" | "substituir") {
+    setEditandoEscala(null);
+    setModoVaga(false);
+    setEscalaAcao({ tipo, escala });
+
+    limparMatriculaPreservandoCampos();
+    setUsuario(null);
+
+    // Os dados da escala ficam visíveis, mas travados (camposTravados)
+    setDataInicio(escala.dataInicio);
+    setHoraInicio(escala.horaInicio);
+    setHoraFim(escala.horaFim);
+    setLocalApresentacao(escala.localApresentacao);
+    setSituacao(escala.situacao);
+    setAnotacoes(escala.anotacoes ?? "");
+    setSelectedCargo(escala.funcao);
+    setSelectedViatura(
+      tipo === "substituir" ? (escala.viaturaId ?? null) : null,
+    );
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function handleAcaoVaga() {
+    if (!escalaAcao || !usuario) return;
+    const { tipo, escala } = escalaAcao;
+
+    if (tipo === "substituir") {
+      const ok = confirm(
+        "Substituir o policial desta escala? A presença, a saída e as verificações já registradas serão zeradas.",
+      );
+      if (!ok) return;
+    }
+
+    const url = `/api/escala/${escala.id}/${tipo === "preencher" ? "preencher" : "substituir"}`;
+    const body =
+      tipo === "preencher"
+        ? {
+            usuarioId: usuario.id,
+            ...(selectedViatura ? { viaturaId: selectedViatura } : {}),
+          }
+        : { usuarioId: usuario.id };
+
+    try {
+      const response = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(mensagemDeErro(data, "Erro ao salvar"));
+      }
+
+      setTabelaEscalas((prev) =>
+        prev.map((e) => (e.id === escala.id ? data : e)),
+      );
+      toast.success(
+        tipo === "preencher"
+          ? "Vaga preenchida com sucesso!"
+          : "Policial substituído com sucesso!",
+      );
+      resetarFormulario();
+    } catch (error: any) {
+      toast.error(error?.message || "Não foi possível concluir a operação");
+    }
+  }
+
   async function handleExcluirEscala(id: number) {
     const ok = confirm("Deseja realmente excluir este registro?");
     if (!ok) return;
@@ -945,9 +1140,15 @@ function PjesEscalasContent() {
   }
 
   function handleEditarEscala(escala: Escala) {
-    isEditandoRef.current = true;
+    setModoVaga(false);
+    setEscalaAcao(null);
+    if (escala.isVagaAberta) {
+      if (matricula !== "") isLimpandoAposAdicionarRef.current = true;
+    } else {
+      isEditandoRef.current = true;
+    }
     setEditandoEscala(escala);
-    setMatricula(String(escala.mat_escala));
+    setMatricula(escala.mat_escala ?? "");
     setDataInicio(escala.dataInicio);
     setHoraInicio(escala.horaInicio);
     setHoraFim(escala.horaFim);
@@ -1042,70 +1243,227 @@ function PjesEscalasContent() {
         <div className="divPolicialEscalado">
           {/* ESQUERDA */}
           <div className="policialLeft">
-            <div className="divImgInoutMat">
-              <div className="usuarioImgEscala">
-                {!matricula || loadingUsuario || !usuario?.imagemUrl ? (
-                  <FaUser className="usuarioIcon" />
+            {/* ── Operação compartilhada / vagas ── */}
+            {formSomenteLeitura && (
+              <div
+                style={{
+                  background: "#eef2ff",
+                  color: "#3730a3",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  fontSize: 11,
+                  marginBottom: 8,
+                }}
+              >
+                Esta operação foi compartilhada com a sua OME. Use{" "}
+                <strong>Preencher</strong> nas vagas destinadas a você ou{" "}
+                <strong>Substituir</strong> nos registros da sua OME.
+              </div>
+            )}
+
+            {escalaAcao && (
+              <div
+                style={{
+                  background: "#fff7e6",
+                  color: "#92400e",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  fontSize: 11,
+                  marginBottom: 8,
+                }}
+              >
+                {escalaAcao.tipo === "preencher" ? (
+                  <>
+                    <strong>Preenchendo vaga</strong> de{" "}
+                    {escalaAcao.escala.tipo_escala === "O"
+                      ? "Oficial"
+                      : "Praça"}{" "}
+                    ({escalaAcao.escala.funcao}). Informe a matrícula.
+                  </>
                 ) : (
-                  <img
-                    src={usuario.imagemUrl}
-                    alt="Usuário"
-                    className="usuarioImgEscala"
-                  />
+                  <>
+                    <strong>Substituindo</strong> {escalaAcao.escala.pg_escala}{" "}
+                    {escalaAcao.escala.ng_escala}. Presença, saída e
+                    verificações serão zeradas.
+                  </>
                 )}
               </div>
-              <div className="matpolicial">
-                <input
-                  type="text"
-                  className="inputDadosEscala"
-                  placeholder="matricula"
-                  value={matricula}
-                  maxLength={7}
+            )}
+
+            {podeUsarVaga && (
+              <button
+                type="button"
+                onClick={() => {
+                  setModoVaga((v) => !v);
+                  setVagaOmeDestino("");
+                  setVagaTipo("");
+                  setSelectedViatura(null);
+                  limparMatriculaPreservandoCampos();
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  width: "100%",
+                  justifyContent: "center",
+                  padding: "6px 8px",
+                  marginBottom: 8,
+                  borderRadius: 8,
+                  border: "1px solid #4f46e5",
+                  background: modoVaga ? "#4f46e5" : "transparent",
+                  color: modoVaga ? "#fff" : "#4f46e5",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                <FaLink />
+                {modoVaga
+                  ? "Voltar ao cadastro de policial"
+                  : "Criar vaga para outra OME"}
+              </button>
+            )}
+
+            {modoVaga && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  fontSize: 11,
+                }}
+              >
+                <span className="field-label">OME de destino</span>
+                <select
+                  className="field-input"
+                  value={vagaOmeDestino}
                   onChange={(e) =>
-                    setMatricula(e.target.value.replace(/\D/g, ""))
+                    setVagaOmeDestino(
+                      e.target.value ? Number(e.target.value) : "",
+                    )
                   }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddEscala();
-                    }
-                  }}
-                />
+                >
+                  <option value="">Selecione</option>
+                  {compartilhadas.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nomeOme}
+                    </option>
+                  ))}
+                </select>
+
+                <span className="field-label">Tipo da vaga</span>
+                <select
+                  className="field-input"
+                  value={vagaTipo}
+                  onChange={(e) =>
+                    setVagaTipo(e.target.value as "O" | "P" | "")
+                  }
+                >
+                  <option value="">Selecione</option>
+                  <option value="O">Oficial</option>
+                  <option value="P">Praça</option>
+                </select>
+
+                <small style={{ color: "#666" }}>
+                  A vaga já reserva a cota da operação. A OME de destino informa
+                  a matrícula depois.
+                </small>
               </div>
-            </div>
-            <div style={{ fontSize: "11px", width: "100%", marginTop: "10px" }}>
-              {loadingUsuario && <div>Buscando usuário...</div>}
-              {!loadingUsuario && usuario && (
-                <>
-                  <div>
-                    <strong>
-                      <FaUser /> {usuario.pg} {usuario.nomeGuerra}{" "}
-                      {usuario.ome?.nomeOme ?? ""}
-                    </strong>
+            )}
+
+            {editandoVaga && editandoEscala && (
+              <div
+                style={{
+                  background: "#fff7e6",
+                  color: "#92400e",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  fontSize: 11,
+                }}
+              >
+                <strong>VAGA EM ABERTO</strong> (
+                {editandoEscala.tipo_escala === "O" ? "Oficial" : "Praça"}) ·
+                destino: {editandoEscala.omeDestinoNome ?? "-"}. Para escolher o
+                policial use o botão <strong>Preencher</strong> na tabela.
+              </div>
+            )}
+
+            {!emVaga && (
+              <>
+                <div className="divImgInoutMat">
+                  <div className="usuarioImgEscala">
+                    {!matricula || loadingUsuario || !usuario?.imagemUrl ? (
+                      <FaUser className="usuarioIcon" />
+                    ) : (
+                      <img
+                        src={usuario.imagemUrl}
+                        alt="Usuário"
+                        className="usuarioImgEscala"
+                      />
+                    )}
                   </div>
-                  <div>
-                    <FaPhone /> {usuario.phone || "Telefone não informado"}
+                  <div className="matpolicial">
+                    <input
+                      type="text"
+                      className="inputDadosEscala"
+                      placeholder="matricula"
+                      disabled={formSomenteLeitura}
+                      value={matricula}
+                      maxLength={7}
+                      onChange={(e) =>
+                        setMatricula(e.target.value.replace(/\D/g, ""))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddEscala();
+                        }
+                      }}
+                    />
                   </div>
-                  <div>
-                    <FaBarcode /> {usuario.nunfunc} | {usuario.nunvinc}
-                  </div>
-                  <div>
-                    <FaTriangleExclamation />{" "}
-                    <strong>{usuario.situacao}</strong>
-                  </div>
-                </>
-              )}
-              {!loadingUsuario && !usuario && (
-                <div style={{ color: "#555" }}>
-                  Digite a matrícula para carregar o usuário.
                 </div>
-              )}
-              {buscaUsuarioError && (
-                <div style={{ color: "red", marginTop: "4px" }}>
-                  {buscaUsuarioError}
+              </>
+            )}
+
+            {!emVaga && (
+              <>
+                <div
+                  style={{ fontSize: "11px", width: "100%", marginTop: "10px" }}
+                >
+                  {loadingUsuario && <div>Buscando usuário...</div>}
+                  {!loadingUsuario && usuario && (
+                    <>
+                      <div>
+                        <strong>
+                          <FaUser /> {usuario.pg} {usuario.nomeGuerra}{" "}
+                          {usuario.ome?.nomeOme ?? ""}
+                        </strong>
+                      </div>
+                      <div>
+                        <FaPhone /> {usuario.phone || "Telefone não informado"}
+                      </div>
+                      <div>
+                        <FaBarcode /> {usuario.nunfunc} | {usuario.nunvinc}
+                      </div>
+                      <div>
+                        <FaTriangleExclamation />{" "}
+                        <strong>{usuario.situacao}</strong>
+                      </div>
+                    </>
+                  )}
+                  {!loadingUsuario && !usuario && (
+                    <div style={{ color: "#555" }}>
+                      Digite a matrícula para carregar o usuário.
+                    </div>
+                  )}
+                  {buscaUsuarioError && (
+                    <div style={{ color: "red", marginTop: "4px" }}>
+                      {buscaUsuarioError}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
 
           {/* DIREITA */}
@@ -1118,6 +1476,7 @@ function PjesEscalasContent() {
                   <input
                     className="field-input"
                     type="date"
+                    disabled={camposTravados}
                     value={dataInicio}
                     min={minDate}
                     max={maxDateStr}
@@ -1138,6 +1497,7 @@ function PjesEscalasContent() {
                   <span className="field-label">Início</span>
                   <input
                     className="field-input field-input--time"
+                    disabled={camposTravados}
                     type="time"
                     value={horaInicio}
                     onChange={(e) => setHoraInicio(e.target.value)}
@@ -1148,6 +1508,7 @@ function PjesEscalasContent() {
                   <span className="field-label">Término</span>
                   <input
                     className="field-input field-input--time"
+                    disabled={camposTravados}
                     type="time"
                     value={horaFim}
                     onChange={(e) => setHoraFim(e.target.value)}
@@ -1160,6 +1521,7 @@ function PjesEscalasContent() {
                     className="field-input"
                     type="text"
                     value={localApresentacao}
+                    disabled={camposTravados}
                     onChange={(e) => setLocalApresentacao(e.target.value)}
                     placeholder="Informe o local..."
                   />
@@ -1177,6 +1539,7 @@ function PjesEscalasContent() {
                       <button
                         key={cargo}
                         type="button"
+                        disabled={camposTravados}
                         className={`cargo-btn${selectedCargo === cargo ? " cargo-btn--active" : ""}`}
                         onClick={() =>
                           setSelectedCargo(selectedCargo === cargo ? "" : cargo)
@@ -1198,6 +1561,7 @@ function PjesEscalasContent() {
                   <select
                     className="field-input"
                     value={selectedViatura ?? ""}
+                    disabled={!viaturaHabilitada}
                     onChange={(e) =>
                       setSelectedViatura(
                         e.target.value ? Number(e.target.value) : null,
@@ -1225,6 +1589,7 @@ function PjesEscalasContent() {
                   value={anotacoes}
                   onChange={(e) => setAnotacoes(e.target.value)}
                   placeholder="Observações ou informações adicionais..."
+                  disabled={camposTravados}
                 />
               </div>
             </div>
@@ -1261,6 +1626,23 @@ function PjesEscalasContent() {
                       {operacao.ome?.nomeOme} | {operacao.evento?.nome_evento},{" "}
                       {operacao.nome_operacao} | COP: {operacao.cod_op}
                     </div>
+
+                    {compartilhadas.length > 0 && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#4f46e5",
+                          marginTop: 2,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                        }}
+                      >
+                        <FaLink size={10} />
+                        Compartilhada com:{" "}
+                        {compartilhadas.map((o) => o.nomeOme).join(", ")}
+                      </div>
+                    )}
 
                     <div className="cotasOperacaoBox">
                       <div>
@@ -1356,28 +1738,22 @@ function PjesEscalasContent() {
             >
               {loadingUsuario
                 ? "BUSCANDO..."
-                : editandoEscala
-                  ? "SALVAR ALTERAÇÕES"
-                  : "ADICIONAR POLICIAL"}
+                : escalaAcao?.tipo === "preencher"
+                  ? "PREENCHER VAGA"
+                  : escalaAcao?.tipo === "substituir"
+                    ? "SUBSTITUIR POLICIAL"
+                    : modoVaga
+                      ? "CRIAR VAGA"
+                      : editandoEscala
+                        ? "SALVAR ALTERAÇÕES"
+                        : "ADICIONAR POLICIAL"}
             </button>
 
-            {editandoEscala && (
+            {(editandoEscala || escalaAcao) && (
               <button
                 className="botaoCancelarEscala"
                 type="button"
-                // botão Cancelar
-                onClick={() => {
-                  setEditandoEscala(null);
-                  setMatricula("");
-                  setDataInicio("");
-                  setHoraInicio("");
-                  setHoraFim("");
-                  setSelectedCargo("");
-                  setSelectedViatura(null);
-                  setLocalApresentacao("");
-                  setSituacao("");
-                  setAnotacoes("");
-                }}
+                onClick={resetarFormulario}
               >
                 CANCELAR
               </button>
@@ -1449,6 +1825,18 @@ function PjesEscalasContent() {
                 )
               }
             />
+
+            {totalVagas > 0 && (
+              <ResumoBox
+                label="Vagas"
+                valor={totalVagas}
+                cor="#d97706"
+                ativo={filtroStatus === "VAGA"}
+                onClick={() =>
+                  setFiltroStatus((prev) => (prev === "VAGA" ? null : "VAGA"))
+                }
+              />
+            )}
 
             {/* Filtro 24h */}
             <button
@@ -1624,7 +2012,15 @@ function PjesEscalasContent() {
                 {gruposPorData.length > 0 ? (
                   gruposPorData.map((grupo) =>
                     grupo.escalas.map((escala, idx) => (
-                      <tr key={escala.id} className="tabelaLinhaEscalas">
+                      <tr
+                        key={escala.id}
+                        className="tabelaLinhaEscalas"
+                        style={
+                          escala.isVagaAberta
+                            ? { background: "#fff7e6" }
+                            : undefined
+                        }
+                      >
                         {idx === 0 && (
                           <td
                             className="colData"
@@ -1638,14 +2034,27 @@ function PjesEscalasContent() {
                           </td>
                         )}
 
-                        <td
-                          style={{
-                            textAlign: "left",
-                          }}
-                        >
-                          {escala.pg_escala} {escala.mat_escala}{" "}
-                          {escala.ng_escala} {escala.nomeome_escala} -{" "}
-                          {escala.situacao}
+                        <td style={{ textAlign: "left" }}>
+                          {escala.isVagaAberta ? (
+                            <span style={{ color: "#b45309", fontWeight: 700 }}>
+                              VAGA EM ABERTO ·{" "}
+                              {escala.tipo_escala === "O" ? "Oficial" : "Praça"}
+                              {" · destino: "}
+                              {escala.omeDestinoNome ?? "-"}
+                            </span>
+                          ) : (
+                            <>
+                              {escala.pg_escala} {escala.mat_escala}{" "}
+                              {escala.ng_escala} {escala.nomeome_escala} -{" "}
+                              {escala.situacao}
+                              {escala.omeDestinoNome && (
+                                <div style={{ fontSize: 9, color: "#4f46e5" }}>
+                                  <FaLink size={8} /> escalado por{" "}
+                                  {escala.omeDestinoNome}
+                                </div>
+                              )}
+                            </>
+                          )}
                         </td>
 
                         <td>{formatarTelefone(escala.phone)}</td>
@@ -1742,26 +2151,52 @@ function PjesEscalasContent() {
                               }
                             }}
                           />
-                          <FaEdit
-                            size={15}
-                            color="orange"
-                            style={{
-                              cursor: "pointer",
-                              alignItems: "center",
-                              marginRight: "3px",
-                            }}
-                            onClick={() => handleEditarEscala(escala)}
-                          />
-                          <FaTrash
-                            size={15}
-                            color="red"
-                            style={{
-                              cursor: "pointer",
-                              alignItems: "center",
-                              marginRight: "3px",
-                            }}
-                            onClick={() => handleExcluirEscala(escala.id)}
-                          />
+                          {!ehParticipante && (
+                            <>
+                              <FaEdit
+                                size={15}
+                                color="orange"
+                                style={{
+                                  cursor: "pointer",
+                                  alignItems: "center",
+                                  marginRight: "3px",
+                                }}
+                                onClick={() => handleEditarEscala(escala)}
+                              />
+                              <FaTrash
+                                size={15}
+                                color="red"
+                                style={{
+                                  cursor: "pointer",
+                                  alignItems: "center",
+                                  marginRight: "3px",
+                                }}
+                                onClick={() => handleExcluirEscala(escala.id)}
+                              />
+                            </>
+                          )}
+                          {eventoAberto && podePreencher(escala) && (
+                            <FaUserPlus
+                              size={15}
+                              color="#16a34a"
+                              title="Preencher vaga"
+                              style={{ cursor: "pointer", marginRight: "3px" }}
+                              onClick={() =>
+                                iniciarAcaoVaga(escala, "preencher")
+                              }
+                            />
+                          )}
+                          {eventoAberto && podeSubstituir(escala) && (
+                            <FaExchangeAlt
+                              size={15}
+                              color="#4f46e5"
+                              title="Substituir policial"
+                              style={{ cursor: "pointer", marginRight: "3px" }}
+                              onClick={() =>
+                                iniciarAcaoVaga(escala, "substituir")
+                              }
+                            />
+                          )}
                         </td>
                       </tr>
                     )),

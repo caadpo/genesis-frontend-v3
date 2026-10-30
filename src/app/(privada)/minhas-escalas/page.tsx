@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useApi } from "@/src/hooks/useApi";
 import toast from "react-hot-toast";
 import {
   FaCalendarAlt,
@@ -10,25 +9,16 @@ import {
   FaUser,
 } from "react-icons/fa";
 import { FiGrid, FiLayers } from "react-icons/fi";
-import DetalhesEscalaModal from "@/src/components/ui/DetalhesEscalaModal";
+import DetalhesEscalaModal, {
+  type Colega,
+} from "@/src/components/ui/DetalhesEscalaModal";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Viatura = {
-  id: number;
-  patrimonio: string;
-  statusVtr: "DISPONIVEL" | "INDISPONIVEL";
-};
-
-type Escala = {
+export type Escala = {
   id: number;
   sistema: string;
-  mat_escala: string;
-  pg_escala: string;
-  ng_escala: string;
-  cpf_escala: string;
   tipo_escala: string;
-  nomeome_escala: string;
   dataInicio: string;
   horaInicio: string;
   horaFim: string;
@@ -37,30 +27,30 @@ type Escala = {
   funcao: string;
   situacao: string;
   anotacoes?: string;
-  viaturaId?: number | null;
-  viatura?: Viatura | null;
+
   operacaoId?: number;
   nomeOperacao?: string;
   cod_op?: string;
   nomeEvento?: string;
   nomeOme?: string;
-  status_teto?: string;
-  somacota_escala: number;
-  somaCotaFinal: number;
-  pagamento: string;
-  phone?: string | null;
 
-  // ── Presença ──────────────────────────────────────────────────────────
+  // ── Financeiro ──
+  pagamento: string;
+  comentario_pagamento: string | null;
+  valorIndividual?: number;
+
+  // ── Presença ──
   presencaConfirmada?: boolean;
   presencaConfirmadaEm?: string | null;
-  presencaConfirmadaPorNome?: string | null;
+  presencaLatitude?: number | null;
+  presencaLongitude?: number | null;
 
-  // ── Saída de serviço ──────────────────────────────────────────────────
+  // ── Saída de serviço ──
   saidaConfirmada?: boolean;
   saidaConfirmadaEm?: string | null;
-  saidaConfirmadaPorNome?: string | null;
+  saidaAutomatica?: boolean;
 
-  // ── Verificação por fiscal (1ª e 2ª ronda) ───────────────────────────────
+  // ── Verificação por fiscal (1ª e 2ª ronda) ──
   primeiraVerificacao?: boolean;
   verificador1Nome?: string | null;
   dataHoraVerificador1?: string | null;
@@ -70,15 +60,6 @@ type Escala = {
   verificador2Nome?: string | null;
   dataHoraVerificador2?: string | null;
   obsVerificador2?: string | null;
-
-  comentario_pagamento: string | null;
-  valorIndividual?: number;
-
-  conta?: {
-    banco: string;
-    agencia: string;
-    conta: string;
-  } | null;
 };
 
 type Repasse = {
@@ -90,7 +71,7 @@ type Repasse = {
   motivo?: string | null;
 };
 
-// ✅ NOVO — usuário retornado pelo autocomplete de destinatário
+// usuário retornado pelo autocomplete de destinatário
 type UsuarioBusca = {
   mat: string;
   nomeGuerra: string;
@@ -188,8 +169,12 @@ function calcularJanelaPresenca(escala: Escala): { abertura: Date; fim: Date } {
 
 export default function MinhasEscalasPage() {
   const hoje = new Date();
-  const [mesAtual, setMesAtual] = useState(hoje.getMonth());
-  const [anoAtual, setAnoAtual] = useState(hoje.getFullYear());
+
+  // mês e ano num único estado → navegação sem inconsistência
+  const [{ mes: mesAtual, ano: anoAtual }, setCompetencia] = useState({
+    mes: hoje.getMonth(),
+    ano: hoje.getFullYear(),
+  });
 
   const [escalasDoDiaSelecionado, setEscalasDoDiaSelecionado] = useState<
     Escala[]
@@ -212,23 +197,49 @@ export default function MinhasEscalasPage() {
   const [buscandoSugestoes, setBuscandoSugestoes] = useState(false);
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
 
-  const [colegas, setColegas] = useState<Record<number, Escala[]>>({});
+  const [colegas, setColegas] = useState<Record<number, Colega[]>>({});
   const [loadingColegas, setLoadingColegas] = useState<Record<number, boolean>>(
     {},
   );
 
-  const { data: escalasApi, loading } = useApi<Escala[]>(
-    "/api/escala/minhas",
-    [],
-  );
+  // ─── Escalas carregadas por mês (cache em memória enquanto a página está aberta) ───
+  const chaveMes = `${anoAtual}-${String(mesAtual + 1).padStart(2, "0")}`;
 
-  // Cópia local e mutável das escalas, sincronizada com o hook. Permite
-  // atualizar uma escala específica (ex: após confirmar presença) sem
-  // depender de um "refetch" do useApi.
-  const [escalas, setEscalas] = useState<Escala[]>([]);
+  const [escalasPorMes, setEscalasPorMes] = useState<Record<string, Escala[]>>(
+    {},
+  );
+  const [mesComErro, setMesComErro] = useState<string | null>(null);
+
+  const escalas: Escala[] = escalasPorMes[chaveMes] ?? [];
+  const loading =
+    escalasPorMes[chaveMes] === undefined && mesComErro !== chaveMes;
+
   useEffect(() => {
-    if (escalasApi) setEscalas(escalasApi);
-  }, [escalasApi]);
+    // já está em cache → não busca de novo
+    if (escalasPorMes[chaveMes] !== undefined) return;
+
+    const controller = new AbortController();
+    setMesComErro(null);
+
+    fetch(`/api/escala/minhas?mes=${mesAtual + 1}&ano=${anoAtual}`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) {
+          throw new Error(data?.message || "Erro ao carregar escalas");
+        }
+        setEscalasPorMes((prev) => ({ ...prev, [chaveMes]: data }));
+      })
+      .catch((err: any) => {
+        if (err?.name === "AbortError") return;
+        setMesComErro(chaveMes);
+        toast.error(err?.message || "Erro ao carregar escalas");
+      });
+
+    return () => controller.abort(); // troca rápida de mês cancela a requisição anterior
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveMes]);
 
   const [meusRepasses, setMeusRepasses] = useState<Repasse[] | null>(null);
 
@@ -288,12 +299,37 @@ export default function MinhasEscalasPage() {
     setSugestoes([]);
   }
 
+  // Só os campos que as ações de presença/saída alteram
+  const CAMPOS_REGISTRO = [
+    "presencaConfirmada",
+    "presencaConfirmadaEm",
+    "presencaLatitude",
+    "presencaLongitude",
+    "saidaConfirmada",
+    "saidaConfirmadaEm",
+    "saidaAutomatica",
+  ] as const;
+
+  function extrairRegistro(data: any): Partial<Escala> {
+    const patch: Record<string, unknown> = {};
+    for (const campo of CAMPOS_REGISTRO) {
+      if (campo in data) patch[campo] = data[campo];
+    }
+    return patch as Partial<Escala>;
+  }
+
   // Atualiza uma escala em todos os lugares onde ela aparece na tela
   function aplicarAtualizacaoEscala(id: number, patch: Partial<Escala>) {
     const atualizar = (lista: Escala[]) =>
       lista.map((e) => (e.id === id ? { ...e, ...patch } : e));
 
-    setEscalas((prev) => atualizar(prev));
+    setEscalasPorMes((prev) => {
+      const novo: Record<string, Escala[]> = {};
+      for (const [chave, lista] of Object.entries(prev)) {
+        novo[chave] = atualizar(lista);
+      }
+      return novo;
+    });
     setEscalasDoDiaSelecionado((prev) => atualizar(prev));
     setEscalaDetalhe((prev) =>
       prev && prev.id === id ? { ...prev, ...patch } : prev,
@@ -321,7 +357,7 @@ export default function MinhasEscalasPage() {
       }
 
       toast.success("Presença confirmada!");
-      aplicarAtualizacaoEscala(escala.id, data);
+      aplicarAtualizacaoEscala(escala.id, extrairRegistro(data));
     } catch (error: any) {
       toast.error(error?.message || "Erro ao confirmar presença");
     } finally {
@@ -347,7 +383,7 @@ export default function MinhasEscalasPage() {
       }
 
       toast.success("Saída registrada!");
-      aplicarAtualizacaoEscala(escala.id, data);
+      aplicarAtualizacaoEscala(escala.id, extrairRegistro(data));
     } catch (error: any) {
       toast.error(error?.message || "Erro ao registrar saída");
     } finally {
@@ -365,9 +401,18 @@ export default function MinhasEscalasPage() {
       : (escalas?.filter((e) => e.dataInicio.startsWith(prefixoMes)) ?? []);
 
   // ─── Total de cotas do mês exibido no calendário ─────────────────────────────
-  const totalCotasMes = (escalas ?? [])
+  const cotasMesPorSistema = (escalas ?? [])
     .filter((e) => e.dataInicio.startsWith(prefixoMes))
-    .reduce((soma, e) => soma + (e.cota_escala ?? 0), 0);
+    .reduce(
+      (acc, e) => {
+        if (e.sistema === "PJES") acc.pjes += e.cota_escala ?? 0;
+        else if (e.sistema === "DIARIAS") acc.diarias += e.cota_escala ?? 0;
+        return acc;
+      },
+      { pjes: 0, diarias: 0 },
+    );
+
+  const rotuloCotas = (n: number) => `${n} ${n === 1 ? "COTA" : "COTAS"}`;
 
   const tituloContexto =
     escalasDoDiaSelecionado.length > 0
@@ -438,14 +483,14 @@ export default function MinhasEscalasPage() {
     }, 0);
 
   async function recarregarRepasses() {
-    const res = await fetch("/api/repasse/meus");
-    const data = await res.json();
-    setMeusRepasses(data);
+    try {
+      const res = await fetch("/api/repasse/meus?status=ABERTO");
+      const data = await res.json().catch(() => null);
+      setMeusRepasses(res.ok && Array.isArray(data) ? data : []);
+    } catch {
+      setMeusRepasses([]);
+    }
   }
-
-  useEffect(() => {
-    recarregarRepasses();
-  }, []);
 
   function getRepasseAtivo(escalaId: number): Repasse | null {
     return (
@@ -467,14 +512,16 @@ export default function MinhasEscalasPage() {
   });
 
   function irParaMesAnterior() {
-    setMesAtual((m) => (m === 0 ? 11 : m - 1));
-    if (mesAtual === 0) setAnoAtual((a) => a - 1);
+    setCompetencia(({ mes, ano }) =>
+      mes === 0 ? { mes: 11, ano: ano - 1 } : { mes: mes - 1, ano },
+    );
     setEscalasDoDiaSelecionado([]);
   }
 
   function irParaProximoMes() {
-    setMesAtual((m) => (m === 11 ? 0 : m + 1));
-    if (mesAtual === 11) setAnoAtual((a) => a + 1);
+    setCompetencia(({ mes, ano }) =>
+      mes === 11 ? { mes: 0, ano: ano + 1 } : { mes: mes + 1, ano },
+    );
     setEscalasDoDiaSelecionado([]);
   }
 
@@ -484,36 +531,39 @@ export default function MinhasEscalasPage() {
     i < primeiroDia ? null : i - primeiroDia + 1,
   );
 
-  async function selecionarDia(escalasNoDia: Escala[]) {
+  function selecionarDia(escalasNoDia: Escala[]) {
     setEscalasDoDiaSelecionado(escalasNoDia);
-    setColegas({});
-
-    for (const escala of escalasNoDia) {
-      if (!escala.operacaoId) continue;
-
-      setLoadingColegas((prev) => ({ ...prev, [escala.id]: true }));
-      try {
-        const res = await fetch(`/api/escala?operacaoId=${escala.operacaoId}`);
-        const data = await res.json();
-        const todas: Escala[] = data.escalas ?? data;
-
-        const mesmoGrupo = todas.filter(
-          (e) =>
-            e.mat_escala !== escala.mat_escala &&
-            e.dataInicio === escala.dataInicio &&
-            e.horaInicio === escala.horaInicio &&
-            e.horaFim === escala.horaFim &&
-            (escala.viaturaId ? e.viaturaId === escala.viaturaId : true),
-        );
-
-        setColegas((prev) => ({ ...prev, [escala.id]: mesmoGrupo }));
-      } catch {
-        setColegas((prev) => ({ ...prev, [escala.id]: [] }));
-      } finally {
-        setLoadingColegas((prev) => ({ ...prev, [escala.id]: false }));
-      }
-    }
   }
+
+  // ─── Colegas: só busca quando o modal de detalhes abre (1 requisição leve) ───
+  useEffect(() => {
+    if (!escalaDetalhe?.operacaoId) return;
+
+    const id = escalaDetalhe.id;
+    if (colegas[id] !== undefined) return; // já em cache → não refaz
+
+    const controller = new AbortController();
+    setLoadingColegas((prev) => ({ ...prev, [id]: true }));
+
+    fetch(`/api/escala/${id}/colegas`, { signal: controller.signal })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) throw new Error();
+        setColegas((prev) => ({ ...prev, [id]: data }));
+      })
+      .catch((err: any) => {
+        if (err?.name === "AbortError") return;
+        setColegas((prev) => ({ ...prev, [id]: [] }));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoadingColegas((prev) => ({ ...prev, [id]: false }));
+        }
+      });
+
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [escalaDetalhe?.id]);
 
   // ─── Solicitar repasse ───────────────────────────────────────────────────────
   async function handleRepasse() {
@@ -627,15 +677,58 @@ export default function MinhasEscalasPage() {
         style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "16px" }}
       >
         <FaCalendarAlt style={{ marginRight: "8px" }} />
-        MINHAS ESCALAS |
-        <span style={{ marginLeft: "8px" }}>
-          {totalCotasMes === 0
-            ? "Nenhuma cota"
-            : totalCotasMes === 1
-              ? "1 COTA"
-              : `${totalCotasMes} COTAS`}
-        </span>
+        MINHAS ESCALAS
       </h1>
+
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          marginBottom: "16px",
+        }}
+      >
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "8px 12px",
+            borderRadius: "10px",
+            background: "#eef4ff",
+            color: "#1d4ed8",
+            fontSize: "12px",
+            fontWeight: 700,
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <FiLayers size={14} />
+            PJES
+          </span>
+          <span>{rotuloCotas(cotasMesPorSistema.pjes)}</span>
+        </div>
+
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "8px 12px",
+            borderRadius: "10px",
+            background: "#fef9c3",
+            color: "#854d0e",
+            fontSize: "12px",
+            fontWeight: 700,
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <FiGrid size={14} />
+            DIÁRIAS
+          </span>
+          <span>{rotuloCotas(cotasMesPorSistema.diarias)}</span>
+        </div>
+      </div>
 
       <div
         style={{

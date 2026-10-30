@@ -15,37 +15,24 @@ import {
 
 // ─── Interfaces & Types ───────────────────────────────────────────────────────
 
-interface Viatura {
+interface MembroResumo {
   id: number;
-  patrimonio: string;
-  statusVtr: string;
+  mat_escala: string;
+  ng_escala: string;
 }
 
-interface Escala {
+interface ProximaEscala {
   id: number;
   sistema: string;
-  mat_escala: string;
-  pg_escala: string;
-  ng_escala: string;
-  nomeome_escala: string;
   dataInicio: string;
   horaInicio: string;
   horaFim: string;
-  cota_escala: number;
   localApresentacao: string;
   funcao: string;
-  situacao: string;
-  anotacoes: string;
-  viaturaId: number | null;
-  viatura: Viatura | null;
-  nomeOperacao: string;
-  nomeEvento: string;
-  nomeOme: string;
-  operacaoId?: number;
-  status_teto: string;
-  somacota_escala: number;
-  somaCotaFinal: number;
-  pagamento: string;
+  nomeEvento: string | null;
+  nomeOme: string | null;
+  viatura: { patrimonio: string } | null;
+  membros: MembroResumo[];
 }
 
 type EventoPago = {
@@ -72,24 +59,6 @@ type UsuarioEspecial = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function proximasEscalas(escalas: Escala[]): Escala[] {
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  return escalas
-    .filter((e) => new Date(e.dataInicio) >= hoje)
-    .sort(
-      (a, b) =>
-        new Date(a.dataInicio).getTime() - new Date(b.dataInicio).getTime(),
-    )
-    .slice(0, 2);
-}
-
-function totalEscalasFuturas(escalas: Escala[]): number {
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  return escalas.filter((e) => new Date(e.dataInicio) >= hoje).length;
-}
-
 function formatarData(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
   return date.toLocaleDateString("pt-BR", {
@@ -109,10 +78,10 @@ function emojiTurno(hora: string): string {
   return "🌙";
 }
 
-function extrairDataPagamento(pagamento: string): string {
-  const match = pagamento.match(/(\d{2}\/\d{2}\/\d{4}),?\s*(\d{2}:\d{2})/);
-  if (match) return `${match[1]} ${match[2]}`;
-  return "Pago";
+function hojeLocal(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 function formatarPrestacaoContas(dateStr?: string | null): string | null {
@@ -149,7 +118,7 @@ function AvatarItem({ mat, nome }: { mat: string; nome: string }) {
   );
 }
 
-function Avatares({ membros }: { membros: Escala[] }) {
+function Avatares({ membros }: { membros: MembroResumo[] }) {
   if (membros.length === 0) return null;
 
   const extras = membros.length - 3;
@@ -157,7 +126,7 @@ function Avatares({ membros }: { membros: Escala[] }) {
   if (membros.length <= 4) {
     return (
       <div className="avatares">
-        {membros.slice(0, 4).map((m) => (
+        {membros.map((m) => (
           <AvatarItem key={m.id} mat={m.mat_escala} nome={m.ng_escala} />
         ))}
       </div>
@@ -174,28 +143,8 @@ function Avatares({ membros }: { membros: Escala[] }) {
   );
 }
 
-function CardEscala({ escala }: { escala: Escala }) {
+function CardEscala({ escala }: { escala: ProximaEscala }) {
   const router = useRouter();
-  const [membros, setMembros] = useState<Escala[]>([]);
-
-  useEffect(() => {
-    if (!escala.operacaoId) return;
-
-    fetch(`/api/escala?operacaoId=${escala.operacaoId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const todas: Escala[] = data.escalas ?? data;
-        const grupo = todas.filter(
-          (e) =>
-            e.dataInicio === escala.dataInicio &&
-            e.horaInicio === escala.horaInicio &&
-            e.horaFim === escala.horaFim &&
-            e.viaturaId === escala.viaturaId,
-        );
-        setMembros(grupo);
-      })
-      .catch(() => setMembros([]));
-  }, [escala.operacaoId, escala.dataInicio, escala.horaInicio, escala.horaFim]);
 
   return (
     <div className="card-escala" onClick={() => router.push("/minhas-escalas")}>
@@ -215,7 +164,7 @@ function CardEscala({ escala }: { escala: Escala }) {
         {escala.localApresentacao}
       </div>
 
-      <Avatares membros={membros} />
+      <Avatares membros={escala.membros} />
 
       <div className="linha" />
 
@@ -240,38 +189,6 @@ function CardEscala({ escala }: { escala: Escala }) {
   );
 }
 
-function PagamentoItem({ escala }: { escala: Escala }) {
-  const router = useRouter();
-  const isPjes = escala.sistema === "PJES";
-
-  return (
-    <div className="pagamentos">
-      <div
-        className="pay-item"
-        onClick={() => router.push("/pagamentos")}
-        style={{ cursor: "pointer" }}
-      >
-        <div className="pay-left">
-          <div className={isPjes ? "pay-icon-pjes" : "pay-icon-diaria"}>
-            {isPjes ? <FiLayers /> : <FiGrid />}
-          </div>
-          <div className="pay-texts">
-            <span className="pay-title">{escala.nomeOme}</span>
-            <span className="pay-sub">
-              {escala.sistema} | {escala.nomeEvento}
-            </span>
-          </div>
-        </div>
-        <div className="pay-right">
-          <span className="pay-badge">
-            {extrairDataPagamento(escala.pagamento)}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Página Principal ─────────────────────────────────────────────────────────
 
 export default function SelectSystem() {
@@ -282,7 +199,6 @@ export default function SelectSystem() {
 
   const [avisos, setAvisos] = useState<Aviso[]>([]);
 
-  const [escalas, setEscalas] = useState<Escala[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorEscalas, setErrorEscalas] = useState<string | null>(null);
 
@@ -300,8 +216,8 @@ export default function SelectSystem() {
   const typeUser = user?.typeUser;
   const podePjes = typeUser !== 1 && typeUser !== 5 && typeUser !== 6;
   const podeDiarias = typeUser !== 1;
-  const proximas = proximasEscalas(escalas);
-  const totalFuturas = totalEscalasFuturas(escalas);
+  const [proximas, setProximas] = useState<ProximaEscala[]>([]);
+  const [totalFuturas, setTotalFuturas] = useState(0);
 
   // ─── Effects ───────────────────────────────────────────────────────────
 
@@ -315,9 +231,14 @@ export default function SelectSystem() {
   useEffect(() => {
     async function fetchEscalas() {
       try {
-        const res = await fetch("/api/escala/minhas", { cache: "no-store" });
+        const res = await fetch(
+          `/api/escala/proximas?limit=2&hoje=${hojeLocal()}`,
+          { cache: "no-store" },
+        );
         if (!res.ok) throw new Error();
-        setEscalas(await res.json());
+        const data = await res.json();
+        setProximas(Array.isArray(data?.escalas) ? data.escalas : []);
+        setTotalFuturas(Number(data?.total) || 0);
       } catch {
         setErrorEscalas("Não foi possível carregar as escalas.");
       } finally {

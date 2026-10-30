@@ -424,48 +424,63 @@ export default function RepassesPage() {
   const [aceitando, setAceitando] = useState(false);
 
   // ─── Buscar todas as listas em paralelo ──────────────────────────────────────
+  const [historicoCarregado, setHistoricoCarregado] = useState(false);
+
+  // Aba principal: só meus ABERTOS + disponíveis (2 requisições leves)
   const buscarRepasses = useCallback(async () => {
     setCarregando(true);
     setErro(null);
     try {
-      const [resMeus, resDisponiveis, resTodos] = await Promise.all([
-        fetch("/api/repasse?tipo=meus", { cache: "no-store" }),
+      const [resMeus, resDisponiveis] = await Promise.all([
+        fetch("/api/repasse?tipo=meus&status=ABERTO", { cache: "no-store" }),
         fetch("/api/repasse?tipo=disponiveis", { cache: "no-store" }),
-        fetch("/api/repasse", { cache: "no-store" }),
       ]);
 
-      if (!resMeus.ok || !resDisponiveis.ok || !resTodos.ok) {
+      if (!resMeus.ok || !resDisponiveis.ok) {
         throw new Error("Erro ao buscar repasses");
       }
 
-      const dataMeus: Repasse[] = await resMeus.json();
-      const dataDisponiveis: Repasse[] = await resDisponiveis.json();
-      const dataTodos: Repasse[] = await resTodos.json();
+      const [dataMeus, dataDisponiveis]: Repasse[][] = await Promise.all([
+        resMeus.json(),
+        resDisponiveis.json(),
+      ]);
 
-      setRepassesMeus(
-        dataMeus.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        ),
-      );
-      setRepassesDisponiveis(
-        dataDisponiveis.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        ),
-      );
-      setRepassesTodos(
-        dataTodos.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        ),
-      );
+      const porDataDesc = (a: Repasse, b: Repasse) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+
+      setRepassesMeus(dataMeus.sort(porDataDesc));
+      setRepassesDisponiveis(dataDisponiveis.sort(porDataDesc));
+      setHistoricoCarregado(false); // após aceitar/atualizar, o histórico fica desatualizado
     } catch (e: any) {
       setErro(e.message ?? "Erro desconhecido");
     } finally {
       setCarregando(false);
     }
   }, []);
+
+  // Histórico: só busca quando o usuário abre a aba
+  const buscarHistorico = useCallback(async () => {
+    try {
+      const res = await fetch("/api/repasse", { cache: "no-store" });
+      if (!res.ok) throw new Error("Erro ao buscar histórico");
+      const data: Repasse[] = await res.json();
+      setRepassesTodos(
+        data.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        ),
+      );
+      setHistoricoCarregado(true);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao buscar histórico");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (abaAtiva === "historico" && !historicoCarregado) {
+      buscarHistorico();
+    }
+  }, [abaAtiva, historicoCarregado, buscarHistorico]);
 
   useEffect(() => {
     buscarRepasses();
@@ -582,9 +597,9 @@ export default function RepassesPage() {
 
       {!carregando &&
         !erro &&
+        abaAtiva === "meus-disponiveis" &&
         repassesMeusFiltrados.length === 0 &&
-        repassesDisponiveisFiltrados.length === 0 &&
-        repassesTodosFiltrados.length === 0 && (
+        repassesDisponiveisFiltrados.length === 0 && (
           <p style={{ textAlign: "center", color: "gray", marginTop: "2rem" }}>
             Nenhum repasse disponível no momento.
           </p>

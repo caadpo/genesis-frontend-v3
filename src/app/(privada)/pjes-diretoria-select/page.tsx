@@ -12,7 +12,7 @@ import {
   FiSettings,
   FiMoreVertical,
 } from "react-icons/fi";
-import { FaFilePdf, FaEdit, FaTrash } from "react-icons/fa";
+import { FaFilePdf, FaEdit, FaTrash, FaLink } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import EventoModal from "@/src/components/ui/EventoModal";
 import ResumoEventoModal from "@/src/components/ui/ResumoEventoModal";
@@ -58,6 +58,7 @@ type Operacao = {
   totalCotasPracas: number;
   cod_op: string;
   ome: { nomeOme: string };
+  omesCompartilhadas?: { id: number; nomeOme: string }[];
 };
 
 // ─── Enum de Status ───────────────────────────────────────────────────────────
@@ -77,7 +78,11 @@ function PjesDiretoriaSelectContent() {
   const ano = params?.get("ano") ?? "";
   const tetoId = Number(params?.get("tetoId"));
   const distribuicaoId = Number(params?.get("distribuicaoId"));
-  const omeIdParam = Number(params?.get("omeId") ?? 0); // 0 = sem filtro
+  const omeIdParam = Number(params?.get("omeId") ?? 0);
+  // Evento de OUTRA OME que aparece aqui porque tem operação compartilhada
+  // com a OME filtrada. Só existe quando a lista é filtrada por OME.
+  const ehEventoCompartilhado = (e: Evento) =>
+    omeIdParam > 0 && e.ome.id !== omeIdParam;
   // ─── Estados ────────────────────────────────────────────────────────────────
   const [eventoSelecionado, setEventoSelecionado] = useState<Evento | null>(
     null,
@@ -163,7 +168,7 @@ function PjesDiretoriaSelectContent() {
 
     try {
       const url = omeIdParam
-        ? `/api/evento?distribuicaoId=${distribuicaoId}&omeId=${omeIdParam}`
+        ? `/api/evento?distribuicaoId=${distribuicaoId}&omeId=${omeIdParam}&incluirCompartilhadas=true`
         : `/api/evento?distribuicaoId=${distribuicaoId}`;
 
       const res = await fetch(url);
@@ -187,9 +192,13 @@ function PjesDiretoriaSelectContent() {
 
   // ─── Carregar operações do evento selecionado ────────────────────────────────
   async function carregarOperacoes(evento: Evento) {
-    const res = await fetch(`/api/operacao?eventoId=${evento.id}`);
+    // Evento de outra OME: só as operações compartilhadas com a minha
+    const filtro = ehEventoCompartilhado(evento)
+      ? "&compartilhadasComigo=true"
+      : "";
+    const res = await fetch(`/api/operacao?eventoId=${evento.id}${filtro}`);
     const data = await res.json();
-    setOperacoes(data);
+    setOperacoes(Array.isArray(data) ? data : []);
   }
 
   useEffect(() => {
@@ -334,26 +343,44 @@ function PjesDiretoriaSelectContent() {
   }
 
   const eventosFiltrados = Array.isArray(eventos)
-    ? eventos.filter((e) => {
-        const term = searchText.toLowerCase();
-        const matchTexto =
-          !term ||
-          e.nome_evento.toLowerCase().includes(term) ||
-          e.ome.nomeOme.toLowerCase().includes(term);
+    ? eventos
+        .filter((e) => {
+          const term = searchText.toLowerCase();
+          const matchTexto =
+            !term ||
+            e.nome_evento.toLowerCase().includes(term) ||
+            e.ome.nomeOme.toLowerCase().includes(term);
 
-        const matchStatus = !filtroStatus || e.status_evento === filtroStatus;
+          const matchStatus = !filtroStatus || e.status_evento === filtroStatus;
 
-        return matchTexto && matchStatus;
-      })
+          return matchTexto && matchStatus;
+        })
+        .sort(
+          (a, b) =>
+            Number(ehEventoCompartilhado(a)) - Number(ehEventoCompartilhado(b)),
+        )
     : [];
 
   const isAuxiliar = Number(user?.typeUser) === 2;
 
   // Somas dos eventos visíveis (para o AUXILIAR)
-  const somaQtdOf = eventos.reduce((acc, e) => acc + e.qtd_of_evento, 0);
-  const somaQtdPrc = eventos.reduce((acc, e) => acc + e.qtd_prc_evento, 0);
-  const somaCotasOf = eventos.reduce((acc, e) => acc + e.totalCotasOficiais, 0);
-  const somaCotasPrc = eventos.reduce((acc, e) => acc + e.totalCotasPracas, 0);
+  const eventosProprios = eventos.filter((e) => !ehEventoCompartilhado(e));
+  const somaQtdOf = eventosProprios.reduce(
+    (acc, e) => acc + e.qtd_of_evento,
+    0,
+  );
+  const somaQtdPrc = eventosProprios.reduce(
+    (acc, e) => acc + e.qtd_prc_evento,
+    0,
+  );
+  const somaCotasOf = eventosProprios.reduce(
+    (acc, e) => acc + e.totalCotasOficiais,
+    0,
+  );
+  const somaCotasPrc = eventosProprios.reduce(
+    (acc, e) => acc + e.totalCotasPracas,
+    0,
+  );
   const saldoOf = somaQtdOf - somaCotasOf;
   const saldoPrc = somaQtdPrc - somaCotasPrc;
 
@@ -390,6 +417,9 @@ function PjesDiretoriaSelectContent() {
       setGerandoXls(false);
     }
   }
+
+  const eventoSelecionadoCompartilhado =
+    !!eventoSelecionado && ehEventoCompartilhado(eventoSelecionado);
 
   return (
     <div className="page">
@@ -515,13 +545,13 @@ function PjesDiretoriaSelectContent() {
             </div>
 
             {(() => {
-              const qtdCriado = eventos.filter(
+              const qtdCriado = eventosProprios.filter(
                 (e) => e.status_evento === STATUS_EVENTO.CRIADO,
               ).length;
-              const qtdHomologado = eventos.filter(
+              const qtdHomologado = eventosProprios.filter(
                 (e) => e.status_evento === STATUS_EVENTO.HOMOLOGADO,
               ).length;
-              const qtdPdConcluida = eventos.filter(
+              const qtdPdConcluida = eventosProprios.filter(
                 (e) => e.status_evento === STATUS_EVENTO.PD_CONCLUIDA,
               ).length;
 
@@ -563,6 +593,7 @@ function PjesDiretoriaSelectContent() {
           </div>
 
           {eventosFiltrados.map((evento) => {
+            const compartilhado = ehEventoCompartilhado(evento);
             const cores = getCoresStatus(evento.status_evento);
             const permissoes = user
               ? getPermissoesEvento(evento.status_evento, user.typeUser)
@@ -586,7 +617,28 @@ function PjesDiretoriaSelectContent() {
                     prev?.id === evento.id ? prev : evento,
                   )
                 }
+                style={{
+                  position: "relative",
+                  ...(compartilhado ? { borderLeft: "4px solid #9333ea" } : {}),
+                }}
               >
+                {compartilhado && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -9,
+                      right: 8,
+                      background: "#9333ea",
+                      color: "#fff",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: "1px 8px",
+                      borderRadius: 4,
+                    }}
+                  >
+                    Compartilhada
+                  </span>
+                )}
                 <div className="divEventoIconeTitleItem">
                   <div>
                     <img
@@ -609,82 +661,91 @@ function PjesDiretoriaSelectContent() {
                         <div className="divEventoDireitaIcones">
                           {/* 🔥 ÍCONES DINÂMICOS POR STATUS */}
                           <FiUnlock size={15} color={cores.unlock} />
-                          <button
-                            className="botaoResumoEvento"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setResumoEventoId(evento.id);
-                            }}
-                          >
-                            Resumo
-                          </button>
 
-                          <FiMoreVertical
-                            size={15}
-                            color="black"
-                            style={{ cursor: "pointer" }}
-                            onClick={() =>
-                              setMenuAberto(
-                                menuAberto === evento.id ? null : evento.id,
-                              )
-                            }
-                          />
-
-                          {menuAberto === evento.id && (
-                            <div ref={menuRef} className="dropdownMenu">
-                              <div
-                                className={`dropdownItem ${
-                                  !permissoes.podeDeHomologar ? "disabled" : ""
-                                }`}
-                                onClick={() => {
-                                  if (!permissoes.podeDeHomologar) return;
-
-                                  alterarStatus(
-                                    evento.id,
-                                    STATUS_EVENTO.CRIADO,
-                                  );
-                                }}
-                              >
-                                Des-homologar
-                              </div>
-
-                              <div
-                                className="dropdownItem"
+                          {!compartilhado && (
+                            <>
+                              <button
+                                className="botaoResumoEvento"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setMenuAberto(null);
-                                  setEditando(evento);
-                                  setOpenModal(true);
+                                  setResumoEventoId(evento.id);
                                 }}
                               >
-                                Editar
-                              </div>
+                                Resumo
+                              </button>
 
-                              <div
-                                className="dropdownItem"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setMenuAberto(null);
-                                  excluirEvento(evento.id);
-                                }}
-                              >
-                                Excluir
-                              </div>
+                              <FiMoreVertical
+                                size={15}
+                                color="black"
+                                style={{ cursor: "pointer" }}
+                                onClick={() =>
+                                  setMenuAberto(
+                                    menuAberto === evento.id ? null : evento.id,
+                                  )
+                                }
+                              />
 
-                              {[10, 9, 5].includes(Number(user?.typeUser)) && (
-                                <div
-                                  className="dropdownItem"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setMenuAberto(null);
-                                    setDhValor("");
-                                    setDhDialogEventoId(evento.id);
-                                  }}
-                                >
-                                  Gerar Planilha
+                              {menuAberto === evento.id && (
+                                <div ref={menuRef} className="dropdownMenu">
+                                  <div
+                                    className={`dropdownItem ${
+                                      !permissoes.podeDeHomologar
+                                        ? "disabled"
+                                        : ""
+                                    }`}
+                                    onClick={() => {
+                                      if (!permissoes.podeDeHomologar) return;
+
+                                      alterarStatus(
+                                        evento.id,
+                                        STATUS_EVENTO.CRIADO,
+                                      );
+                                    }}
+                                  >
+                                    Des-homologar
+                                  </div>
+
+                                  <div
+                                    className="dropdownItem"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMenuAberto(null);
+                                      setEditando(evento);
+                                      setOpenModal(true);
+                                    }}
+                                  >
+                                    Editar
+                                  </div>
+
+                                  <div
+                                    className="dropdownItem"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMenuAberto(null);
+                                      excluirEvento(evento.id);
+                                    }}
+                                  >
+                                    Excluir
+                                  </div>
+
+                                  {[10, 9, 5].includes(
+                                    Number(user?.typeUser),
+                                  ) && (
+                                    <div
+                                      className="dropdownItem"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMenuAberto(null);
+                                        setDhValor("");
+                                        setDhDialogEventoId(evento.id);
+                                      }}
+                                    >
+                                      Gerar Planilha
+                                    </div>
+                                  )}
                                 </div>
                               )}
-                            </div>
+                            </>
                           )}
                         </div>
                       </div>
@@ -694,17 +755,24 @@ function PjesDiretoriaSelectContent() {
                       {evento.nome_evento}
                     </div>
 
-                    <div className="linhaOficiaisPracas">
-                      <div className="itemOficiaisPracas">
-                        Oficiais: {evento.qtd_of_evento} |{" "}
-                        {evento.totalCotasOficiais}
+                    {compartilhado ? (
+                      <div style={{ fontSize: 11, color: "#7e22ce" }}>
+                        <FaLink size={10} /> Operação compartilhada com a sua
+                        unidade
                       </div>
+                    ) : (
+                      <div className="linhaOficiaisPracas">
+                        <div className="itemOficiaisPracas">
+                          Oficiais: {evento.qtd_of_evento} |{" "}
+                          {evento.totalCotasOficiais}
+                        </div>
 
-                      <div className="itemOficiaisPracas direita">
-                        Praças: {evento.qtd_prc_evento} |{" "}
-                        {evento.totalCotasPracas}
+                        <div className="itemOficiaisPracas direita">
+                          Praças: {evento.qtd_prc_evento} |{" "}
+                          {evento.totalCotasPracas}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -748,11 +816,52 @@ function PjesDiretoriaSelectContent() {
                 </thead>
                 <tbody>
                   {operacoes.map((op) => (
-                    <tr key={op.id} className="tabelaLinha">
+                    <tr
+                      key={op.id}
+                      className="tabelaLinha"
+                      style={
+                        eventoSelecionadoCompartilhado ||
+                        (op.omesCompartilhadas?.length ?? 0) > 0
+                          ? { outline: "2px solid #c084fc", outlineOffset: -2 }
+                          : undefined
+                      }
+                    >
                       <td className="colOperacao">{op.ome.nomeOme}</td>
-                      <td>{op.nome_operacao}</td>
                       <td>
-                        {" "}
+                        {op.nome_operacao}
+                        {eventoSelecionadoCompartilhado ? (
+                          <div
+                            style={{
+                              fontSize: 10,
+                              color: "#7e22ce",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            <FaLink size={9} /> Compartilhada com a sua unidade
+                          </div>
+                        ) : (
+                          (op.omesCompartilhadas?.length ?? 0) > 0 && (
+                            <div
+                              style={{
+                                fontSize: 10,
+                                color: "#7e22ce",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                              title="OMEs que podem preencher vagas desta operação"
+                            >
+                              <FaLink size={9} />
+                              {op
+                                .omesCompartilhadas!.map((o) => o.nomeOme)
+                                .join(", ")}
+                            </div>
+                          )
+                        )}
+                      </td>
+                      <td>
                         {op.qtd_oficiais_oper} | {op.totalCotasOficiais}
                       </td>
                       <td>
@@ -762,35 +871,41 @@ function PjesDiretoriaSelectContent() {
                       <td className="acoesTabela">
                         <button
                           className="botaoAddPoliciais"
-                          onClick={() => {
+                          onClick={() =>
                             router.push(
                               `/pjes-escalas?mes=${mes}&ano=${ano}&tetoId=${tetoId}&operacaoId=${op.id}`,
-                            );
-                          }}
+                            )
+                          }
                         >
-                          Adicionar Policiais
+                          {eventoSelecionadoCompartilhado
+                            ? "Preencher Vagas"
+                            : "Adicionar Policiais"}
                         </button>
 
-                        <FaEdit
-                          size={16}
-                          color="orange"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuAberto(null);
-                            setEditandoOperacao(op);
-                            setOpenModalOperacao(true);
-                          }}
-                        />
-                        <FaTrash
-                          size={16}
-                          color="red"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuAberto(null);
-                            excluirOperacao(op.id);
-                          }}
-                        />
-                        <FaFilePdf size={16} color="blue" />
+                        {!eventoSelecionadoCompartilhado && (
+                          <>
+                            <FaEdit
+                              size={16}
+                              color="orange"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuAberto(null);
+                                setEditandoOperacao(op);
+                                setOpenModalOperacao(true);
+                              }}
+                            />
+                            <FaTrash
+                              size={16}
+                              color="red"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuAberto(null);
+                                excluirOperacao(op.id);
+                              }}
+                            />
+                            <FaFilePdf size={16} color="blue" />
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

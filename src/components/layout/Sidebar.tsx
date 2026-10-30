@@ -12,10 +12,13 @@ import {
   FiGrid,
   FiRefreshCcw,
   FiDollarSign,
+  FiShare2,
 } from "react-icons/fi";
 import { FaUniversity } from "react-icons/fa";
 
 import { useRepassesDisponiveisCount } from "@/src/hooks/useRepassesDisponiveisCount";
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
+import { useVagasAbertasCount } from "@/src/hooks/useVagasAbertasCount";
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
@@ -41,6 +44,12 @@ export default function Sidebar() {
 
   // dentro do componente Sidebar:
   const repassesDisponiveisCount = useRepassesDisponiveisCount();
+
+  // Operações compartilhadas: só para o Auxiliar (typeUser 2), que é quem
+  // preenche as vagas da própria OME.
+  const { user } = useCurrentUser();
+  const ehAuxiliar = Number(user?.typeUser) === 2;
+  const vagasAbertasCount = useVagasAbertasCount(ehAuxiliar);
 
   return (
     <aside className={`sidebar ${open ? "open" : ""}`}>
@@ -90,6 +99,23 @@ export default function Sidebar() {
           <FaUniversity />
           {open && <span>Escalas</span>}
         </Link>
+
+        {ehAuxiliar && (
+          <Link
+            href="/compartilhadas"
+            className={`icon-btn ${isActive("/compartilhadas") ? "active" : ""}`}
+          >
+            <div className="icon-wrapper">
+              <FiShare2 />
+              {vagasAbertasCount > 0 && (
+                <span className="icon-badge">
+                  {vagasAbertasCount > 99 ? "99+" : vagasAbertasCount}
+                </span>
+              )}
+            </div>
+            {open && <span>Compartilhadas</span>}
+          </Link>
+        )}
 
         <Link
           href="/repasses"
