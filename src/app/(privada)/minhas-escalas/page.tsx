@@ -674,7 +674,7 @@ export default function MinhasEscalasPage() {
   return (
     <div className="page">
       <h1
-        style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "16px" }}
+        style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "10px" }}
       >
         <FaCalendarAlt style={{ marginRight: "8px" }} />
         MINHAS ESCALAS
@@ -683,8 +683,8 @@ export default function MinhasEscalasPage() {
       <div
         style={{
           display: "flex",
-          gap: "8px",
-          marginBottom: "16px",
+          gap: "3px",
+          marginBottom: "10px",
         }}
       >
         <div
@@ -693,16 +693,16 @@ export default function MinhasEscalasPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "8px 12px",
-            borderRadius: "10px",
-            background: "#eef4ff",
-            color: "#1d4ed8",
-            fontSize: "12px",
+            padding: "8px 8px",
+            borderRadius: "5px",
+            background: "linear-gradient(135deg, #4da3ff, #1e3a8a)",
+            color: "#fafafa",
+            fontSize: "14px",
             fontWeight: 700,
           }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <FiLayers size={14} />
+            <FiLayers size={18} />
             PJES
           </span>
           <span>{rotuloCotas(cotasMesPorSistema.pjes)}</span>
@@ -714,16 +714,16 @@ export default function MinhasEscalasPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "8px 12px",
-            borderRadius: "10px",
-            background: "#fef9c3",
-            color: "#854d0e",
-            fontSize: "12px",
+            padding: "8px 8px",
+            borderRadius: "5px",
+            background: "linear-gradient(135deg, #36be8d, #065f46)",
+            color: "#ffffff",
+            fontSize: "14px",
             fontWeight: 700,
           }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <FiGrid size={14} />
+            <FiGrid size={18} />
             DIÁRIAS
           </span>
           <span>{rotuloCotas(cotasMesPorSistema.diarias)}</span>
